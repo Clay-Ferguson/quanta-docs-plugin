@@ -1,6 +1,8 @@
 # Quanta Docs User Guide
 
-**Quanta** Documents plugin is a powerful file system-based document editor that allows you to view, edit, and organize your documents and folders in a tree-like structure, similar to Jupyter Notebooks, but where each 'cell' is an actual file on the file system rather than a chunk of JSON in a monolithic document file like Jupyter uses. The app provides a comprehensive set of tools for managing your content, from simple text editing to advanced file operations, creating a Jupyter-like experience (block-based editor) but using your file system itself for storage.
+**Quanta Docs** is a File Manager and Markdown Editor (similar to Jupyter Notebooks and Obsidian), which can run either locally, where it directly uses local files, or as a cloud-based multi-user app where a `Virtual File System` is used. When deployed to the cloud you also get a 'chat room' feature where users can do realtime messaging. The Document-centric features and the Chat-related features are implemented in two separate plugins which can actually be used either together or independently.
+
+Quanta Documents plugin is a powerful file system-based document editor that allows you to view, edit, and organize your documents and folders in a tree-like structure, similar to Jupyter Notebooks, but where each 'cell' is an actual file on the file system rather than a chunk of JSON in a monolithic document file like Jupyter uses. The app provides a comprehensive set of tools for managing your content, from simple text editing to advanced file operations, creating a Jupyter-like experience (block-based editor) but using your file system itself for storage.
 
 ## Getting Started
 
