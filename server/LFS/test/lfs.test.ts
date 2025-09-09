@@ -1,4 +1,4 @@
-// LFS Tests - Testing the actual Local File System implementation 
+// LFS Tests - Testing the Local File System implementation 
 import lfs from '../LFS.js';
 import path from 'path';
 import { TestRunner } from '../../../../../common/TestRunner.js';
@@ -9,7 +9,8 @@ import {
     assertGreaterThan,
     assertArrayContains
 } from '../../../../../common/CommonUtils.js';
-import { docSvc } from '../../../../../plugins/docs/server/DocService.js';
+
+import { docSvc } from '../../DocService.js';
 import { config } from '../../../../../server/Config.js';
 
 export async function runTests() {
