@@ -1,8 +1,8 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFolder, faFile, faExclamationTriangle, faShareAlt } from '@fortawesome/free-solid-svg-icons';
-import { TreeNode } from '../../../../../common/types/CommonTypes';
+import { TreeNode } from '@common/types/CommonTypes';
 import { DocsGlobalState } from '../../DocsTypes';
-import { isImageFile, isTextFile, stripOrdinal, formatDateTime } from '../../../../../common/CommonUtils';
+import { isImageFile, isTextFile, stripOrdinal, formatDateTime } from '@common/CommonUtils';
 import { setFullSizeImage } from '@client/components/ImageViewerComp';
 import { signedArgs } from '@client/AppService';
 import { handleCheckboxChange, handleFolderClick, handleFileClick } from '../TreeViewerPageOps';

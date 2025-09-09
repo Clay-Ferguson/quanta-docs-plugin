@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFolder } from '@fortawesome/free-solid-svg-icons';
-import { TreeNode } from '../../../../../common/types/CommonTypes';
+import { TreeNode } from '@common/types/CommonTypes';
 import { DocsGlobalState, gd } from '../../DocsTypes';
 import { handleRenameClick } from '../TreeViewerPageOps';
 

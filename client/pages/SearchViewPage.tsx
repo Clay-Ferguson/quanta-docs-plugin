@@ -6,7 +6,7 @@ import { httpClientUtil } from '@client/HttpClientUtil';
 import { alertModal } from '@client/components/AlertModalComp';
 import { useGlobalState, gd, DocsPageNames } from '../DocsTypes';
 import { app } from '@client/AppService';
-import { formatFullPath } from '../../../../common/CommonUtils';
+import { formatFullPath } from '@common/CommonUtils';
 import { idb } from '@client/IndexedDB';
 import { DBKeys } from '@client/AppServiceTypes';
 import TagSelector from './comps/TagSelector';

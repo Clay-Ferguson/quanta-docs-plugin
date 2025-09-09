@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faFolder, faUpload, faFileUpload, faMicrophone, faPaste } from '@fortawesome/free-solid-svg-icons';
-import { TreeNode } from '../../../../../common/types/CommonTypes';
+import { TreeNode } from '@common/types/CommonTypes';
 import { DocsGlobalState } from '../../DocsTypes';
 import { insertFile, insertFolder, insertFileWithSpeech, onPaste, handleMasterCheckboxChange, getMasterCheckboxState, uploadAttachment, uploadFromClipboard } from '../TreeViewerPageOps';
 

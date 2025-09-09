@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faClock, faMicrophone, faStop, faTags } from '@fortawesome/free-solid-svg-icons';
-import { TreeNode } from '../../../../../common/types/CommonTypes';
+import { TreeNode } from '@common/types/CommonTypes';
 import { DocsGlobalState, gd } from '../../DocsTypes';
-import { stripOrdinal, stripFileExtension } from '../../../../../common/CommonUtils';
+import { stripOrdinal, stripFileExtension } from '@common/CommonUtils';
 import { handleSaveClick, handleSplitInline, handleMakeFolder } from '../TreeViewerPageOps';
 import { alertModal } from '@client/components/AlertModalComp';
 import TagSelector from './TagSelector';

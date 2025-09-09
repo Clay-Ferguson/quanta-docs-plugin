@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { httpClientUtil } from '@client/HttpClientUtil';
-import { ExtractTags_Response, ScanTags_Response } from '../../../../../common/types/EndpointTypes';
+import { ExtractTags_Response, ScanTags_Response } from '@common/types/EndpointTypes';
 import { useGlobalState } from '../../DocsTypes';
 import { alertModal } from '@client/components/AlertModalComp';
 

@@ -1,8 +1,8 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEdit, faTrash, faArrowUp, faArrowDown, faPaste } from '@fortawesome/free-solid-svg-icons';
-import { TreeNode } from '../../../../../common/types/CommonTypes';
+import { TreeNode } from '@common/types/CommonTypes';
 import { DocsGlobalState } from '../../DocsTypes';
-import { isTextFile, isImageFile } from '../../../../../common/CommonUtils';
+import { isTextFile, isImageFile } from '@common/CommonUtils';
 import { handleEditClick, handleDeleteClick, handleMoveUpClick, handleMoveDownClick, onPasteIntoFolder } from '../TreeViewerPageOps';
 
 interface EditIconsProps {

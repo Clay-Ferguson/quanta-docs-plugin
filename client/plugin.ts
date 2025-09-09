@@ -2,7 +2,7 @@ import React from 'react';
 import { DBKeys, IClientPlugin } from "@client/AppServiceTypes";
 import TreeViewerPage from "./pages/TreeViewerPage";
 import SearchViewPage from './pages/SearchViewPage';
-import { TreeNode, UserProfile } from '../../../common/types/CommonTypes';
+import { TreeNode, UserProfile } from '@common/types/CommonTypes';
 import { DocsGlobalState, DocsPageNames } from './DocsTypes';
 import { GlobalState } from '@client/GlobalState';
 import { idb } from '@client/IndexedDB';
