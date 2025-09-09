@@ -1,12 +1,12 @@
 import { TreeNode } from "../../../../common/types/CommonTypes";
-import { alertModal } from "../../../../client/components/AlertModalComp";
-import { confirmModal } from "../../../../client/components/ConfirmModalComp";
-import { promptModal } from "../../../../client/components/PromptModalComp";
+import { alertModal } from "@client/components/AlertModalComp";
+import { confirmModal } from "@client/components/ConfirmModalComp";
+import { promptModal } from "@client/components/PromptModalComp";
 import { gd, DocsGlobalState } from "../DocsTypes";
-import { httpClientUtil } from "../../../../client/HttpClientUtil";
-import { DBKeys } from "../../../../client/AppServiceTypes";
-import { idb } from "../../../../client/IndexedDB";
-import { util } from "../../../../client/Util";
+import { httpClientUtil } from "@client/HttpClientUtil";
+import { DBKeys } from "@client/AppServiceTypes";
+import { idb } from "@client/IndexedDB";
+import { util } from "@client/Util";
 import { formatDisplayName, getFilenameExtension, isImageFile, isTextFile, stripOrdinal } from "../../../../common/CommonUtils";
 
 declare const ADMIN_PUBLIC_KEY: string;

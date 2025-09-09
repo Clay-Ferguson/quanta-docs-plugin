@@ -2,13 +2,13 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFolderOpen, faSync, faSearch, faGear, faHome, faCubes, faQuestionCircle, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
 import { TreeNode } from '../../../../../common/types/CommonTypes';
 import { DocsGlobalState, DocsPageNames } from '../../DocsTypes';
-import { PageNames } from '../../../../../client/AppServiceTypes';
+import { PageNames } from '@client/AppServiceTypes';
 import { isTextFile } from '../../../../../common/CommonUtils';
 import { handleEditModeToggle, handleMetaModeToggle, handleNamesModeToggle, onCut, onUndoCut, onDelete, onJoin, openItemInFileSystem } from '../TreeViewerPageOps';
-import { app } from '../../../../../client/AppService';
+import { app } from '@client/AppService';
 import { docsGoHome } from '../../DocsUtils';
-import { httpClientUtil } from '../../../../../client/HttpClientUtil';
-import { alertModal } from '../../../../../client/components/AlertModalComp';
+import { httpClientUtil } from '@client/HttpClientUtil';
+import { alertModal } from '@client/components/AlertModalComp';
 
 declare const DESKTOP_MODE: boolean;
 

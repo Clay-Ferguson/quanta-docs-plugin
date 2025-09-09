@@ -1,13 +1,13 @@
 import React from 'react';
-import { DBKeys, IClientPlugin } from "../../../client/AppServiceTypes";
+import { DBKeys, IClientPlugin } from "@client/AppServiceTypes";
 import TreeViewerPage from "./pages/TreeViewerPage";
 import SearchViewPage from './pages/SearchViewPage';
 import { TreeNode, UserProfile } from '../../../common/types/CommonTypes';
 import { DocsGlobalState, DocsPageNames } from './DocsTypes';
-import { GlobalState } from '../../../client/GlobalState';
-import { idb } from '../../../client/IndexedDB';
-import { app } from '../../../client/AppService';
-import DocViewerPage from '../../../client/pages/DocViewerPage';
+import { GlobalState } from '@client/GlobalState';
+import { idb } from '@client/IndexedDB';
+import { app } from '@client/AppService';
+import DocViewerPage from '@client/pages/DocViewerPage';
 
 declare const DOC_PATH: string;
 declare const DOC_ROOT_KEY: string | undefined;
