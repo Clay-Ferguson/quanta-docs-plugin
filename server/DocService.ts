@@ -396,7 +396,7 @@ class DocService {
             return;
         }
         await runTrans(async () => {
-            console.log(`Create File Request: ${JSON.stringify(req.body, null, 2)}`);
+            // console.log(`Create File Request: ${JSON.stringify(req.body, null, 2)}`);
             try {
                 // Extract parameters from request body
                 const { insertAfterNode, docRootKey } = req.body;

@@ -19,6 +19,7 @@ export default function InsertItemsRow({ gs, reRenderTree, node = null, filtered
     const showMasterCheckbox = node === null && filteredTreeNodes.length > 0;
     const { checked, indeterminate } = showMasterCheckbox ? getMasterCheckboxState(gs, filteredTreeNodes) : { checked: false, indeterminate: false };
     const hasCutItems = gs.docsCutItems && gs.docsCutItems.size > 0;
+    const isEditing = gs.docsEditNode !== null;
 
     // Create a unique file input ref for this component instance
     const localFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -42,7 +43,7 @@ export default function InsertItemsRow({ gs, reRenderTree, node = null, filtered
     };
     
     return (
-        <div className={`relative flex justify-center`}>
+        <div className={`relative flex justify-center ${isEditing ? 'disabled-interactions' : ''}`}>
             {/* Master checkbox - positioned absolutely to the left */}
             {!hasCutItems && showMasterCheckbox && (
                 <div className="absolute left-0 top-0 flex items-center gap-3 pl-2 border-l-4 border-l-transparent">

@@ -284,6 +284,9 @@ export default function TreeViewerPage() {
     // show parent button if we're the admin or if the current folder is not a folder in the root.
     const showParentButton = DESKTOP_MODE || ADMIN_PUBLIC_KEY === gs.keyPair?.publicKey || gs.docsFolder?.indexOf('/') !== -1;
     
+    // Check if editing is active
+    const isEditing = gs.docsEditNode !== null;
+    
     // Determine width class based on viewWidth setting
     const getWidthClass = () => {
         switch (gs.docsViewWidth) {
@@ -297,7 +300,7 @@ export default function TreeViewerPage() {
    
     return (
         <div className="page-container pt-safe">
-            <header className="app-header">
+            <header className={`app-header ${isEditing ? 'disabled-interactions' : ''}`}>
                 <LogoBlockComp subText=""/>
                 <div className="flex items-center space-x-4">
                     <ViewWidthDropdown gs={gs} />
