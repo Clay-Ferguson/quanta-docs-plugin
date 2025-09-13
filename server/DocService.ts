@@ -1667,20 +1667,31 @@ class DocService {
                 
                 const fileContent = await ifs.readFile(owner_id, tagsFilePath, 'utf8') as string;
                 
-                // Extract hashtags using regex
-                const tags = this.extractHashtagsFromText(fileContent);
+                console.log('Read .TAGS.md file content:', fileContent); // Debug logging
+                
+                // Parse tags with categories
+                const categories = this.parseTagsWithCategories(fileContent);
+                
+                // Extract flat list of tags for backward compatibility
+                const allTags: string[] = [];
+                categories.forEach(category => {
+                    allTags.push(...category.tags);
+                });
+                const uniqueTags = [...new Set(allTags)].sort();
                 
                 res.json({
                     success: true,
-                    tags: tags
+                    tags: uniqueTags, // Backward compatibility
+                    categories: categories // New categorized format
                 });
                 
             } catch {
-                // If .TAGS.md doesn't exist or can't be read, return empty tags array
+                // If .TAGS.md doesn't exist or can't be read, return empty arrays
                 console.log('.TAGS.md not found or not readable, returning empty tags list');
                 res.json({
                     success: true,
-                    tags: []
+                    tags: [],
+                    categories: []
                 });
             }
             
@@ -1752,12 +1763,24 @@ class DocService {
 
             // Phase 3: Update .TAGS.md if new tags were found
             if (newTagsArray.length > 0) {
-                const newTagsText = newTagsArray.join(' ') + '\n';
-                const updatedContent = existingContent ? `${existingContent}\n${newTagsText}` : newTagsText;
+                let updatedContent = existingContent;
+                
+                // If there's existing content, add a newline before the new section
+                if (existingContent && !existingContent.endsWith('\n')) {
+                    updatedContent += '\n';
+                }
+                
+                // Add new tags under a "Discovered Tags" heading
+                if (existingContent) {
+                    updatedContent += '\n## Discovered Tags\n';
+                } else {
+                    updatedContent = '## Discovered Tags\n';
+                }
+                updatedContent += newTagsArray.join(' ') + '\n';
                 
                 try {
                     await ifs.writeFile(owner_id, tagsFilePath, updatedContent, 'utf8');
-                    console.log(`Updated .TAGS.md with ${newTagsArray.length} new tags`);
+                    console.log(`Updated .TAGS.md with ${newTagsArray.length} new tags under "Discovered Tags" section`);
                 } catch (error) {
                     console.error('Failed to write updated .TAGS.md:', error);
                     res.json({
@@ -1842,6 +1865,87 @@ class DocService {
         } catch (error) {
             console.warn(`Failed to scan directory ${currentPath}:`, error);
         }
+    }
+
+    /**
+     * Parses the .TAGS.md file to extract categorized tags organized under markdown headings.
+     * 
+     * This method processes the file line by line, treating any markdown heading (any number of #)
+     * as a category header. All hashtags found after a heading are considered to belong to that
+     * category until the next heading is encountered.
+     * 
+     * @param text - The content of the .TAGS.md file
+     * @returns Array of TagCategory objects with heading and associated tags
+     */
+    private parseTagsWithCategories(text: string): { heading: string; tags: string[] }[] {
+        const lines = text.split('\n');
+        const categories: { heading: string; tags: string[] }[] = [];
+        let currentHeading = '';
+        let currentTags: string[] = [];
+        
+        // Regex patterns
+        const headingRegex = /^#+\s+(.+)$/; // Matches markdown heading (# followed by space)
+        const hashtagRegex = /#[a-zA-Z0-9_/-]+/g; // Same pattern as extractHashtagsFromText
+        
+        console.log('Parsing .TAGS.md content, total lines:', lines.length); // Debug
+        
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            
+            // Skip empty lines
+            if (!trimmedLine) {
+                continue;
+            }
+            
+            console.log('Processing line:', JSON.stringify(trimmedLine)); // Debug
+            
+            // Check if this line is a markdown heading
+            const headingMatch = trimmedLine.match(headingRegex);
+            if (headingMatch) {
+                console.log('Found heading match:', headingMatch[1]); // Debug
+                
+                // If we have a previous category with tags, save it
+                if (currentHeading && currentTags.length > 0) {
+                    console.log('Saving previous category:', currentHeading, 'with tags:', currentTags); // Debug
+                    categories.push({
+                        heading: currentHeading,
+                        tags: [...new Set(currentTags)].sort() // Remove duplicates and sort
+                    });
+                }
+                
+                // Start a new category
+                currentHeading = headingMatch[1].trim();
+                currentTags = [];
+                console.log('Started new category:', currentHeading); // Debug
+            } else {
+                // This line is not a heading, extract hashtags from it
+                const tagsInLine = trimmedLine.match(hashtagRegex) || [];
+                console.log('Found tags in line:', tagsInLine); // Debug
+                currentTags.push(...tagsInLine);
+            }
+        }
+        
+        // Don't forget the last category
+        if (currentHeading && currentTags.length > 0) {
+            console.log('Saving final category:', currentHeading, 'with tags:', currentTags); // Debug
+            categories.push({
+                heading: currentHeading,
+                tags: [...new Set(currentTags)].sort() // Remove duplicates and sort
+            });
+        }
+        
+        // If no headings were found but we have tags, create a default category
+        if (categories.length === 0 && currentTags.length > 0) {
+            console.log('No headings found, creating General category with tags:', currentTags); // Debug
+            categories.push({
+                heading: 'General',
+                tags: [...new Set(currentTags)].sort()
+            });
+        }
+        
+        console.log('Final parsed categories from .TAGS.md:', JSON.stringify(categories, null, 2)); // Debug logging
+        
+        return categories;
     }
 
     /**

@@ -186,8 +186,25 @@ The system provides tags in two ways:
 To define your own tags:
 1. **Create a file named `.TAGS.md`** in the root of your document folder
 2. **Add hashtags** throughout the content (e.g., `#productivity`, `#documentation`, `#ideas`)
-3. **Save the file** - the system will automatically detect and extract all hashtags
-4. **Open the Tag Selector** - your custom tags will now appear alongside the default options
+3. **Organize with categories** using markdown headings to group related tags:
+   ```markdown
+   ## Work Tags
+   #meeting #project #deadline #urgent
+   
+   ### Personal
+   #health #family #goals #learning
+   
+   ## Technical
+   #javascript #python #documentation #bug
+   ```
+4. **Save the file** - the system will automatically detect and extract all hashtags, organizing them under their respective headings
+5. **Open the Tag Selector** - your custom tags will now appear organized in categories with headings
+
+#### Tag Organization
+- **Categorized Display**: Tags are organized under section headings from your `.TAGS.md` file
+- **Multiple Heading Levels**: Use any markdown heading level (`#`, `##`, `###`, etc.) to create categories
+- **Automatic Grouping**: Tags appearing between headings are automatically grouped under the preceding heading
+- **Fallback Categories**: If no headings are found, tags are grouped under a "General" category
 
 #### Tag Format
 - Tags must start with a hashtag (#) followed by letters, numbers, hyphens, underscores, or forward slashes

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { httpClientUtil } from '@client/HttpClientUtil';
-import { ExtractTags_Response, ScanTags_Response } from '@common/types/EndpointTypes';
+import { ExtractTags_Response, ScanTags_Response, TagCategory } from '@common/types/EndpointTypes';
 import { useGlobalState } from '../../DocsTypes';
 import { alertModal } from '@client/components/AlertModalComp';
 
-// Module-level cache for tags to persist across component instances
-let cachedTags: string[] | null = null;
+// Module-level cache for categories to persist across component instances
+let cachedCategories: TagCategory[] | null = null;
 
 interface TagSelectorProps {
     onCancel: () => void;
@@ -19,8 +19,8 @@ interface TagSelectorProps {
 export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton = false }: TagSelectorProps) {
     const gs = useGlobalState();
     
-    // Local state for available tags and loading
-    const [availableTags, setAvailableTags] = useState<string[]>([]);
+    // Local state for available categories and loading
+    const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isScanning, setIsScanning] = useState<boolean>(false);
     const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
@@ -28,22 +28,25 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
     // Load tags from server on first mount
     useEffect(() => {
         const loadTags = async () => {
-            // Check if we already have cached tags
-            if (cachedTags && cachedTags.length > 0) {
-                setAvailableTags(cachedTags);
+            // Check if we already have cached categories
+            if (cachedCategories && cachedCategories.length > 0) {
+                setTagCategories(cachedCategories);
                 return;
             }
 
             if (!gs.docsRootKey) {
                 console.warn('No docsRootKey available for loading tags');
-                // Fall back to hard-coded tags if no root key
-                const fallbackTags = [
-                    '#business', '#development', '#education', '#health', '#important',
-                    '#javascript', '#meeting', '#personal', '#project', '#react',
-                    '#research', '#todo', '#typescript', '#urgent', '#work'
-                ].sort();
-                setAvailableTags(fallbackTags);
-                cachedTags = fallbackTags;
+                // Fall back to hard-coded categories if no root key
+                const fallbackCategories: TagCategory[] = [{
+                    heading: 'General',
+                    tags: [
+                        '#business', '#development', '#education', '#health', '#important',
+                        '#javascript', '#meeting', '#personal', '#project', '#react',
+                        '#research', '#todo', '#typescript', '#urgent', '#work'
+                    ].sort()
+                }];
+                setTagCategories(fallbackCategories);
+                cachedCategories = fallbackCategories;
                 return;
             }
 
@@ -52,30 +55,50 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
                 const url = `/api/docs/tags/${gs.docsRootKey}`;
                 const response: ExtractTags_Response | null = await httpClientUtil.secureHttpPost(url, {});
                 
-                if (response && response.success && response.tags.length > 0) {
-                    setAvailableTags(response.tags);
-                    cachedTags = response.tags;
+                console.log('Tags API Response:', response); // Debug logging
+                
+                if (response && response.success && response.categories && response.categories.length > 0) {
+                    console.log('Using categories from server:', response.categories);
+                    setTagCategories(response.categories);
+                    cachedCategories = response.categories;
+                } else if (response && response.success && response.tags && response.tags.length > 0) {
+                    // Fallback to flat tags format for backward compatibility
+                    console.log('Using flat tags from server, converting to categories:', response.tags);
+                    const fallbackCategories: TagCategory[] = [{
+                        heading: 'General',
+                        tags: response.tags
+                    }];
+                    setTagCategories(fallbackCategories);
+                    cachedCategories = fallbackCategories;
                 } else {
-                    // Fall back to hard-coded tags if server returns empty
-                    const fallbackTags = [
-                        '#business', '#development', '#education', '#health', '#important',
-                        '#javascript', '#meeting', '#personal', '#project', '#react',
-                        '#research', '#todo', '#typescript', '#urgent', '#work'
-                    ].sort();
-                    setAvailableTags(fallbackTags);
-                    cachedTags = fallbackTags;
+                    // Fall back to hard-coded categories if server returns empty
+                    console.log('Server returned empty or unsuccessful response, using fallback categories');
+                    const fallbackCategories: TagCategory[] = [{
+                        heading: 'General',
+                        tags: [
+                            '#business', '#development', '#education', '#health', '#important',
+                            '#javascript', '#meeting', '#personal', '#project', '#react',
+                            '#research', '#todo', '#typescript', '#urgent', '#work'
+                        ].sort()
+                    }];
+                    setTagCategories(fallbackCategories);
+                    cachedCategories = fallbackCategories;
                 }
                 
             } catch (error) {
                 console.error('Failed to load tags from server:', error);
-                // Fall back to hard-coded tags on error
-                const fallbackTags = [
-                    '#business', '#development', '#education', '#health', '#important',
-                    '#javascript', '#meeting', '#personal', '#project', '#react',
-                    '#research', '#todo', '#typescript', '#urgent', '#work'
-                ].sort();
-                setAvailableTags(fallbackTags);
-                cachedTags = fallbackTags;
+                console.log('Error details:', error);
+                // Fall back to hard-coded categories on error
+                const fallbackCategories: TagCategory[] = [{
+                    heading: 'General',
+                    tags: [
+                        '#business', '#development', '#education', '#health', '#important',
+                        '#javascript', '#meeting', '#personal', '#project', '#react',
+                        '#research', '#todo', '#typescript', '#urgent', '#work'
+                    ].sort()
+                }];
+                setTagCategories(fallbackCategories);
+                cachedCategories = fallbackCategories;
             } finally {
                 setIsLoading(false);
             }
@@ -101,7 +124,7 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
         setSelectedTags(new Set()); // Clear selection after adding
     };
 
-    const handleScanClick = async () => {
+    const handleScanClick = async () => { 
         if (!gs.docsRootKey) {
             await alertModal('No document root available for scanning.');
             return;
@@ -113,16 +136,26 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
             const response: ScanTags_Response | null = await httpClientUtil.secureHttpPost(url, {});
             
             if (response && response.success) {
-                // Clear the cache so tags will be reloaded
-                cachedTags = null;
+                // Clear the cache so categories will be reloaded
+                cachedCategories = null;
                 
-                // Reload tags to get the updated list
+                // Reload categories to get the updated list
                 const tagsUrl = `/api/docs/tags/${gs.docsRootKey}`;
                 const tagsResponse: ExtractTags_Response | null = await httpClientUtil.secureHttpPost(tagsUrl, {});
                 
                 if (tagsResponse && tagsResponse.success) {
-                    setAvailableTags(tagsResponse.tags);
-                    cachedTags = tagsResponse.tags;
+                    if (tagsResponse.categories && tagsResponse.categories.length > 0) {
+                        setTagCategories(tagsResponse.categories);
+                        cachedCategories = tagsResponse.categories;
+                    } else if (tagsResponse.tags && tagsResponse.tags.length > 0) {
+                        // Fallback to flat tags for backward compatibility
+                        const fallbackCategories: TagCategory[] = [{
+                            heading: 'General',
+                            tags: tagsResponse.tags
+                        }];
+                        setTagCategories(fallbackCategories);
+                        cachedCategories = fallbackCategories;
+                    }
                 }
                 
                 await alertModal(response.message);
@@ -167,18 +200,30 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
                 </div>
             ) : (
                 <>
-                    {/* Tags grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 mb-4">
-                        {availableTags.map((tag) => (
-                            <label key={tag} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-2 rounded">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedTags.has(tag)}
-                                    onChange={() => handleTagToggle(tag)}
-                                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                                />
-                                <span className="text-gray-300 text-sm">{tag}</span>
-                            </label>
+                    {/* Categorized tags */}
+                    <div className="mb-4">
+                        {tagCategories.map((category, categoryIndex) => (
+                            <div key={category.heading} className={categoryIndex > 0 ? 'mt-4' : ''}>
+                                {/* Category heading */}
+                                <h4 className="text-blue-300 text-base font-medium mb-2">
+                                    {category.heading}
+                                </h4>
+                                
+                                {/* Tags grid for this category */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                                    {category.tags.map((tag) => (
+                                        <label key={tag} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-2 rounded">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedTags.has(tag)}
+                                                onChange={() => handleTagToggle(tag)}
+                                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                            />
+                                            <span className="text-gray-300 text-sm">{tag}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
                         ))}
                     </div>
 
