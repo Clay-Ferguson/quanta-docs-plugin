@@ -937,7 +937,8 @@ class DocService {
                 fileResults.map(result => ({
                     file: result.file,
                     line: result.line,
-                    content: result.content
+                    content: result.content,
+                    filePreview: result.filePreview
                 })) : 
                 fileResults;
                 
@@ -1136,7 +1137,8 @@ class DocService {
                         allResults.map(result => ({
                             file: result.file,
                             line: result.line,
-                            content: result.content
+                            content: result.content,
+                            filePreview: result.filePreview
                         })) :
                         allResults;
 
@@ -1185,11 +1187,24 @@ class DocService {
                                 modTime = fileModTimes.get(relativePath);
                             }
                             
+                            // Read first 5 lines of the file for preview
+                            let filePreview = '';
+                            try {
+                                const fileContent = fs.readFileSync(filePath.trim(), 'utf8');
+                                const fileLines = fileContent.split('\n');
+                                const previewLines = fileLines.slice(0, 5);
+                                filePreview = previewLines.join('\n');
+                            } catch (error) {
+                                console.warn(`Failed to read file preview for ${relativePath}:`, error);
+                                filePreview = '';
+                            }
+                            
                             // Create result object (file-level match)
                             const result: any = {
                                 file: relativePath,
                                 line: -1,        // -1 indicates file-level match
-                                content: ''      // No specific content for file-level matches
+                                content: '',      // No specific content for file-level matches
+                                filePreview: filePreview
                             };
                             
                             // Add modification time for sorting (internal use)
@@ -1420,11 +1435,24 @@ class DocService {
                     }
                 }
 
+                // Read first 5 lines of the file for preview
+                let filePreview = '';
+                try {
+                    const fileContent = fs.readFileSync(filePath, 'utf8');
+                    const fileLines = fileContent.split('\n');
+                    const previewLines = fileLines.slice(0, 5);
+                    filePreview = previewLines.join('\n');
+                } catch (error) {
+                    console.warn(`Failed to read file preview for ${relativePath}:`, error);
+                    filePreview = '';
+                }
+
                 // Build line-level result object
                 const result: any = {
                     file: relativePath,
                     line: parseInt(lineNumber),
-                    content: content.trim()
+                    content: content.trim(),
+                    filePreview: filePreview
                 };
 
                 // Add time value for sorting (internal use)
@@ -1510,11 +1538,24 @@ class DocService {
                     }
                 }
 
+                // Read first 5 lines of the file for preview
+                let filePreview = '';
+                try {
+                    const fileContent = fs.readFileSync(filePath, 'utf8');
+                    const fileLines = fileContent.split('\n');
+                    const previewLines = fileLines.slice(0, 5);
+                    filePreview = previewLines.join('\n');
+                } catch (error) {
+                    console.warn(`Failed to read file preview for ${relativePath}:`, error);
+                    filePreview = '';
+                }
+
                 // Build file-level result object (no line number or content)
                 const result: any = {
                     file: relativePath,
                     line: -1, // Indicates file-level match
-                    content: '' // Empty content for file-level matches
+                    content: '', // Empty content for file-level matches
+                    filePreview: filePreview
                 };
 
                 // Add time value for sorting (internal use)

@@ -18,6 +18,7 @@ interface SearchResult {
     line?: number;     // Optional for folder results
     content?: string;  // Optional for folder results
     folder?: string;   // Present for folder results
+    filePreview?: string; // First 5 lines of the file
 }
 
 interface SearchResultItemProps {
@@ -60,6 +61,16 @@ function SearchResultItem({ filePath, fileResults, onFileClick, vfsType }: Searc
                             ... and {fileResults.length - 3} more
                         </div>
                     )}
+                </div>
+            )}
+            
+            {/* Show file preview when available */}
+            {!isFolder && fileResults.length > 0 && fileResults[0].filePreview && (
+                <div className="mt-2">
+                    <div className="text-xs text-gray-400 mb-1">File preview:</div>
+                    <div className="font-mono text-gray-300 bg-gray-800 p-2 rounded text-xs leading-relaxed whitespace-pre-wrap">
+                        {fileResults[0].filePreview}
+                    </div>
                 </div>
             )}
         </div>
