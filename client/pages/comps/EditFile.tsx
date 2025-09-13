@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faClock, faMicrophone, faStop, faTags } from '@fortawesome/free-solid-svg-icons';
+import { faClock, faMicrophone, faStop, faTags, faVolumeUp } from '@fortawesome/free-solid-svg-icons';
 import { TreeNode } from '@common/types/CommonTypes';
 import { DocsGlobalState, gd } from '../../DocsTypes';
 import { stripOrdinal, stripFileExtension } from '@common/CommonUtils';
 import { handleSaveClick, handleSplitInline, handleMakeFolder } from '../TreeViewerPageOps';
 import { alertModal } from '@client/components/AlertModalComp';
+import { idb } from '@client/IndexedDB';
+import { DBKeys } from '@client/AppServiceTypes';
 import TagSelector from './TagSelector';
 
 interface EditFileProps {
@@ -81,6 +83,10 @@ export default function EditFile({
     useEffect(() => {
         shouldKeepListeningRef.current = shouldKeepListening;
     }, [shouldKeepListening]);
+
+    // TTS state
+    const [isTTSSpeaking, setIsTTSSpeaking] = useState(false);
+    const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
     // </speech>
 
     // Update local content and filename only when switching to a different node
@@ -223,6 +229,148 @@ export default function EditFile({
     }, []); // Empty dependency array - only run on mount/unmount
     // </speech>
 
+    // TTS functions
+    const supportsTTS = () => {
+        return "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined";
+    };
+
+    const speakText = useCallback((text: string) => {
+        if (!text || !text.trim()) {
+            console.warn("Nothing to read");
+            return;
+        }
+
+        if (!supportsTTS()) {
+            alertModal("Browser does not support the Web Speech API.");
+            return;
+        }
+
+        // Stop speech recognition if it's active
+        if (shouldKeepListening) {
+            setShouldKeepListening(false);
+            shouldKeepListeningRef.current = false;
+            if (recognitionRef.current) {
+                try {
+                    recognitionRef.current.stop();
+                } catch (error) {
+                    console.error('Error stopping speech recognition:', error);
+                }
+            }
+        }
+
+        // Cancel any current speech
+        window.speechSynthesis.cancel();
+
+        // Wait a moment for cancel to complete
+        setTimeout(async () => {
+            const utterance = new SpeechSynthesisUtterance(text.trim());
+            const voices = window.speechSynthesis.getVoices() || [];
+
+            // If no voices available, try to trigger voice loading
+            if (voices.length === 0) {
+                // Force voice loading by speaking empty text first
+                const tempUtter = new SpeechSynthesisUtterance("");
+                window.speechSynthesis.speak(tempUtter);
+                window.speechSynthesis.cancel();
+                
+                // Retry after a moment
+                setTimeout(() => speakText(text), 200);
+                return;
+            }
+
+            // Load saved TTS settings
+            const savedVoiceName = await idb.getItem(DBKeys.ttsVoice, '');
+            const savedRate = await idb.getItem(DBKeys.ttsRate, '1.0');
+
+            // Use saved voice or default voice or first available
+            if (voices.length > 0) {
+                let chosenVoice = null;
+                
+                if (savedVoiceName) {
+                    // Try to find the saved voice
+                    chosenVoice = voices.find(voice => voice.name === savedVoiceName);
+                }
+                
+                if (!chosenVoice) {
+                    // Fallback to default voice or first available
+                    chosenVoice = voices.find(voice => voice.default) || voices[0];
+                }
+                
+                if (chosenVoice) {
+                    utterance.voice = chosenVoice;
+                }
+            }
+
+            utterance.rate = parseFloat(savedRate) || 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            utterance.onstart = () => {
+                currentUtteranceRef.current = utterance;
+                setIsTTSSpeaking(true);
+            };
+
+            utterance.onend = () => {
+                currentUtteranceRef.current = null;
+                setIsTTSSpeaking(false);
+            };
+
+            utterance.onerror = (event) => {
+                currentUtteranceRef.current = null;
+                setIsTTSSpeaking(false);
+                // Don't show error for interrupted speech (user clicked stop)
+                if (event.error !== 'interrupted') {
+                    console.error("Speech error:", event);
+                    alertModal("Error during speech: " + (event.error || "Unknown error"));
+                }
+            };
+
+            try {
+                window.speechSynthesis.speak(utterance);
+            } catch (error) {
+                console.error("Speech synthesis error:", error);
+                setIsTTSSpeaking(false);
+                alertModal("Error: " + (error as Error).message);
+            }
+        }, 100);
+    }, [shouldKeepListening, recognitionRef]);
+
+    const handleTTSToggle = () => {
+        if (!supportsTTS()) {
+            alertModal('Text-to-speech is not supported in this browser. Please use a modern browser.');
+            return;
+        }
+
+        if (isTTSSpeaking) {
+            // Stop TTS
+            window.speechSynthesis.cancel();
+            currentUtteranceRef.current = null;
+            setIsTTSSpeaking(false);
+        } else {
+            // Start TTS
+            if (!contentTextareaRef.current) return;
+            
+            const textarea = contentTextareaRef.current;
+            const selStart = textarea.selectionStart;
+            const selEnd = textarea.selectionEnd;
+            const selectedText = (selStart !== undefined && selEnd !== undefined && selEnd > selStart)
+                ? textarea.value.substring(selStart, selEnd)
+                : "";
+            const textToRead = selectedText.trim() ? selectedText : localContent;
+            speakText(textToRead);
+        }
+    };
+
+    // Cleanup TTS when component unmounts
+    useEffect(() => {
+        return () => {
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            currentUtteranceRef.current = null;
+        };
+    }, []); // Empty dependency array - only run on mount/unmount
+
     const handleLocalContentChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
         setLocalContent(event.target.value);
     };
@@ -238,7 +386,12 @@ export default function EditFile({
             handleSaveClick(gs, treeNodes, setTreeNodes, reRenderTree, localContent, localFileName);
         } else if (event.key === 'Escape') {
             event.preventDefault(); // Prevent any default behavior
-            handleCancelClick();
+            // Stop TTS first if it's active, otherwise cancel edit
+            if (isTTSSpeaking) {
+                handleTTSToggle();
+            } else {
+                handleCancelClick();
+            }
         }
     };
 
@@ -426,8 +579,17 @@ export default function EditFile({
                     onClick={handleSpeechToggle}
                     className={isListening ? "btn-danger" : "btn-icon"}
                     title={isListening ? "Stop Speech Recognition" : "Start Speech Recognition"}
+                    disabled={isTTSSpeaking} // Disable mic when TTS is active
                 >
                     <FontAwesomeIcon icon={isListening ? faStop : faMicrophone} className="h-5 w-5" />
+                </button>
+                <button 
+                    onClick={handleTTSToggle}
+                    className={isTTSSpeaking ? "btn-danger" : "btn-icon"}
+                    title={isTTSSpeaking ? "Stop Text-to-Speech" : "Read Text Aloud"}
+                    disabled={isListening} // Disable TTS when mic is active
+                >
+                    <FontAwesomeIcon icon={isTTSSpeaking ? faStop : faVolumeUp} className="h-5 w-5" />
                 </button>
                 {/* </speech> */}
                 <button
