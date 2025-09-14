@@ -1885,7 +1885,7 @@ class DocService {
         
         // Regex patterns
         const headingRegex = /^#+\s+(.+)$/; // Matches markdown heading (# followed by space)
-        const hashtagRegex = /#[a-zA-Z0-9_/-]+/g; // Same pattern as extractHashtagsFromText
+        const hashtagRegex = /(?:^|[\s\n])#[a-zA-Z0-9_/-]+/g; // Same pattern as extractHashtagsFromText
         
         console.log('Parsing .TAGS.md content, total lines:', lines.length); // Debug
         
@@ -1919,7 +1919,12 @@ class DocService {
                 console.log('Started new category:', currentHeading); // Debug
             } else {
                 // This line is not a heading, extract hashtags from it
-                const tagsInLine = trimmedLine.match(hashtagRegex) || [];
+                const rawMatches = trimmedLine.match(hashtagRegex) || [];
+                // Extract just the hashtag part (remove any leading whitespace)
+                const tagsInLine = rawMatches.map(match => {
+                    const hashIndex = match.indexOf('#');
+                    return match.substring(hashIndex);
+                });
                 console.log('Found tags in line:', tagsInLine); // Debug
                 currentTags.push(...tagsInLine);
             }
@@ -1952,19 +1957,28 @@ class DocService {
      * Extracts hashtags from text content using regex pattern matching.
      * 
      * Searches for patterns like "#tagname" where tagname consists of letters, numbers, 
-     * underscores, and hyphens. Returns a sorted array of unique tags.
+     * underscores, and hyphens. Only matches hashtags that are properly standalone - either
+     * at the beginning of the text, at the beginning of a line, or preceded by whitespace.
      * 
      * @param text - The text content to search for hashtags
      * @returns Array of unique hashtags sorted alphabetically
      */
     private extractHashtagsFromText(text: string): string[] {
-        // Regex to match hashtags: # followed by word characters, underscores, hyphens, and forward slashes
-        const hashtagRegex = /#[a-zA-Z0-9_/-]+/g;
+        // Regex to match hashtags: # preceded by start of string, newline, or whitespace
+        // followed by word characters, underscores, hyphens, and forward slashes
+        const hashtagRegex = /(?:^|[\s\n])#[a-zA-Z0-9_/-]+/g;
         
         const matches = text.match(hashtagRegex) || [];
         
+        // Extract just the hashtag part (remove any leading whitespace)
+        const cleanedMatches = matches.map(match => {
+            // Find the # character and extract from there
+            const hashIndex = match.indexOf('#');
+            return match.substring(hashIndex);
+        });
+        
         // Convert to Set to remove duplicates, then back to Array and sort
-        const uniqueTags = Array.from(new Set(matches));
+        const uniqueTags = Array.from(new Set(cleanedMatches));
         
         return uniqueTags.sort();
     }
