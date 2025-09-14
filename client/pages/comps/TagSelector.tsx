@@ -172,9 +172,9 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
     };
 
     return (
-        <div className="bg-gray-800 border border-gray-600 rounded-lg px-4 pt-2 pb-4 mt-3 mb-4">
-            <div className="flex justify-between items-center mb-3">
-                <h3 className="text-gray-200 text-lg font-semibold">Select Tags</h3>
+        <div className="absolute top-0 left-0 right-0 z-50 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-[50vh] flex flex-col">
+            <div className="flex justify-between items-center px-4 border-b border-gray-600">
+                <h3 className="text-gray-200 text-base font-semibold">Select Tags</h3>
                 <div className="flex gap-2">
                     <button
                         onClick={handleScanClick}
@@ -188,47 +188,50 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
                         onClick={onCancel}
                         className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
                     >
-                        Cancel
+                        Done
                     </button>
                 </div>
             </div>
             
             {isLoading ? (
-                <div className="flex items-center justify-center py-8">
+                <div className="flex items-center justify-center py-8 px-4">
                     <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mr-2"></div>
                     <span className="text-gray-400">Loading tags...</span>
                 </div>
             ) : (
                 <>
-                    {/* Categorized tags */}
-                    <div className="mb-4">
-                        {tagCategories.map((category, categoryIndex) => (
-                            <div key={category.heading} className={categoryIndex > 0 ? 'mt-4' : ''}>
-                                {/* Category heading */}
-                                <h4 className="text-blue-300 text-base font-medium mb-2">
-                                    {category.heading}
-                                </h4>
-                                
-                                {/* Tags grid for this category */}
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                                    {category.tags.map((tag) => (
-                                        <label key={tag} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-2 rounded">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedTags.has(tag)}
-                                                onChange={() => handleTagToggle(tag)}
-                                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                                            />
-                                            <span className="text-gray-300 text-sm">{tag}</span>
-                                        </label>
-                                    ))}
+                    {/* Scrollable tags content */}
+                    <div className="flex-1 overflow-y-auto px-4 py-2">
+                        {/* Categorized tags */}
+                        <div>
+                            {tagCategories.map((category, categoryIndex) => (
+                                <div key={category.heading} className={categoryIndex > 0 ? 'mt-4' : ''}>
+                                    {/* Category heading */}
+                                    <h4 className="text-blue-300 text-base font-medium mb-2">
+                                        {category.heading}
+                                    </h4>
+                                    
+                                    {/* Tags grid for this category */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                                        {category.tags.map((tag) => (
+                                            <label key={tag} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-2 rounded">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedTags.has(tag)}
+                                                    onChange={() => handleTagToggle(tag)}
+                                                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                                />
+                                                <span className="text-gray-300 text-sm">{tag}</span>
+                                            </label>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
 
-                    {/* Action buttons */}
-                    <div className="flex justify-end gap-2">
+                    {/* Action buttons - fixed at bottom */}
+                    <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-600">
                         {showAddButton && (
                             <button
                                 onClick={handleAddClick}

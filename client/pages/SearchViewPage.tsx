@@ -429,15 +429,17 @@ export default function SearchViewPage() {
                             {isSearching ? 'Searching...' : 'Search'}
                         </button>
                     </div>
-                    
-                    {/* Tag Selector */}
-                    {showTagSelector && (
+                </div>
+                
+                {/* Tag Selector - positioned outside the search controls for proper overlay */}
+                {showTagSelector && (
+                    <div className="relative -mt-4 mb-4">
                         <TagSelector
                             onCancel={handleTagsCancel}
                             handleLiveTagAdd={handleLiveTagAdd}
                         />
-                    )}
-                </div>
+                    </div>
+                )}
                 
                 <div className="flex-grow relative">
                     <div className="absolute inset-0 w-full h-full bg-gray-800 text-gray-300 p-3 border border-gray-700 rounded overflow-auto">

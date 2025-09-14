@@ -600,12 +600,14 @@ export default function EditFile({
                 </button>
             </div>
             
-            {/* Tag Selector */}
+            {/* Tag Selector - positioned as overlay */}
             {showTagSelector && (
-                <TagSelector 
-                    onCancel={handleCancelTagSelector}
-                    handleLiveTagAdd={handleLiveTagAdd}
-                />
+                <div className="relative -mt-3">
+                    <TagSelector 
+                        onCancel={handleCancelTagSelector}
+                        handleLiveTagAdd={handleLiveTagAdd}
+                    />
+                </div>
             )}
         </div>
     );
