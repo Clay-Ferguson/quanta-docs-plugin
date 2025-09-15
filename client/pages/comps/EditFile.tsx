@@ -507,13 +507,20 @@ export default function EditFile({
 
     const calculateRows = () => {
         let min = 10;
-        if (!localContent || localContent.length < 300) {
-            min = 3; // Default minimum rows if content is empty
-        }
-        if (localContent.length > 1000) {
-            min = 20;
+        if (!localContent) {
+            return 3;
         }
         const newlineCount = (localContent.match(/\n/g) || []).length;
+        if (localContent.length < 300 && newlineCount < 3) {
+            min = 3; // Default minimum rows if content is empty
+        }
+        else if (localContent.length > 300 && localContent.length < 600 && newlineCount < 10) {
+            min = 10;
+        }
+        else if (localContent.length > 600 && newlineCount < 20) {
+            min = 20;
+        }
+        
         return Math.max(min, newlineCount + 1); // Minimum of 'min' rows, always +1 more than content needs
     };
     
