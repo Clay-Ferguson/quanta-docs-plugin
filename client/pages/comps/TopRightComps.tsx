@@ -64,7 +64,7 @@ export default function TopRightComps({ gs, rootNode, itemsAreSelected, reRender
                     {itemsAreSelected && 
                         <button 
                             onClick={() => onCut(gs)}
-                            className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                            className="btn-primary"
                             title="Cut selected items"
                         >
                         Cut
@@ -80,7 +80,7 @@ export default function TopRightComps({ gs, rootNode, itemsAreSelected, reRender
                     {!hasCutItems && itemsAreSelected && 
                         <button 
                             onClick={() => onDelete(gs, treeNodes, setTreeNodes)}
-                            className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                            className="btn-danger"
                             title="Delete selected items"
                         >
                         Delete

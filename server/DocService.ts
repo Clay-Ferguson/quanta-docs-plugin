@@ -1897,7 +1897,7 @@ class DocService {
                 continue;
             }
             
-            console.log('Processing line:', JSON.stringify(trimmedLine)); // Debug
+            // console.log('Processing line:', JSON.stringify(trimmedLine)); // Debug
             
             // Check if this line is a markdown heading
             const headingMatch = trimmedLine.match(headingRegex);
@@ -1916,7 +1916,7 @@ class DocService {
                 // Start a new category
                 currentHeading = headingMatch[1].trim();
                 currentTags = [];
-                console.log('Started new category:', currentHeading); // Debug
+                // console.log('Started new category:', currentHeading); // Debug
             } else {
                 // This line is not a heading, extract hashtags from it
                 const rawMatches = trimmedLine.match(hashtagRegex) || [];
@@ -1925,7 +1925,7 @@ class DocService {
                     const hashIndex = match.indexOf('#');
                     return match.substring(hashIndex);
                 });
-                console.log('Found tags in line:', tagsInLine); // Debug
+                // console.log('Found tags in line:', tagsInLine); // Debug
                 currentTags.push(...tagsInLine);
             }
         }
