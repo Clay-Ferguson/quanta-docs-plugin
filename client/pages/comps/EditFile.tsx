@@ -505,7 +505,19 @@ export default function EditFile({
     };
     // </speech>
 
+    // Check if browser supports CSS field-sizing
+    const supportsFieldSizing = () => {
+        return CSS.supports('field-sizing', 'content');
+    };
+
     const calculateRows = () => {
+        // If browser supports field-sizing, we don't need to calculate rows
+        // The CSS will handle auto-sizing automatically
+        if (supportsFieldSizing()) {
+            return undefined; // Let CSS handle it
+        }
+
+        // Fallback to current logic for unsupported browsers (Firefox, Safari)
         let min = 10;
         if (!localContent) {
             return 3;
@@ -539,11 +551,12 @@ export default function EditFile({
                 onChange={handleLocalContentChange}
                 onKeyDown={handleKeyDown}
                 rows={calculateRows()}
+                style={supportsFieldSizing() ? { fieldSizing: 'content' } as React.CSSProperties : {}}
                 className={`w-full p-3 bg-gray-800 border text-gray-200 font-mono resize-vertical focus:outline-none focus:ring-2 focus:border-transparent ${
                     isListening 
                         ? 'border-red-500 focus:ring-red-500' 
                         : 'border-gray-600 focus:ring-blue-500'
-                }`}
+                } ${supportsFieldSizing() ? 'auto-sizing-textarea' : ''}`}
                 placeholder="Enter content here..."
             />
             <div className="flex gap-2 mt-2 mb-3">
