@@ -130,7 +130,10 @@ export const handleEditModeToggle = async (gs: DocsGlobalState) => {
     await idb.setItem(DBKeys.docsEditMode, newEditMode);
     
     // Restore scroll position after the page re-renders
-    if (closestElementId) {
+    if (closestElementId === "TOP") {
+        // If the first element was closest, scroll to the very top instead
+        util.scrollToTopAndClearPosition('treeViewContent');
+    } else if (closestElementId) {
         util.scrollToElementById(closestElementId);
     }
 };
