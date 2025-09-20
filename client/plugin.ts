@@ -40,7 +40,7 @@ class DocsClientPlugin implements IClientPlugin {
         gs.docsLastSearch = '';
         gs.docsSearchMode = 'MATCH_ANY';
         gs.docsSearchTextOnly = false;
-        gs.orderByModTime = true;
+        gs.docsOrderByModTime = true;
         gs.docsHighlightedFolderName = null;
 
         if (!DOC_ROOT_KEY) {
@@ -69,14 +69,14 @@ class DocsClientPlugin implements IClientPlugin {
         const docsMetaMode: boolean = await idb.getItem(DBKeys.docsMetaMode, false) === true;
         const docsNamesMode: boolean = await idb.getItem(DBKeys.docsNamesMode, false) === true;
         const docsSearchTextOnly: boolean = await idb.getItem(DBKeys.docsSearchTextOnly, false) === true;
-        const orderByModTime: boolean = await idb.getItem(DBKeys.orderByModTime, true) === true;
+        const docsOrderByModTime: boolean = await idb.getItem(DBKeys.docsOrderByModTime, true) === true;
     
         gs.docsViewWidth = docsViewWidth;
         gs.docsEditMode = docsEditMode;
         gs.docsMetaMode = docsMetaMode;
         gs.docsNamesMode = docsNamesMode;
         gs.docsSearchTextOnly = docsSearchTextOnly;
-        gs.orderByModTime = orderByModTime;
+        gs.docsOrderByModTime = docsOrderByModTime;
     }
 
     getRoute(_gs: DocsGlobalState, pageName: string) {

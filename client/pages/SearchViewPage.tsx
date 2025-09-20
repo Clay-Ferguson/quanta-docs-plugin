@@ -119,7 +119,7 @@ export default function SearchViewPage() {
                 treeFolder: searchFolder,
                 docRootKey: gs.docsRootKey,
                 searchMode: gs.docsSearchMode || 'MATCH_ANY',
-                searchOrder: gs.orderByModTime ? 'MOD_TIME' : 'DATE'
+                searchOrder: gs.docsOrderByModTime ? 'MOD_TIME' : 'DATE'
             }) as any;
             
             if (response) {
@@ -352,12 +352,12 @@ export default function SearchViewPage() {
                         <label className="flex items-center gap-2 text-gray-300 cursor-pointer ml-3">
                             <input
                                 type="checkbox"
-                                checked={gs.orderByModTime || false}
+                                checked={gs.docsOrderByModTime || false}
                                 onChange={async (e) => {
                                     const value = e.target.checked;
-                                    gd({ type: 'setSearchOrder', payload: { orderByModTime: value }});
+                                    gd({ type: 'setSearchOrder', payload: { docsOrderByModTime: value }});
                                     // Persist to IndexedDB
-                                    await idb.setItem(DBKeys.orderByModTime, value);
+                                    await idb.setItem(DBKeys.docsOrderByModTime, value);
                                 }}
                                 className="text-blue-600 focus:ring-blue-500"
                                 disabled={isSearching}

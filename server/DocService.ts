@@ -863,7 +863,7 @@ class DocService {
         ifs: IFS,
         callback: (error: { type: string; message: string } | null, results?: any[]) => void
     ): void => {
-        const orderByModTime = searchOrder === 'MOD_TIME';
+        const docsOrderByModTime = searchOrder === 'MOD_TIME';
 
         // Define timestamp regex for date filtering (optional)
         // Format: [MM/DD/YYYY HH:MM:SS AM/PM] - can appear anywhere in the line
@@ -907,27 +907,27 @@ class DocService {
             
             // Parse grep output and build file content results
             const fileResults: any[] = [];
-            const fileTimes = orderByModTime ? new Map<string, number>() : null;
+            const fileTimes = docsOrderByModTime ? new Map<string, number>() : null;
             
             if (stdout && stdout.trim()) {
                 const lines = stdout.trim().split('\n');
                 
                 if (isEmptyQuery) {
                     // For empty queries, stdout contains file paths only (one per line)
-                    this.processResultLinesForEmptyQuery(lines, absoluteSearchPath, orderByModTime, fileTimes, fileResults);
+                    this.processResultLinesForEmptyQuery(lines, absoluteSearchPath, docsOrderByModTime, fileTimes, fileResults);
                 } else {
                     // For non-empty queries, process line-by-line results as before
-                    this.processResultLines(lines, absoluteSearchPath, orderByModTime, fileTimes, fileResults);
+                    this.processResultLines(lines, absoluteSearchPath, docsOrderByModTime, fileTimes, fileResults);
                 }
             }
             
             // Sort file results if time-based ordering is requested
-            if (orderByModTime) {
+            if (docsOrderByModTime) {
                 this.sortResults(fileResults, isEmptyQuery);
             }
             
             // Clean file results (remove internal timeVal property)
-            const cleanFileResults = orderByModTime ? 
+            const cleanFileResults = docsOrderByModTime ? 
                 fileResults.map(result => ({
                     file: result.file,
                     line: result.line,
@@ -1036,7 +1036,7 @@ class DocService {
             // Extract and validate parameters
             const { treeFolder, docRootKey, searchOrder = 'MOD_TIME' } = req.body;
             let { query, searchMode = 'MATCH_ANY' } = req.body;
-            const orderByModTime = searchOrder === 'MOD_TIME';
+            const docsOrderByModTime = searchOrder === 'MOD_TIME';
             
             // Handle empty, null, or undefined query as "match everything"
             const isEmptyQuery = !query || query.trim() === '';
@@ -1101,7 +1101,7 @@ class DocService {
             
             // Execute both commands in parallel and combine results
             const allResults: any[] = [];
-            const fileModTimes = orderByModTime ? new Map<string, number>() : null;
+            const fileModTimes = docsOrderByModTime ? new Map<string, number>() : null;
             let completedCommands = 0;
             const totalCommands = 2;
             
@@ -1113,7 +1113,7 @@ class DocService {
                 completedCommands++;
                 if (completedCommands === totalCommands) {
                     // Sort results by modification time if requested
-                    if (orderByModTime) {
+                    if (docsOrderByModTime) {
                         allResults.sort((a, b) => {
                             // Primary: modification time (newest first)
                             if (a.modTime !== b.modTime) {
@@ -1125,7 +1125,7 @@ class DocService {
                     }
 
                     // Clean results (remove internal modTime property)
-                    const cleanResults = orderByModTime ?
+                    const cleanResults = docsOrderByModTime ?
                         allResults.map(result => ({
                             file: result.file,
                             line: result.line,
@@ -1162,7 +1162,7 @@ class DocService {
                             let modTime: number | undefined;
                             
                             // Get modification time for sorting if needed
-                            if (orderByModTime && fileModTimes && !fileModTimes.has(relativePath)) {
+                            if (docsOrderByModTime && fileModTimes && !fileModTimes.has(relativePath)) {
                                 try {
                                     const stat = fs.statSync(filePath.trim());
                                     const fileModTime = stat.mtime.getTime();
@@ -1175,7 +1175,7 @@ class DocService {
                                     fileModTimes.set(relativePath, fallbackTime);
                                     modTime = fallbackTime;
                                 }
-                            } else if (orderByModTime && fileModTimes) {
+                            } else if (docsOrderByModTime && fileModTimes) {
                                 modTime = fileModTimes.get(relativePath);
                             }
                             
@@ -1200,7 +1200,7 @@ class DocService {
                             };
                             
                             // Add modification time for sorting (internal use)
-                            if (orderByModTime && modTime !== undefined) {
+                            if (docsOrderByModTime && modTime !== undefined) {
                                 result.modTime = modTime;
                             }
                             
@@ -1352,7 +1352,7 @@ class DocService {
         });
     }
 
-    private processResultLines(lines: string[], absoluteSearchPath: string, orderByModTime: boolean, fileTimes: Map<string, number> | null, results: string[]) {
+    private processResultLines(lines: string[], absoluteSearchPath: string, docsOrderByModTime: boolean, fileTimes: Map<string, number> | null, results: string[]) {
         for (const line of lines) {
             // Parse grep format: filename:line_number:content
             const match = line.match(/^([^:]+):(\d+):(.*)$/);
@@ -1362,11 +1362,11 @@ class DocService {
                 let timeVal: number | undefined;
 
                 // Get file time for sorting if needed
-                if (orderByModTime) {
+                if (docsOrderByModTime) {
                     if (fileTimes && !fileTimes.has(relativePath)) {
                         try {
                             let fileTime = null;
-                            if (orderByModTime) {
+                            if (docsOrderByModTime) {
                                 // Use filesystem modification time
                                 const stat = fs.statSync(filePath);
                                 fileTime = stat.mtime.getTime();
@@ -1409,7 +1409,7 @@ class DocService {
                 };
 
                 // Add time value for sorting (internal use)
-                if ((orderByModTime) && timeVal !== undefined) {
+                if ((docsOrderByModTime) && timeVal !== undefined) {
                     result.timeVal = timeVal;
                 }
 
@@ -1418,7 +1418,7 @@ class DocService {
         }
     }
 
-    private processResultLinesForEmptyQuery(lines: string[], absoluteSearchPath: string, orderByModTime: boolean, fileTimes: Map<string, number> | null, results: any[]) {
+    private processResultLinesForEmptyQuery(lines: string[], absoluteSearchPath: string, docsOrderByModTime: boolean, fileTimes: Map<string, number> | null, results: any[]) {
         for (const line of lines) {
             const filePath = line.trim();
             if (filePath) {
@@ -1426,11 +1426,11 @@ class DocService {
                 let timeVal: number | undefined;
 
                 // Get file time for sorting if needed
-                if (orderByModTime) {
+                if (docsOrderByModTime) {
                     if (fileTimes && !fileTimes.has(relativePath)) {
                         try {
                             let fileTime = null;
-                            if (orderByModTime) {
+                            if (docsOrderByModTime) {
                                 // Use filesystem modification time
                                 const stat = fs.statSync(filePath);
                                 fileTime = stat.mtime.getTime();
@@ -1473,7 +1473,7 @@ class DocService {
                 };
 
                 // Add time value for sorting (internal use)
-                if ((orderByModTime) && timeVal !== undefined) {
+                if ((docsOrderByModTime) && timeVal !== undefined) {
                     result.timeVal = timeVal;
                 }
                 results.push(result);
