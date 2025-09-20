@@ -821,7 +821,6 @@ CREATE OR REPLACE FUNCTION vfs_search_text(
     search_path TEXT,
     root_key TEXT,
     search_mode TEXT DEFAULT 'MATCH_ANY',
-    require_date BOOLEAN DEFAULT FALSE,
     search_order TEXT DEFAULT 'MOD_TIME'
 ) 
 RETURNS TABLE(
@@ -833,7 +832,6 @@ RETURNS TABLE(
     created_time TIMESTAMP WITH TIME ZONE
 ) AS $$
 DECLARE
-    date_regex TEXT := '^\[[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} (AM|PM)\]';
     search_terms TEXT[];
     term TEXT;
     where_clause TEXT := '';
@@ -859,11 +857,6 @@ BEGIN
         -- Search within specific path
         where_clause := format('doc_root_key = %L AND parent_path LIKE %L AND is_binary = FALSE AND content_text IS NOT NULL',
                               root_key, search_path || '%');
-    END IF;
-    
-    -- Add timestamp filter if required
-    IF require_date THEN
-        where_clause := where_clause || format(' AND content_text ~* %L', date_regex);
     END IF;
     
     -- Build search condition based on mode (skip content filtering for empty queries)

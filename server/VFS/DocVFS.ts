@@ -83,9 +83,8 @@ class DocVFS {
             
             // Call the PostgreSQL search function
             const searchResult = await pgdb.query(
-                'SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6, $7)',
-                // todo-0: we removed 'requireDate' but need to check if the function needs updating
-                user_id, query, treeFolder, docRootKey, searchMode, false, /*requireDate,*/ searchOrder
+                'SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)',
+                user_id, query, treeFolder, docRootKey, searchMode, searchOrder
             );
             
             // Transform results to match the expected format (file-level results without line numbers)
