@@ -74,6 +74,9 @@ export default function EditFile({
     const [showTagSelector, setShowTagSelector] = useState(false);
     // Track last selected tags for live add
     const lastSelectedTagsRef = useRef<Set<string>>(new Set());
+    
+    // Filename visibility state
+    const [showFileName, setShowFileName] = useState(true);
 
     // <speech>
     // Speech recognition state
@@ -106,6 +109,15 @@ export default function EditFile({
             setCurrentNodeName(newNodeName);
         }
     }, [gs.docsEditNode, gs.docsNewFileName, currentNodeName, prepareFilenameForEditing]);
+
+    // Load the filename visibility setting on component mount
+    useEffect(() => {
+        const loadShowFileNameSetting = async () => {
+            const savedShowFileName = await idb.getItem(DBKeys.docsShowFileName, true);
+            setShowFileName(savedShowFileName);
+        };
+        loadShowFileNameSetting();
+    }, []);
 
     // <speech>
     // Initialize speech recognition - only create once
@@ -472,6 +484,12 @@ export default function EditFile({
         setShowTagSelector(false);
     };
 
+    const handleToggleShowFileName = async () => {
+        const newValue = !showFileName;
+        setShowFileName(newValue);
+        await idb.setItem(DBKeys.docsShowFileName, newValue);
+    };
+
     // <speech>
     const handleSpeechToggle = () => {
         if (!('webkitSpeechRecognition' in window)) {
@@ -536,13 +554,15 @@ export default function EditFile({
     
     return (
         <div>
-            <input
-                type="text"
-                value={localFileName}
-                onChange={handleLocalFileNameChange}
-                className="w-full mb-3 p-2 bg-gray-800 border border-gray-600 text-gray-200 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Filename (optional)"
-            />
+            {showFileName && (
+                <input
+                    type="text"
+                    value={localFileName}
+                    onChange={handleLocalFileNameChange}
+                    className="w-full mb-3 p-2 bg-gray-800 border border-gray-600 text-gray-200 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Filename (optional)"
+                />
+            )}
             <textarea
                 ref={contentTextareaRef}
                 value={localContent}
@@ -616,6 +636,15 @@ export default function EditFile({
                 >
                     Cancel
                 </button>
+                <label className="flex items-center ml-3 text-gray-200 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={showFileName}
+                        onChange={handleToggleShowFileName}
+                        className="mr-2 accent-blue-500"
+                    />
+                    <span className="text-sm">Show file name</span>
+                </label>
             </div>
             
             {/* Tag Selector - positioned as overlay */}
