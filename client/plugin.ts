@@ -39,9 +39,8 @@ class DocsClientPlugin implements IClientPlugin {
         gs.docsSearchOriginFolder = '';
         gs.docsLastSearch = '';
         gs.docsSearchMode = 'MATCH_ANY';
-        gs.docsRequireDate = false;
         gs.docsSearchTextOnly = false;
-        gs.docsSearchOrder = 'MOD_TIME';
+        gs.orderByModTime = true;
         gs.docsHighlightedFolderName = null;
 
         if (!DOC_ROOT_KEY) {
@@ -69,17 +68,15 @@ class DocsClientPlugin implements IClientPlugin {
         const docsEditMode: boolean = await idb.getItem(DBKeys.docsEditMode, false) === true;
         const docsMetaMode: boolean = await idb.getItem(DBKeys.docsMetaMode, false) === true;
         const docsNamesMode: boolean = await idb.getItem(DBKeys.docsNamesMode, false) === true;
-        const docsRequireDate: boolean = await idb.getItem(DBKeys.docsRequireDate, false) === true;
         const docsSearchTextOnly: boolean = await idb.getItem(DBKeys.docsSearchTextOnly, false) === true;
-        const docsSearchOrder: 'MOD_TIME' | 'DATE' = await idb.getItem(DBKeys.docsSearchOrder, 'MOD_TIME');
+        const orderByModTime: boolean = await idb.getItem(DBKeys.orderByModTime, true) === true;
     
         gs.docsViewWidth = docsViewWidth;
         gs.docsEditMode = docsEditMode;
         gs.docsMetaMode = docsMetaMode;
         gs.docsNamesMode = docsNamesMode;
-        gs.docsRequireDate = docsRequireDate;
         gs.docsSearchTextOnly = docsSearchTextOnly;
-        gs.docsSearchOrder = docsSearchOrder;
+        gs.orderByModTime = orderByModTime;
     }
 
     getRoute(_gs: DocsGlobalState, pageName: string) {

@@ -35,7 +35,6 @@ class DocVFS {
         treeFolder: string; 
         docRootKey: string; 
         searchMode?: string,
-        requireDate?: boolean,
         searchOrder?: string }>, res: Response): Promise<void> => {
         console.log("VFS Document Search Request");
         try {
@@ -45,7 +44,7 @@ class DocVFS {
             } 
 
             // Extract and validate parameters
-            const { treeFolder, docRootKey, requireDate = false, searchOrder = 'MOD_TIME' } = req.body;
+            const { treeFolder, docRootKey, searchOrder = 'MOD_TIME' } = req.body;
             let { query, searchMode = 'MATCH_ANY' } = req.body;
             
             // Handle empty, null, or undefined query as "match everything"
@@ -85,7 +84,8 @@ class DocVFS {
             // Call the PostgreSQL search function
             const searchResult = await pgdb.query(
                 'SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6, $7)',
-                user_id, query, treeFolder, docRootKey, searchMode, requireDate, searchOrder
+                // todo-0: we removed 'requireDate' but need to check if the function needs updating
+                user_id, query, treeFolder, docRootKey, searchMode, false, /*requireDate,*/ searchOrder
             );
             
             // Transform results to match the expected format (file-level results without line numbers)

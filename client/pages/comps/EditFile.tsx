@@ -405,7 +405,7 @@ export default function EditFile({
         const cursorPosition = textarea.selectionStart;
         const currentContent = localContent;
         
-        // Create formatted timestamp: YYYY/MM/DD HH:MM:SS AM/PM
+        // Create formatted timestamp: MM/DD/YYYY HH:MM:SS AM/PM
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -420,7 +420,7 @@ export default function EditFile({
         hours = hours ? hours : 12; // the hour '0' should be '12'
         const hoursStr = String(hours).padStart(2, '0');
         
-        const timestamp = `[${year}/${month}/${day} ${hoursStr}:${minutes}:${seconds} ${ampm}]`;
+        const timestamp = `[${month}/${day}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}]`;
         
         // Insert timestamp at cursor position
         const beforeCursor = currentContent.substring(0, cursorPosition);

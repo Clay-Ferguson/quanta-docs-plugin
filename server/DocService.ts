@@ -634,7 +634,7 @@ class DocService {
      * - line: line number where match found
      * - content: the matching line content
      * 
-     * @param req - Express request with body: {query?, treeFolder, docRootKey, searchMode?, requireDate?, searchOrder?}
+     * @param req - Express request with body: {query?, treeFolder, docRootKey, searchMode?, searchOrder?}
      * @param res - Express response object
      * @returns Promise<void> - Sends JSON with search results or error
      */
@@ -643,12 +643,11 @@ class DocService {
         treeFolder: string; 
         docRootKey: string; 
         searchMode?: string,
-        requireDate?: boolean,
         searchOrder?: string }>, res: Response): Promise<void> => {
         console.log("Document Search Request");
         try {
             // Extract and validate parameters
-            const { treeFolder, docRootKey, requireDate, searchOrder = 'MOD_TIME' } = req.body;
+            const { treeFolder, docRootKey, searchOrder = 'MOD_TIME' } = req.body;
             let { query, searchMode = 'MATCH_ANY' } = req.body;
             
             // Handle empty, null, or undefined query as "match everything"
@@ -693,7 +692,6 @@ class DocService {
                 query,
                 searchMode,
                 isEmptyQuery,
-                requireDate,
                 searchOrder,
                 absoluteSearchPath,
                 ifs,
@@ -851,7 +849,6 @@ class DocService {
      * @param query - The search query string
      * @param searchMode - Search mode: 'REGEX', 'MATCH_ANY', or 'MATCH_ALL'
      * @param isEmptyQuery - Whether this is an empty query (match all)
-     * @param requireDate - Whether to filter for timestamped content
      * @param searchOrder - Ordering preference: 'MOD_TIME' or 'DATE'
      * @param absoluteSearchPath - Absolute path to search directory
      * @param ifs - File system interface instance
@@ -861,19 +858,16 @@ class DocService {
         query: string,
         searchMode: string,
         isEmptyQuery: boolean,
-        requireDate: boolean | undefined,
         searchOrder: string,
         absoluteSearchPath: string,
         ifs: IFS,
         callback: (error: { type: string; message: string } | null, results?: any[]) => void
     ): void => {
         const orderByModTime = searchOrder === 'MOD_TIME';
-        const orderByDate = searchOrder === 'DATE';
 
         // Define timestamp regex for date filtering (optional)
-        // Format: [YYYY/MM/DD HH:MM:SS AM/PM] - can appear anywhere in the line
-        const dateRegex: string | null = requireDate ? 
-            "\\[20[0-9][0-9]/[0-9][0-9]/[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] (AM|PM)\\]" : null;
+        // Format: [MM/DD/YYYY HH:MM:SS AM/PM] - can appear anywhere in the line
+        const dateRegex = null; // currently not used
 
         // Define file inclusion/exclusion patterns
         const include = '--include="*.md" --include="*.txt" --exclude="_*" --exclude=".*"';
@@ -913,27 +907,27 @@ class DocService {
             
             // Parse grep output and build file content results
             const fileResults: any[] = [];
-            const fileTimes = (orderByModTime || orderByDate) ? new Map<string, number>() : null;
+            const fileTimes = orderByModTime ? new Map<string, number>() : null;
             
             if (stdout && stdout.trim()) {
                 const lines = stdout.trim().split('\n');
                 
                 if (isEmptyQuery) {
                     // For empty queries, stdout contains file paths only (one per line)
-                    this.processResultLinesForEmptyQuery(lines, absoluteSearchPath, orderByModTime, orderByDate, fileTimes, fileResults);
+                    this.processResultLinesForEmptyQuery(lines, absoluteSearchPath, orderByModTime, fileTimes, fileResults);
                 } else {
                     // For non-empty queries, process line-by-line results as before
-                    this.processResultLines(lines, absoluteSearchPath, orderByModTime, orderByDate, fileTimes, fileResults);
+                    this.processResultLines(lines, absoluteSearchPath, orderByModTime, fileTimes, fileResults);
                 }
             }
             
             // Sort file results if time-based ordering is requested
-            if (orderByModTime || orderByDate) {
+            if (orderByModTime) {
                 this.sortResults(fileResults, isEmptyQuery);
             }
             
             // Clean file results (remove internal timeVal property)
-            const cleanFileResults = (orderByModTime || orderByDate) ? 
+            const cleanFileResults = orderByModTime ? 
                 fileResults.map(result => ({
                     file: result.file,
                     line: result.line,
@@ -944,7 +938,7 @@ class DocService {
                 
             // Now perform folder search if we have search terms or it's regex mode
             // Skip folder search when requireDate is true since folder names won't contain timestamps
-            if (!isEmptyQuery && !requireDate && (searchTerms.length > 0 || searchMode === 'REGEX')) {
+            if (!isEmptyQuery && (searchTerms.length > 0 || searchMode === 'REGEX')) {
                 const folderSearchTerms = searchMode === 'REGEX' ? [query] : searchTerms;
                 this.performFolderSearch(
                     folderSearchTerms,
@@ -974,7 +968,7 @@ class DocService {
                     }
                 );
             } else {
-                // No folder search for empty queries, requireDate=true, or regex mode without terms
+                // No folder search for empty queries or regex mode without terms
                 if (cleanFileResults.length === 0) {
                     callback({ type: 'no_matches', message: 'No matches found' });
                 } else {
@@ -1028,7 +1022,7 @@ class DocService {
      * - line: -1 (indicates file-level match, not line-specific)
      * - content: empty string (file-level match only)
      * 
-     * @param req - Express request with body: {query?, treeFolder, docRootKey, searchMode?, requireDate?, searchOrder?}
+     * @param req - Express request with body: {query?, treeFolder, docRootKey, searchMode?, searchOrder?}
      * @param res - Express response object  
      * @returns Promise<void> - Sends JSON with combined search results or error
      */
@@ -1037,11 +1031,10 @@ class DocService {
         treeFolder: string; 
         docRootKey: string; 
         searchMode?: string,
-        requireDate?: boolean,
         searchOrder?: string }>, res: Response): Promise<void> => {
         try {
             // Extract and validate parameters
-            const { treeFolder, docRootKey, requireDate, searchOrder = 'MOD_TIME' } = req.body;
+            const { treeFolder, docRootKey, searchOrder = 'MOD_TIME' } = req.body;
             let { query, searchMode = 'MATCH_ANY' } = req.body;
             const orderByModTime = searchOrder === 'MOD_TIME';
             
@@ -1083,9 +1076,8 @@ class DocService {
             console.log(`Simple search query: "${query}" with mode: "${searchMode}" in folder: "${absoluteSearchPath}"`);
 
             // Define timestamp regex for date filtering (optional)
-            // Format: [YYYY/MM/DD HH:MM:SS AM/PM] - can appear anywhere in the line
-            const dateRegex: string | null = requireDate ? 
-                "\\[20[0-9][0-9]/[0-9][0-9]/[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] (AM|PM)\\]" : null;
+            // Format: [MM/DD/YYYY HH:MM:SS AM/PM] - can appear anywhere in the line
+            const dateRegex = null; 
 
             // Define file patterns for text files (excludes PDFs)
             const include = '--include="*.md" --include="*.txt" --exclude="*.pdf" --exclude="_*" --exclude=".*"';
@@ -1360,7 +1352,7 @@ class DocService {
         });
     }
 
-    private processResultLines(lines: string[], absoluteSearchPath: string, orderByModTime: boolean, orderByDate: boolean, fileTimes: Map<string, number> | null, results: string[]) {
+    private processResultLines(lines: string[], absoluteSearchPath: string, orderByModTime: boolean, fileTimes: Map<string, number> | null, results: string[]) {
         for (const line of lines) {
             // Parse grep format: filename:line_number:content
             const match = line.match(/^([^:]+):(\d+):(.*)$/);
@@ -1370,7 +1362,7 @@ class DocService {
                 let timeVal: number | undefined;
 
                 // Get file time for sorting if needed
-                if (orderByModTime || orderByDate) {
+                if (orderByModTime) {
                     if (fileTimes && !fileTimes.has(relativePath)) {
                         try {
                             let fileTime = null;
@@ -1378,46 +1370,7 @@ class DocService {
                                 // Use filesystem modification time
                                 const stat = fs.statSync(filePath);
                                 fileTime = stat.mtime.getTime();
-                            } else {
-                                // Extract embedded date from file content
-                                const fileContent = fs.readFileSync(filePath, 'utf8');
-                                const fileLines = fileContent.split('\n');
-
-                                // Find first line matching date pattern
-                                let dateMatch = null;
-                                for (const fileLine of fileLines) {
-                                    const trimmedLine = fileLine.trim();
-                                    const match = trimmedLine.match(/^\[(20[0-9]{2}\/[0-9]{2}\/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} (AM|PM))\]/);
-                                    if (match) {
-                                        dateMatch = match;
-                                        break;
-                                    }
-                                }
-
-                                // Parse the embedded date
-                                if (dateMatch) {
-                                    const dateStr = dateMatch[1];
-                                    const dateParts = dateStr.split(/\/|:|\s/);
-                                    if (dateParts.length === 7) {
-                                        const year = parseInt(dateParts[0], 10);
-                                        const month = parseInt(dateParts[1], 10) - 1; // Zero-based months
-                                        const day = parseInt(dateParts[2], 10);
-                                        let hours = parseInt(dateParts[3], 10);
-                                        const minutes = parseInt(dateParts[4], 10);
-                                        const seconds = parseInt(dateParts[5], 10);
-                                        const ampm = dateParts[6];
-
-                                        // Convert to 24-hour format
-                                        if (ampm === 'PM' && hours !== 12) {
-                                            hours += 12;
-                                        } else if (ampm === 'AM' && hours === 12) {
-                                            hours = 0;
-                                        }
-
-                                        fileTime = new Date(year, month, day, hours, minutes, seconds).getTime();
-                                    }
-                                }
-                            }
+                            } 
 
                             if (fileTime != null) {
                                 fileTimes.set(relativePath, fileTime);
@@ -1456,7 +1409,7 @@ class DocService {
                 };
 
                 // Add time value for sorting (internal use)
-                if ((orderByModTime || orderByDate) && timeVal !== undefined) {
+                if ((orderByModTime) && timeVal !== undefined) {
                     result.timeVal = timeVal;
                 }
 
@@ -1465,7 +1418,7 @@ class DocService {
         }
     }
 
-    private processResultLinesForEmptyQuery(lines: string[], absoluteSearchPath: string, orderByModTime: boolean, orderByDate: boolean, fileTimes: Map<string, number> | null, results: any[]) {
+    private processResultLinesForEmptyQuery(lines: string[], absoluteSearchPath: string, orderByModTime: boolean, fileTimes: Map<string, number> | null, results: any[]) {
         for (const line of lines) {
             const filePath = line.trim();
             if (filePath) {
@@ -1473,7 +1426,7 @@ class DocService {
                 let timeVal: number | undefined;
 
                 // Get file time for sorting if needed
-                if (orderByModTime || orderByDate) {
+                if (orderByModTime) {
                     if (fileTimes && !fileTimes.has(relativePath)) {
                         try {
                             let fileTime = null;
@@ -1481,46 +1434,7 @@ class DocService {
                                 // Use filesystem modification time
                                 const stat = fs.statSync(filePath);
                                 fileTime = stat.mtime.getTime();
-                            } else {
-                                // Extract embedded date from file content
-                                const fileContent = fs.readFileSync(filePath, 'utf8');
-                                const fileLines = fileContent.split('\n');
-
-                                // Find first line matching date pattern
-                                let dateMatch = null;
-                                for (const fileLine of fileLines) {
-                                    const trimmedLine = fileLine.trim();
-                                    const match = trimmedLine.match(/^\[(20[0-9]{2}\/[0-9]{2}\/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} (AM|PM))\]/);
-                                    if (match) {
-                                        dateMatch = match;
-                                        break;
-                                    }
-                                }
-
-                                // Parse the embedded date
-                                if (dateMatch) {
-                                    const dateStr = dateMatch[1];
-                                    const dateParts = dateStr.split(/\/|:|\s/);
-                                    if (dateParts.length === 7) {
-                                        const year = parseInt(dateParts[0], 10);
-                                        const month = parseInt(dateParts[1], 10) - 1; // Zero-based months
-                                        const day = parseInt(dateParts[2], 10);
-                                        let hours = parseInt(dateParts[3], 10);
-                                        const minutes = parseInt(dateParts[4], 10);
-                                        const seconds = parseInt(dateParts[5], 10);
-                                        const ampm = dateParts[6];
-
-                                        // Convert to 24-hour format
-                                        if (ampm === 'PM' && hours !== 12) {
-                                            hours += 12;
-                                        } else if (ampm === 'AM' && hours === 12) {
-                                            hours = 0;
-                                        }
-
-                                        fileTime = new Date(year, month, day, hours, minutes, seconds).getTime();
-                                    }
-                                }
-                            }
+                            } 
 
                             if (fileTime != null) {
                                 fileTimes.set(relativePath, fileTime);
@@ -1559,10 +1473,9 @@ class DocService {
                 };
 
                 // Add time value for sorting (internal use)
-                if ((orderByModTime || orderByDate) && timeVal !== undefined) {
+                if ((orderByModTime) && timeVal !== undefined) {
                     result.timeVal = timeVal;
                 }
-
                 results.push(result);
             }
         }
