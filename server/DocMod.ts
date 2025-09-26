@@ -334,7 +334,7 @@ class DocMod {
             return;
         }
         await runTrans(async () => {
-            console.log("Delete File or Folder Request");
+            // console.log("Delete File or Folder Request");
             try {
             // Extract request parameters
                 const { fileOrFolderName, fileNames, treeFolder, docRootKey } = req.body;
