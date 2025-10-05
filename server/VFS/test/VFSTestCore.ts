@@ -1,4 +1,4 @@
-import pgdb from '../../../../../server/PGDB.js';
+import pgdb from '../../../../../server/db/PGDB.js';
 
 const testRootKey = 'usr';
 

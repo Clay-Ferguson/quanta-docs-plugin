@@ -5,10 +5,10 @@ import { AuthenticatedRequest, handleError, svrUtil, throwError } from "../../..
 import { config } from "../../../server/Config.js";
 import { docUtil } from "./DocUtil.js";
 import { IFS } from "./IFS.js";
-import { runTrans } from "../../../server/Transactional.js";
+import { runTrans } from "../../../server/db/Transactional.js";
 import fs from 'fs';
 import path from 'path';
-import pgdb from "../../../server/PGDB.js";
+import pgdb from "../../../server/db/PGDB.js";
 import { exec } from 'child_process';
 import { fixName, getFilenameExtension, isImageExt } from '../../../common/CommonUtils.js';
 

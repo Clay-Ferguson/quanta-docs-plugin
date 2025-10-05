@@ -1,5 +1,5 @@
 import { IFS, IFSStats } from '../../../../plugins/docs/server/IFS.js'
-import pgdb from '../../../../server/PGDB.js';
+import pgdb from '../../../../server/db/PGDB.js';
 import { config } from '../../../../server/Config.js';
 import { TreeNode, UserProfileCompact } from '../../../../common/types/CommonTypes.js';
 import { svrUtil } from '../../../../server/ServerUtil.js';

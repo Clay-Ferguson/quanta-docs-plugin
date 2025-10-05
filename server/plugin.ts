@@ -12,7 +12,7 @@ import { docBinary } from "./DocBinary.js";
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import pgdb from "../../../server/PGDB.js";
+import pgdb from "../../../server/db/PGDB.js";
 import docVFS from './VFS/DocVFS.js';
 import { UserProfileCompact } from "../../../common/types/CommonTypes.js";
 import vfs from './VFS/VFS.js';

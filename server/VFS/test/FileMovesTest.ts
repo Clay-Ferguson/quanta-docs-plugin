@@ -1,4 +1,4 @@
-import pgdb from '../../../../../server/PGDB.js';
+import pgdb from '../../../../../server/db/PGDB.js';
 import { AuthenticatedRequest } from '../../../../../server/ServerUtil.js';
 import { docMod } from '../../../../../plugins/docs/server/DocMod.js';
 import { dumpTableStructure, resetTestEnvironment } from './VFSTest.js';
