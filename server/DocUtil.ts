@@ -5,7 +5,6 @@ import { handleError } from "../../../server/ServerUtil.js";
 import { config } from "../../../server/Config.js";
 import { IFS } from './IFS.js';
 import vfs from './VFS/VFS.js';
-import lfs from './LFS/LFS.js';
 const { exec } = await import('child_process');
 
 /**
@@ -55,7 +54,7 @@ class DocUtil {
         if (rootType === 'vfs') {
             return vfs;
         } else {
-            return lfs; // Default to Linux File System
+            throw new Error(`Unsupported file system type: ${rootType}`); // Currently only VFS is implemented
         }
     }
 

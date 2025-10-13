@@ -1,7 +1,6 @@
 import { config } from "../../../server/Config.js";
 import { Request } from 'express';
 import { runTests as runVfsTests } from './VFS/test/vfs.test.js';
-import { runTests as runLfsTests } from './LFS/test/lfs.test.js';
 import { httpServerUtil } from "../../../server/HttpServerUtil.js";
 import { docSvc } from "./DocService.js";
 import { ssg } from "./SSGService.js";
@@ -178,11 +177,11 @@ class DocsServerPlugin implements IServerPlugin {
 
     async runAllTests(): Promise<void> {
         console.log("Running embedded tests...");
-        if (process.env.POSTGRES_HOST) {
+        if (process.env.POSTGRES_HOST) { // todo-0: This is how we were doing a lot of checking to see if we're running docker or not and it no longer applies. 
             await runVfsTests();
         }
         else {
-            await runLfsTests();
+            console.warn('POSTGRES_HOST environment variable is not set (also LFS no longer supported)');
         }
         return Promise.resolve();
     }    
