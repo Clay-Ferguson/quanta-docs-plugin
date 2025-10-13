@@ -181,7 +181,7 @@ class DocsServerPlugin implements IServerPlugin {
             await runVfsTests();
         }
         else {
-            console.warn('POSTGRES_HOST environment variable is not set (also LFS no longer supported)');
+            throw new Error('PostgreSQL host not configured. Cannot run VFS tests.');
         }
         return Promise.resolve();
     }    

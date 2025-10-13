@@ -1,6 +1,6 @@
 import { TreeNode } from "../../../common/types/CommonTypes.js";
 
-// Similar to 'fs.Stats', but for our virtual file system (VFS) or local file system (LFS)
+// todo-0: this is probably no longer needed since we only support VFS now
 export interface IFSStats {
     is_public?: boolean;
     is_directory: boolean;
@@ -11,9 +11,7 @@ export interface IFSStats {
 
 /**
  * Virtual File System Interface
- * 
- * This interface defines all file system operations needed by the docs plugin.
- * Implementations can provide either real file system access (LFS) or PostgreSQL-based virtual file system (VFS).
+ * todo-0: this is probably no longer needed since we only support VFS now?
  */
 export interface IFS {
     // File existence and metadata
@@ -27,7 +25,6 @@ export interface IFS {
     writeFile(owner_id: number, path: string, data: string | Buffer, encoding: BufferEncoding): Promise<void>;
     writeFileEx(owner_id: number, path: string, data: string | Buffer, encoding: BufferEncoding, is_public: boolean): Promise<void>;
 
-    // Currently only used by VFS but theoretically could be done in LFS using XATTRS or some other approach.
     getItemByID(uuid: string, rootKey: string): Promise<{ node: TreeNode | null; docPath: string }>;
 
     // Directory operations

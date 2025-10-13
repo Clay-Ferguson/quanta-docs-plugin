@@ -34,11 +34,8 @@ class DocUtil {
         return null;
     }
     /**
-     * Factory method to create the appropriate file system implementation based on root configuration.
-     * Returns either LFS (Linux File System) for "lfs" type or VFS (Virtual File System) for "vfs" type.
-     * 
-     * @param docRootKey - Key identifier for the document root
-     * @returns IFS implementation (LFS or VFS)
+     * Factory method to create the file system implementation. 
+     * todo-0: the docRootKey may be obsolete now that we only support VFS?
      */
     getFileSystem(docRootKey: string): IFS {
         if (!docRootKey) {
@@ -49,7 +46,7 @@ class DocUtil {
             throw new Error(`Invalid document root key: ${docRootKey}`);
         }
         
-        const rootType = rootConfig.type || 'lfs'; // Default to lfs if type not specified
+        const rootType = rootConfig.type || 'vfs'; // Default to vfs if type not specified
         
         if (rootType === 'vfs') {
             return vfs;

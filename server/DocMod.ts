@@ -626,6 +626,7 @@ class DocMod {
                 }
 
                 // For PostgreSQL VFS mode, make direct database call
+                // todo-0: this check should now be unnecessary since only VFS is supported
                 if (ifs.constructor.name === 'VFS') {
                     // Call the PostgreSQL function
                     const result = await pgdb.query(
@@ -645,14 +646,7 @@ class DocMod {
                         console.error(`Failed to set visibility: ${diagnostic}`);
                         res.status(500).json({ error: diagnostic });
                     }
-                } else {
-                    // For local filesystem, we don't have a visibility concept
-                    // Future implementation could add this via extended attributes or similar
-                    console.log(`LFS mode doesn't support visibility settings, returning success without changes`);
-                    res.json({ 
-                        message: `Visibility settings are only supported in PostgreSQL mode` 
-                    });
-                }
+                } 
             } catch (error) {
                 handleError(error, res, 'Failed to set public status');
                 throw error;

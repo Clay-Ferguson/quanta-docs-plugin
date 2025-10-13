@@ -576,7 +576,7 @@ class VFS implements IFS {
         return this.normalizePath(parts.join('/'));
     }
 
-    /* NOTE: VFS requires NO leading slashes, but LFS requires a leading slash. */
+    /* NOTE: VFS requires there be NO leading slashes on paths */
     public normalizePath(fullPath: string): string {
         // use regex to strip any leading slashes or dots
         const normalizedPath = 
