@@ -70,3 +70,47 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_readdir_by_owner
+-- Finds all files/folders in the specified path owned by the specified owner
+-- Returns files/folders in ordinal order with their metadata
+-- Uses the ordinal column instead of filename prefix for ordering (key difference from VFS)
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_readdir_by_owner(
+    owner_id_arg INTEGER,
+    dir_path TEXT,
+    root_key TEXT
+) 
+RETURNS TABLE(
+    owner_id INTEGER,
+    is_public BOOLEAN,
+    filename VARCHAR(255),
+    is_directory BOOLEAN,
+    size_bytes BIGINT,
+    content_type VARCHAR(100),
+    created_time TIMESTAMP WITH TIME ZONE,
+    modified_time TIMESTAMP WITH TIME ZONE,
+    ordinal INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        n.owner_id,
+        n.is_public,
+        n.filename,
+        n.is_directory,
+        n.size_bytes,
+        n.content_type,
+        n.created_time,
+        n.modified_time,
+        n.ordinal
+    FROM vfs2_nodes n
+    WHERE 
+        n.doc_root_key = root_key 
+        AND n.parent_path = dir_path
+        AND n.owner_id = owner_id_arg 
+    ORDER BY 
+        n.ordinal ASC, n.filename ASC;
+END;
+$$ LANGUAGE plpgsql;

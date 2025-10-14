@@ -25,3 +25,7 @@ You'll notice in the file named `plugins/docs/server/VFS/test/vfs.test.ts` we ha
 ### Step 3
 
 Next let's implement `vfs2_readdir` in our vfs2 `functions.sql` file, and then add a unit test to exercise this new function. Remember the significant change to it, is that it's now going to have the ordinal column in it's results.
+
+### Step 4
+
+Next let's implement `vfs2_readdir_by_owner` in our vfs2 `functions.sql` file, and then add a unit test to exercise this new function. Remember the significant change to it, is that it's now going to have the ordinal column in it's results.
