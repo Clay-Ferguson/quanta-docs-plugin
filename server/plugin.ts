@@ -1,6 +1,7 @@
 import { config } from "../../../server/Config.js";
 import { Request } from 'express';
 import { runTests as runVfsTests } from './VFS/test/vfs.test.js';
+import { runTests as runVfs2Tests } from './VFS2/test/vfs2.test.js';
 import { httpServerUtil } from "../../../server/HttpServerUtil.js";
 import { docSvc } from "./DocService.js";
 import { ssg } from "./SSGService.js";
@@ -32,19 +33,16 @@ class DocsServerPlugin implements IServerPlugin {
             this.pgMode = true;
         
             // Initialize database schema
-            await this.initializeSchema();
-
-            // Initialize stored functions
-            await this.initializeFunctions();
+            await this.initializeDatabase('VFS/SQL');
+            await this.initializeDatabase('VFS2/SQL');
 
             if (!pgdb.adminProfile) {
                 throw new Error('Admin profile not loaded. Please ensure the database is initialized and the admin user is created.');
             }
             await vfs.createUserFolder(pgdb.adminProfile);
-
         }
         else {
-            console.warn('POSTGRES_HOST environment variable is not set. Skipping database initialization.');
+            throw new Error('POSTGRES_HOST environment variable is not set.');
         }
     }
 
@@ -54,6 +52,14 @@ class DocsServerPlugin implements IServerPlugin {
             await vfs.createUserFolder(userProfile);
         }
         return userProfile;
+    }
+
+    private async initializeDatabase(folder: string): Promise<void> {
+        console.log(`Initializing database for folder: ${folder}`);
+        await this.initializeSchema(folder);
+
+        // Initialize stored functions
+        await this.initializeFunctions(folder);
     }
 
     private initRoutes(context: IAppContext) {
@@ -99,13 +105,14 @@ class DocsServerPlugin implements IServerPlugin {
     }
 
     /**
-         * Initialize database schema by reading and executing schema.sql
-         */
-    private async initializeSchema(): Promise<void> {
-        const client = await pgdb.getClient();
+     * Initialize database schema by reading and executing schema.sql
+     */
+    private async initializeSchema(folder: string): Promise<void> {
+        console.log('Initializing database schema...');
+        const client = await pgdb.getClient(); 
         try {
             // Read schema.sql file from dist directory (copied during build)
-            const schemaPath = path.join(__dirname, 'VFS/SQL', 'schema.sql');
+            const schemaPath = path.join(__dirname, folder, 'schema.sql');
             console.log('Reading schema from:', schemaPath);
             const schemaSql = fs.readFileSync(schemaPath, 'utf8');
                 
@@ -124,11 +131,11 @@ class DocsServerPlugin implements IServerPlugin {
     /**
      * Initialize PostgreSQL functions by reading and executing functions.sql
      */
-    private async initializeFunctions(): Promise<void> {
+    private async initializeFunctions(folder: string): Promise<void> {
         const client = await pgdb.getClient();
         try {
             // Read functions.sql file from dist directory (copied during build)
-            const functionsPath = path.join(__dirname, 'VFS/SQL', 'functions.sql');
+            const functionsPath = path.join(__dirname, folder, 'functions.sql');
             console.log('Reading functions from:', functionsPath);
             const functionsSql = fs.readFileSync(functionsPath, 'utf8');
                 
@@ -179,6 +186,7 @@ class DocsServerPlugin implements IServerPlugin {
         console.log("Running embedded tests...");
         if (process.env.POSTGRES_HOST) { // todo-0: This is how we were doing a lot of checking to see if we're running docker or not and it no longer applies. 
             await runVfsTests();
+            await runVfs2Tests();
         }
         else {
             throw new Error('PostgreSQL host not configured. Cannot run VFS tests.');
