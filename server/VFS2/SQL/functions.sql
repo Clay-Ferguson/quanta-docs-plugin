@@ -114,3 +114,75 @@ BEGIN
         n.ordinal ASC, n.filename ASC;
 END;
 $$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_get_max_ordinal
+-- Equivalent to DocUtil.getMaxOrdinal() - finds highest ordinal in a directory
+-- Uses the ordinal column directly instead of parsing filename prefixes (key difference from VFS)
+-- Returns the maximum ordinal value from direct children in the given path
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_get_max_ordinal(
+    parent_path_arg TEXT,
+    root_key TEXT
+) 
+RETURNS INTEGER AS $$
+DECLARE
+    max_ord INTEGER;
+BEGIN
+    SELECT COALESCE(MAX(ordinal), 0)
+    INTO max_ord
+    FROM vfs2_nodes
+    WHERE 
+        doc_root_key = root_key
+        AND parent_path = parent_path_arg;
+        
+    RETURN max_ord;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ==============================================================================
+-- BASIC FILE OPERATIONS
+-- ==============================================================================
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_read_file
+-- Equivalent to fs.readFileSync() - reads file content (both text and binary)
+-- Returns BYTEA for compatibility, but content comes from appropriate column
+-- Uses direct filename matching instead of ordinal prefix parsing (key difference from VFS)
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_read_file(
+    owner_id_arg INTEGER,
+    parent_path_param TEXT,
+    filename_param TEXT,
+    root_key TEXT
+) 
+RETURNS BYTEA AS $$
+DECLARE
+    file_content BYTEA;
+    text_content TEXT;
+    is_binary_file BOOLEAN;
+BEGIN
+    SELECT is_binary, content_text, content_binary
+    INTO is_binary_file, text_content, file_content
+    FROM vfs2_nodes
+    WHERE 
+        doc_root_key = root_key
+        AND parent_path = parent_path_param
+        AND filename = filename_param
+        AND is_directory = FALSE
+        AND (owner_id_arg = 0 OR owner_id = owner_id_arg OR is_public = TRUE); 
+        
+    -- Check if file was found
+    IF is_binary_file IS NULL THEN
+        RAISE EXCEPTION 'File not found: %/%', parent_path_param, filename_param;
+    END IF;
+    
+    -- Return appropriate content based on file type
+    IF is_binary_file THEN
+        RETURN file_content;
+    ELSE
+        -- Convert text to BYTEA for return
+        RETURN convert_to(text_content, 'UTF8');
+    END IF;
+END;
+$$ LANGUAGE plpgsql;

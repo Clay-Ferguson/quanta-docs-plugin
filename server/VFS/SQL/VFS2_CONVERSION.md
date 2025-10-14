@@ -29,3 +29,15 @@ Next let's implement `vfs2_readdir` in our vfs2 `functions.sql` file, and then a
 ### Step 4
 
 Next let's implement `vfs2_readdir_by_owner` in our vfs2 `functions.sql` file, and then add a unit test to exercise this new function. Remember the significant change to it, is that it's now going to have the ordinal column in it's results.
+
+### Step 5
+
+Next let's implement `vfs_get_max_ordinal` in our vfs2 `functions.sql` file, and then add a unit test to exercise this new function. Remember we now hold ordinal values in a column so this will not be parsing substrings to build ordinals but just directly using the column.
+
+### Step 6
+
+Next do `vfs_read_file` and also a unit test of course. To save tokens, please just respond with "done." when you've completed your work, so we can save on token use. You don't need to explain what you've done.
+
+### Step 7
+
+Next do `vfs_write_text_file`, and it's unit test. Say 'done.' when finished.
