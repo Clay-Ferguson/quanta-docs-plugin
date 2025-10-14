@@ -22,3 +22,6 @@ Please create the new `schema.sql` for the VFS2 implementation, using the origin
 
 You'll notice in the file named `plugins/docs/server/VFS/test/vfs.test.ts` we have all of our existing testing for VFS. we of course cannot replicate all of those test cases right now , and I'm not asking you to , but what you can do for now is create a test file named `plugins/docs/server/VFS2/test/vfs2.test.ts` and using the appropriate similar approaches to what we have in the VFS version, I would like for you to create just one single unit test following that same pattern , which will simply verify that we can write a record to our new VFS2 table and read it back. for now don't try to wire up this test case to actually run because you won't know how to make it run, I would just like for you to focus on creating the actual test file with this implementation in it, and we'll worry about getting the test to run in the next step . 
 
+### Step 3
+
+Next let's implement `vfs2_readdir` in our vfs2 `functions.sql` file, and then add a unit test to exercise this new function. Remember the significant change to it, is that it's now going to have the ordinal column in it's results.
