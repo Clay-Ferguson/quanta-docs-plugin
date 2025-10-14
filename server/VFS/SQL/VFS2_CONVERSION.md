@@ -55,3 +55,7 @@ Next do `vfs_exists` and it's unit test.
 ### Step 10
 
 Next do `vfs_get_node_by_name` and it's unit test.
+
+### Step 11
+
+Next do `vfs_stat` and it's unit test.

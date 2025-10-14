@@ -349,6 +349,61 @@ BEGIN
         AND parent_path = parent_path_param
         AND filename = filename_param;
         
-    RETURN exists_flag;
+        RETURN exists_flag;
+END;
+$$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_get_node_by_name 
+-- Similar to vfs2_exists but returns the entire node row if found, or null if not found
+-- Uses vfs2_nodes table and includes ordinal column (key difference from VFS)
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_get_node_by_name(
+    parent_path_param TEXT,
+    filename_param TEXT,
+    root_key TEXT
+) 
+RETURNS TABLE(
+    id INTEGER,
+    uuid UUID,
+    owner_id INTEGER,
+    doc_root_key VARCHAR(255),
+    parent_path TEXT,
+    filename VARCHAR(255),
+    ordinal INTEGER,
+    is_directory BOOLEAN,
+    content_text TEXT,
+    content_binary BYTEA,
+    is_binary BOOLEAN,
+    content_type VARCHAR(100),
+    size_bytes BIGINT,
+    created_time TIMESTAMP WITH TIME ZONE,
+    modified_time TIMESTAMP WITH TIME ZONE,
+    is_public BOOLEAN
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        n.id,
+        n.uuid,
+        n.owner_id,
+        n.doc_root_key,
+        n.parent_path,
+        n.filename,
+        n.ordinal,
+        n.is_directory,
+        n.content_text,
+        n.content_binary,
+        n.is_binary,
+        n.content_type,
+        n.size_bytes,
+        n.created_time,
+        n.modified_time,
+        n.is_public
+    FROM vfs2_nodes n
+    WHERE 
+        n.doc_root_key = root_key
+        AND n.parent_path = parent_path_param
+        AND n.filename = filename_param;
 END;
 $$ LANGUAGE plpgsql;
