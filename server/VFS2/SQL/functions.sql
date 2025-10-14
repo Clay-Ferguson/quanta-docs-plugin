@@ -529,6 +529,7 @@ CREATE OR REPLACE FUNCTION vfs2_mkdir(
 RETURNS INTEGER AS $$
 DECLARE
     dir_id INTEGER;
+    inserted_count INTEGER;
 BEGIN
     -- Check if directory already exists
     IF vfs2_exists(parent_path_param, dirname_param, root_key) THEN
@@ -567,6 +568,20 @@ BEGIN
         NOW(),
         is_public_arg
     ) RETURNING id INTO dir_id;
+    
+    -- Verify the INSERT actually worked
+    GET DIAGNOSTICS inserted_count = ROW_COUNT;
+    
+    IF inserted_count = 0 OR dir_id IS NULL THEN
+        RAISE EXCEPTION 'vfs2_mkdir: Failed to insert directory [%] in parent [%] - no rows inserted or ID returned', 
+            dirname_param, parent_path_param;
+    END IF;
+    
+    -- Double-check that we can find the directory we just created
+    IF NOT vfs2_exists(parent_path_param, dirname_param, root_key) THEN
+        RAISE EXCEPTION 'vfs2_mkdir: Directory was inserted (ID: %) but vfs2_exists cannot find it: parent=[%] name=[%] root=[%]', 
+            dir_id, parent_path_param, dirname_param, root_key;
+    END IF;
     
     RETURN dir_id;
 END;
@@ -703,9 +718,24 @@ DECLARE
     part TEXT;
     i INTEGER;
     next_ordinal INTEGER;
+    clean_path TEXT;
+    dir_id INTEGER;
 BEGIN
+    -- Clean and normalize the path (preserve leading slash if present)
+    clean_path := trim(trailing '/' from full_path);
+    
+    -- If empty path or just "/", nothing to create
+    IF clean_path = '' OR clean_path = '/' THEN
+        RETURN TRUE;
+    END IF;
+    
+    -- Remove leading slash for splitting, but we'll add it back for parent paths
+    IF clean_path LIKE '/%' THEN
+        clean_path := substring(clean_path from 2);
+    END IF;
+    
     -- Split path into parts
-    path_parts := string_to_array(trim(both '/' from full_path), '/');
+    path_parts := string_to_array(clean_path, '/');
     current_path := '';
     
     -- Create each directory in the path if it doesn't exist
@@ -713,7 +743,7 @@ BEGIN
         part := path_parts[i];
         
         -- Skip empty parts
-        IF part = '' THEN
+        IF part = '' OR part IS NULL THEN
             CONTINUE;
         END IF;
         
@@ -722,13 +752,26 @@ BEGIN
             -- Get the next ordinal for this directory level
             next_ordinal := vfs2_get_max_ordinal(current_path, root_key) + 1;
             
-            -- Create the directory with auto-assigned ordinal
-            PERFORM vfs2_mkdir(owner_id_arg, current_path, part, root_key, next_ordinal, TRUE);
+            BEGIN
+                -- Create the directory with auto-assigned ordinal
+                dir_id := vfs2_mkdir(owner_id_arg, current_path, part, root_key, next_ordinal, TRUE, FALSE);
+                
+                -- Verify the directory was actually created
+                IF NOT vfs2_exists(current_path, part, root_key) THEN
+                    RAISE EXCEPTION 'vfs2_ensure_path: Directory creation succeeded (ID: %) but vfs2_exists still returns false for: parent_path=[%] filename=[%] root_key=[%]', 
+                        dir_id, current_path, part, root_key;
+                END IF;
+                
+            EXCEPTION
+                WHEN OTHERS THEN
+                    RAISE EXCEPTION 'vfs2_ensure_path: Failed to create directory [%] in parent path [%]. Original error: %', 
+                        part, current_path, SQLERRM;
+            END;
         END IF;
         
-        -- Update current path
+        -- Update current path for next iteration, maintaining leading slash pattern
         IF current_path = '' THEN
-            current_path := part;
+            current_path := '/' || part;
         ELSE
             current_path := current_path || '/' || part;
         END IF;
