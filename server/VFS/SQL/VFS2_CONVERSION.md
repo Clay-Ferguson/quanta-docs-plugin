@@ -41,3 +41,7 @@ Next do `vfs_read_file` and also a unit test of course. To save tokens, please j
 ### Step 7
 
 Next do `vfs_write_text_file`, and it's unit test. Say 'done.' when finished.
+
+### Step 8
+
+Next do `vfs_write_binary_file` and it's unit test. Say 'done.' when finished.
