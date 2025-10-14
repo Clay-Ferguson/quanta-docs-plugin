@@ -8,6 +8,8 @@ This markdown file will contain the AI prompts, and instructions related to conv
 
 Currently the VFS implementation (at least for the postgres SQL functions and postgres tables) we have those SQL commands defined in `plugins/docs/server/VFS/SQL/functions.sql` and `plugins/docs/server/VFS/SQL/schema.sql`. We'll create our new VFS2 SQL implementation in `plugins/docs/VFS2/SQL`.
 
+To save tokens, as you do each Step below, please just respond with "done." when you've completed your work, so we can save on token use. You don't need to explain what you've done, just do it.
+
 ## VFS2 Implementation Steps
 
 ### Step 1
@@ -36,12 +38,16 @@ Next let's implement `vfs_get_max_ordinal` in our vfs2 `functions.sql` file, and
 
 ### Step 6
 
-Next do `vfs_read_file` and also a unit test of course. To save tokens, please just respond with "done." when you've completed your work, so we can save on token use. You don't need to explain what you've done.
+Next do `vfs_read_file` and also a unit test of course. 
 
 ### Step 7
 
-Next do `vfs_write_text_file`, and it's unit test. Say 'done.' when finished.
+Next do `vfs_write_text_file`, and it's unit test.
 
 ### Step 8
 
-Next do `vfs_write_binary_file` and it's unit test. Say 'done.' when finished.
+Next do `vfs_write_binary_file` and it's unit test. 
+
+### Step 9
+
+Next do `vfs_exists` and it's unit test. 

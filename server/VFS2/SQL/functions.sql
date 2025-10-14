@@ -256,3 +256,73 @@ BEGIN
     RETURN file_id;
 END;
 $$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_write_binary_file
+-- Equivalent to fs.writeFileSync() for binary files - writes binary file content
+-- Uses ordinal column directly instead of filename prefix management (key difference from VFS)
+-- Ordinal parameter is required and controls the positional ordering within the parent directory
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_write_binary_file(
+    owner_id_arg INTEGER,
+    parent_path_param TEXT,
+    filename_param TEXT,
+    content_data BYTEA,
+    root_key TEXT,
+    ordinal_param INTEGER,
+    content_type_param TEXT DEFAULT 'application/octet-stream',
+    is_public_param BOOLEAN DEFAULT FALSE
+) 
+RETURNS INTEGER AS $$
+DECLARE
+    file_id INTEGER;
+    file_size BIGINT;
+BEGIN
+    file_size := LENGTH(content_data);
+    
+    INSERT INTO vfs2_nodes (
+        owner_id,
+        doc_root_key,
+        parent_path,
+        filename,
+        ordinal,
+        is_directory,
+        content_text,
+        content_binary,
+        is_binary,
+        content_type,
+        size_bytes,
+        created_time,
+        modified_time,
+        is_public
+    ) VALUES (
+        owner_id_arg,
+        root_key,
+        parent_path_param,
+        filename_param,
+        ordinal_param,
+        FALSE,
+        NULL,
+        content_data,
+        TRUE,
+        content_type_param,
+        file_size,
+        NOW(),
+        NOW(),
+        is_public_param
+    )
+    ON CONFLICT (doc_root_key, parent_path, filename)
+    DO UPDATE SET 
+        content_text = NULL,
+        content_binary = content_data,
+        is_binary = TRUE,
+        content_type = content_type_param,
+        size_bytes = file_size,
+        ordinal = ordinal_param,
+        is_public = is_public_param,
+        modified_time = NOW()
+    RETURNING id INTO file_id;
+    
+    RETURN file_id;
+END;
+$$ LANGUAGE plpgsql;
