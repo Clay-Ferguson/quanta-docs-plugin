@@ -62,8 +62,12 @@ Next do `vfs_stat` and it's unit test.
 
 ### Step 12
 
-Next do `vfs_unlink` and it's unit test. Don't summarize your work when done, just say "done."
+Next do `vfs_unlink` and it's unit test. 
 
 ### Step 13
 
-Next do `vfs_children_exist` and it's unit test. Don't summarize your work when done, just say "done."
+Next do `vfs_children_exist` and it's unit test. 
+
+### Step 14
+
+Next you can proably do `vfs_mkdir` and `vfs_rmdir` and integrate them into the same unit test, which creates a dir, verifies it exists, then deletes it, and then verifies it's gone.

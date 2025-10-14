@@ -506,3 +506,181 @@ BEGIN
     RETURN has_children;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ==============================================================================
+-- DIRECTORY OPERATIONS
+-- ==============================================================================
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_mkdir
+-- Equivalent to fs.mkdirSync() - creates a directory
+-- Uses ordinal column directly instead of filename prefix management (key difference from VFS)
+-- Ordinal parameter is required and controls the positional ordering within the parent directory
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_mkdir(
+    owner_id_arg INTEGER,
+    parent_path_param TEXT,
+    dirname_param TEXT,
+    root_key TEXT,
+    ordinal_param INTEGER,
+    recursive_flag BOOLEAN DEFAULT FALSE,
+    is_public_arg BOOLEAN DEFAULT FALSE
+) 
+RETURNS INTEGER AS $$
+DECLARE
+    dir_id INTEGER;
+BEGIN
+    -- Check if directory already exists
+    IF vfs2_exists(parent_path_param, dirname_param, root_key) THEN
+        RAISE EXCEPTION 'Directory already exists: %/%', parent_path_param, dirname_param;
+    END IF;
+    
+    -- Create the directory
+    INSERT INTO vfs2_nodes (
+        owner_id,
+        doc_root_key,
+        parent_path,
+        filename,
+        ordinal,
+        is_directory,
+        content_text,
+        content_binary,
+        is_binary,
+        content_type,
+        size_bytes,
+        created_time,
+        modified_time,
+        is_public
+    ) VALUES (
+        owner_id_arg,
+        root_key,
+        parent_path_param,
+        dirname_param,
+        ordinal_param,
+        TRUE,
+        NULL,
+        NULL,
+        FALSE,
+        'directory',
+        0,
+        NOW(),
+        NOW(),
+        is_public_arg
+    ) RETURNING id INTO dir_id;
+    
+    RETURN dir_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_rmdir
+-- Equivalent to fs.rmSync() - removes a directory recursively
+-- Uses vfs2_nodes table instead of vfs_nodes (key difference from VFS)
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_rmdir(
+    owner_id_arg INTEGER,
+    parent_path_param TEXT,
+    dirname_param TEXT,
+    root_key TEXT
+) 
+RETURNS INTEGER AS $$
+DECLARE
+    deleted_count INTEGER := 0;
+    dir_path TEXT;
+BEGIN
+    -- Build the full path of the directory to delete
+    -- Handle empty string (root) vs non-empty parent paths
+    IF parent_path_param = '' THEN
+        dir_path := dirname_param;
+    ELSE
+        dir_path := parent_path_param || '/' || dirname_param;
+    END IF;
+    
+    -- Check if directory exists
+    IF NOT vfs2_exists(parent_path_param, dirname_param, root_key) THEN
+        RAISE EXCEPTION 'Directory not found: %s/%s', parent_path_param, dirname_param;
+    END IF;
+    
+    -- Check authorization
+    IF NOT vfs2_check_auth(owner_id_arg, parent_path_param, dirname_param, root_key, TRUE) THEN
+        RAISE EXCEPTION 'Not authorized to remove directory: %s/%s', parent_path_param, dirname_param;
+    END IF;
+    
+    -- Delete all children recursively first (using a simpler approach)
+    -- Delete all descendants where parent_path starts with our directory path
+    DELETE FROM vfs2_nodes
+    WHERE 
+        doc_root_key = root_key
+        AND (
+            parent_path = dir_path OR 
+            parent_path LIKE dir_path || '/%'
+        );
+    
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    
+    -- Delete the directory itself
+    DELETE FROM vfs2_nodes
+    WHERE 
+        doc_root_key = root_key
+        AND parent_path = parent_path_param
+        AND filename = dirname_param
+        AND is_directory = TRUE;
+        
+    -- Add the directory itself to the count
+    deleted_count := deleted_count + 1;
+    
+    RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_check_auth
+-- Checks if a user is authorized to access/modify a file or directory
+-- Returns true if:
+-- 1. User is the owner of the file/folder
+-- 2. User has admin privileges (owner_id_arg = 0)
+-- Uses vfs2_nodes table instead of vfs_nodes (key difference from VFS)
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_check_auth(
+    owner_id_arg INTEGER,
+    parent_path_param TEXT,
+    filename_param TEXT,
+    root_key TEXT,
+    is_directory_param BOOLEAN DEFAULT NULL
+) 
+RETURNS BOOLEAN AS $$
+DECLARE
+    item_owner_id INTEGER;
+    item_exists BOOLEAN;
+    item_is_directory BOOLEAN;
+BEGIN
+    -- Check if the item exists and get its owner_id
+    SELECT 
+        owner_id, 
+        TRUE, 
+        is_directory
+    INTO 
+        item_owner_id, 
+        item_exists, 
+        item_is_directory
+    FROM vfs2_nodes
+    WHERE 
+        doc_root_key = root_key
+        AND parent_path = parent_path_param
+        AND filename = filename_param
+        AND (is_directory_param IS NULL OR is_directory = is_directory_param);
+    
+    -- Item doesn't exist
+    IF item_exists IS NULL THEN
+        RETURN FALSE;
+    END IF;
+    
+    -- Admin always has access
+    IF owner_id_arg = 0 THEN
+        RETURN TRUE;
+    END IF;
+    
+    -- Check if user is the owner
+    RETURN item_owner_id = owner_id_arg;
+END;
+$$ LANGUAGE plpgsql;
