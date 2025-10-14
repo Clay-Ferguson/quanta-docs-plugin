@@ -445,3 +445,36 @@ BEGIN
         AND n.filename = filename_param;
 END;
 $$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_unlink
+-- Equivalent to fs.unlinkSync() - deletes a file
+-- Uses vfs2_nodes table instead of vfs_nodes (key difference from VFS)
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_unlink(
+    owner_id_arg INTEGER,
+    parent_path_param TEXT,
+    filename_param TEXT,
+    root_key TEXT
+) 
+RETURNS BOOLEAN AS $$
+DECLARE
+    deleted_count INTEGER;
+BEGIN
+    DELETE FROM vfs2_nodes
+    WHERE 
+        doc_root_key = root_key
+        AND parent_path = parent_path_param
+        AND filename = filename_param
+        AND is_directory = FALSE
+        AND (owner_id_arg = 0 OR owner_id = owner_id_arg);
+        
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    
+    IF deleted_count = 0 THEN
+        RAISE EXCEPTION 'File not found: %/%', parent_path_param, filename_param;
+    END IF;
+    
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
