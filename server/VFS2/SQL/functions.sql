@@ -326,3 +326,29 @@ BEGIN
     RETURN file_id;
 END;
 $$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_exists
+-- Equivalent to fs.existsSync() - checks if file or directory exists
+-- Uses vfs2_nodes table instead of vfs_nodes (key difference from VFS)
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_exists(
+    parent_path_param TEXT,
+    filename_param TEXT,
+    root_key TEXT
+) 
+RETURNS BOOLEAN AS $$
+DECLARE
+    exists_flag BOOLEAN;
+BEGIN
+    SELECT COUNT(*) > 0
+    INTO exists_flag
+    FROM vfs2_nodes
+    WHERE 
+        doc_root_key = root_key
+        AND parent_path = parent_path_param
+        AND filename = filename_param;
+        
+    RETURN exists_flag;
+END;
+$$ LANGUAGE plpgsql;
