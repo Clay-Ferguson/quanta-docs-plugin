@@ -407,3 +407,41 @@ BEGIN
         AND n.filename = filename_param;
 END;
 $$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_stat
+-- Equivalent to fs.statSync() - gets file/directory metadata
+-- Uses vfs2_nodes table and includes ordinal column (key difference from VFS)
+-- Returns file/directory metadata including ordinal information
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_stat(
+    parent_path_param TEXT,
+    filename_param TEXT,
+    root_key TEXT
+) 
+RETURNS TABLE(
+    is_public BOOLEAN,
+    is_directory BOOLEAN,
+    size_bytes BIGINT,
+    created_time TIMESTAMP WITH TIME ZONE,
+    modified_time TIMESTAMP WITH TIME ZONE,
+    content_type VARCHAR(100),
+    ordinal INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        n.is_public,
+        n.is_directory,
+        n.size_bytes,
+        n.created_time,
+        n.modified_time,
+        n.content_type,
+        n.ordinal
+    FROM vfs2_nodes n
+    WHERE 
+        n.doc_root_key = root_key
+        AND n.parent_path = parent_path_param
+        AND n.filename = filename_param;
+END;
+$$ LANGUAGE plpgsql;
