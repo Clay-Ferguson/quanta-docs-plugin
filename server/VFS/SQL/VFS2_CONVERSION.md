@@ -71,3 +71,7 @@ Next do `vfs_children_exist` and it's unit test.
 ### Step 14
 
 Next you can proably do `vfs_mkdir` and `vfs_rmdir` and integrate them into the same unit test, which creates a dir, verifies it exists, then deletes it, and then verifies it's gone.
+
+### Step 15
+
+Next please do both `fs_ensure_path` and `vfs_rename`. For the test case you can just generate some random path, to ensure it exists, and then verify it exists, and then rename it, and then verify it got renamed.

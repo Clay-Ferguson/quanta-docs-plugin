@@ -684,3 +684,156 @@ BEGIN
     RETURN item_owner_id = owner_id_arg;
 END;
 $$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_ensure_path
+-- Helper function to create directory path recursively (like mkdir -p)
+-- Uses ordinal column directly instead of filename prefix management (key difference from VFS)
+-- Each directory created gets an automatically assigned ordinal based on max ordinal + 1
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_ensure_path(
+    owner_id_arg INTEGER,
+    full_path TEXT,
+    root_key TEXT
+) 
+RETURNS BOOLEAN AS $$
+DECLARE
+    path_parts TEXT[];
+    current_path TEXT;
+    part TEXT;
+    i INTEGER;
+    next_ordinal INTEGER;
+BEGIN
+    -- Split path into parts
+    path_parts := string_to_array(trim(both '/' from full_path), '/');
+    current_path := '';
+    
+    -- Create each directory in the path if it doesn't exist
+    FOR i IN 1..array_length(path_parts, 1) LOOP
+        part := path_parts[i];
+        
+        -- Skip empty parts
+        IF part = '' THEN
+            CONTINUE;
+        END IF;
+        
+        -- Check if this directory exists
+        IF NOT vfs2_exists(current_path, part, root_key) THEN
+            -- Get the next ordinal for this directory level
+            next_ordinal := vfs2_get_max_ordinal(current_path, root_key) + 1;
+            
+            -- Create the directory with auto-assigned ordinal
+            PERFORM vfs2_mkdir(owner_id_arg, current_path, part, root_key, next_ordinal, TRUE);
+        END IF;
+        
+        -- Update current path
+        IF current_path = '' THEN
+            current_path := part;
+        ELSE
+            current_path := current_path || '/' || part;
+        END IF;
+    END LOOP;
+    
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_rename
+-- Equivalent to fs.renameSync() - renames/moves a file or directory
+-- For directories, also updates the parent_path of all nested children
+-- Returns both success status and diagnostic information
+-- Uses vfs2_nodes table instead of vfs_nodes (key difference from VFS)
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_rename(
+    owner_id_arg INTEGER,
+    old_parent_path TEXT,
+    old_filename TEXT,
+    new_parent_path TEXT,
+    new_filename TEXT,
+    root_key TEXT
+) 
+RETURNS TABLE(success BOOLEAN, diagnostic TEXT) AS $$
+DECLARE
+    updated_count INTEGER;
+    child_count INTEGER := 0;
+    is_dir BOOLEAN;
+    old_path TEXT;
+    new_path TEXT;
+BEGIN
+    -- Check if target already exists
+    IF vfs2_exists(new_parent_path, new_filename, root_key) THEN
+        RETURN QUERY SELECT FALSE AS success, 
+                     format('Target already exists: %s/%s', new_parent_path, new_filename) AS diagnostic;
+        RETURN;
+    END IF;
+    
+    -- Check if the item being renamed is a directory
+    SELECT is_directory INTO is_dir
+    FROM vfs2_nodes
+    WHERE 
+        doc_root_key = root_key
+        AND parent_path = old_parent_path
+        AND filename = old_filename
+        AND (owner_id_arg = 0 OR owner_id = owner_id_arg);
+    
+    IF is_dir IS NULL THEN
+        RETURN QUERY SELECT FALSE AS success, 
+                     format('Source file not found: path=[%s] name=[%s] doc_root_key=[%s] owner_id_arg=[%L]', old_parent_path, old_filename, root_key, owner_id_arg) AS diagnostic;
+        RETURN;
+    END IF;
+    
+    -- Update the main record
+    UPDATE vfs2_nodes
+    SET 
+        parent_path = new_parent_path,
+        filename = new_filename,
+        modified_time = NOW()
+    WHERE 
+        doc_root_key = root_key
+        AND parent_path = old_parent_path
+        AND filename = old_filename;
+    
+    -- If it's a directory, update all children's parent paths
+    IF is_dir THEN
+        -- Build the old and new paths for child updates
+        -- Handle empty string (root) vs non-empty parent paths correctly
+        IF old_parent_path = '' THEN
+            old_path := old_filename;
+        ELSE
+            old_path := old_parent_path || '/' || old_filename;
+        END IF;
+        
+        IF new_parent_path = '' THEN
+            new_path := new_filename;
+        ELSE
+            new_path := new_parent_path || '/' || new_filename;
+        END IF;
+        
+        -- Update all children's parent paths
+        UPDATE vfs2_nodes
+        SET 
+            parent_path = CASE
+                -- Direct child of the renamed directory
+                WHEN parent_path = old_path THEN new_path
+                -- Deeper descendants - replace the prefix
+                ELSE regexp_replace(parent_path, '^' || old_path || '/', new_path || '/')
+            END,
+            modified_time = NOW()
+        WHERE 
+            doc_root_key = root_key
+            AND (parent_path = old_path OR parent_path LIKE old_path || '/%');
+        
+        GET DIAGNOSTICS child_count = ROW_COUNT;
+        
+        RETURN QUERY SELECT TRUE AS success, 
+                     format('Renamed directory from %s/%s to %s/%s. Updated %s children.', 
+                           old_parent_path, old_filename, new_parent_path, new_filename, child_count) AS diagnostic;
+    ELSE
+        -- For files, just return success
+        RETURN QUERY SELECT TRUE AS success,
+                     format('Renamed file from %s/%s to %s/%s', 
+                           old_parent_path, old_filename, new_parent_path, new_filename) AS diagnostic;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
