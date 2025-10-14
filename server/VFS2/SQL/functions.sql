@@ -478,3 +478,31 @@ BEGIN
     RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_children_exist
+-- Checks if a directory has any children (files or folders)
+-- Returns true if the specified path has any files or folders in it
+-- Used to determine if a directory is empty
+-- Uses vfs2_nodes table instead of vfs_nodes (key difference from VFS)
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_children_exist(
+    owner_id_arg INTEGER,
+    path_param TEXT,
+    root_key TEXT
+) 
+RETURNS BOOLEAN AS $$
+DECLARE
+    has_children BOOLEAN;
+BEGIN
+    SELECT COUNT(*) > 0
+    INTO has_children
+    FROM vfs2_nodes
+    WHERE 
+        doc_root_key = root_key
+        AND parent_path = path_param
+        AND (owner_id_arg = 0 OR owner_id = owner_id_arg OR is_public = TRUE);
+        
+    RETURN has_children;
+END;
+$$ LANGUAGE plpgsql;
