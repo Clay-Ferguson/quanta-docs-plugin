@@ -88,15 +88,15 @@ class DocUtil {
      * Shifts ordinals down for all files/folders at or below a given ordinal position
      * 
      * This method creates space for new files to be inserted at specific positions by
-     * incrementing the ordinal prefixes of existing files. It's essential for maintaining
-     * proper sequential ordering when inserting new items.
+     * incrementing the ordinal values. For VFS2, this is done efficiently in the database
+     * by updating the ordinal column directly. For legacy VFS, it renames files with
+     * ordinal prefixes.
      * 
-     * NOTE: todo-2: We do have a Postgres VFS function for doing this in a single call (vfs_shift_ordinals_down in 'unused.sql' file) 
-     * but it's untested, and we need to verify that this way of doing it works anyway, so we don't use the more efficient VFS method
-     *  yet for now. I think this method
-     * is probably in the '
+     * Process for VFS2:
+     * 1. Uses database function to increment ordinal values directly
+     * 2. Returns mapping (filenames don't change, only ordinals)
      * 
-     * Process:
+     * Process for legacy VFS:
      * 1. Reads directory contents and filters for ordinal-prefixed items
      * 2. Identifies items that need shifting (ordinal >= insertOrdinal)
      * 3. Sorts in reverse order to avoid naming conflicts during renaming
@@ -114,6 +114,20 @@ class DocUtil {
         itemsToIgnore: string[] | null, ifs: IFS): Promise<Map<string, string>> => {
         // console.log(`Shifting ordinals down by ${slotsToAdd} slots at ${absoluteParentPath} for insert ordinal ${insertOrdinal}`);
         ifs.checkFileAccess(absoluteParentPath, root);
+        
+        // Check if we're using VFS2 which has efficient database-based ordinal shifting
+        if ('shiftOrdinalsDown' in ifs && typeof ifs.shiftOrdinalsDown === 'function') {
+            console.log(`Using VFS2 database-based ordinal shifting for ${slotsToAdd} slots at ${absoluteParentPath}`);
+            
+            // Calculate the relative path from root for VFS2
+            const relativePath = path.relative(root, absoluteParentPath);
+            
+            // Use VFS2's efficient database-based shifting
+            return await (ifs as any).shiftOrdinalsDown(owner_id, relativePath, insertOrdinal, slotsToAdd);
+        }
+        
+        // Legacy VFS implementation using filename prefixes
+        console.log(`Using legacy VFS filename-based ordinal shifting for ${slotsToAdd} slots at ${absoluteParentPath}`);
         
         // Map to track old relative paths to new relative paths for external reference updates
         const pathMapping = new Map<string, string>();

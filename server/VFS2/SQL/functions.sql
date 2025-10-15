@@ -1104,3 +1104,41 @@ BEGIN
     );
 END;
 $$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_shift_ordinals_down
+-- Shifts ordinals down for all files/folders at or above a given ordinal position
+-- This creates space for new files to be inserted at specific positions
+-- Uses the ordinal column directly for efficient bulk updates (key difference from VFS)
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_shift_ordinals_down(
+    owner_id_arg INTEGER,
+    parent_path_param TEXT,
+    root_key TEXT,
+    insert_ordinal INTEGER,
+    slots_to_add INTEGER
+) 
+RETURNS TABLE(
+    old_filename VARCHAR(255),
+    new_filename VARCHAR(255),
+    old_ordinal INTEGER,
+    new_ordinal INTEGER
+) AS $$
+BEGIN
+    -- Update ordinals for all items at or above the insert position
+    -- Return the affected items for tracking path mappings
+    RETURN QUERY
+    UPDATE vfs2_nodes 
+    SET ordinal = ordinal + slots_to_add
+    WHERE 
+        doc_root_key = root_key 
+        AND parent_path = parent_path_param
+        AND (owner_id_arg = 0 OR owner_id = owner_id_arg)
+        AND ordinal >= insert_ordinal
+    RETURNING 
+        filename as old_filename,
+        filename as new_filename,
+        ordinal - slots_to_add as old_ordinal,
+        ordinal as new_ordinal;
+END;
+$$ LANGUAGE plpgsql;

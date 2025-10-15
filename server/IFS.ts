@@ -23,7 +23,7 @@ export interface IFS {
     // File content operations
     readFile(owner_id: number, path: string, encoding?: BufferEncoding): Promise<string | Buffer>;
     writeFile(owner_id: number, path: string, data: string | Buffer, encoding: BufferEncoding): Promise<void>;
-    writeFileEx(owner_id: number, path: string, data: string | Buffer, encoding: BufferEncoding, is_public: boolean): Promise<void>;
+    writeFileEx(owner_id: number, path: string, data: string | Buffer, encoding: BufferEncoding, is_public: boolean, ordinal?: number): Promise<void>;
 
     getItemByID(uuid: string, rootKey: string): Promise<{ node: TreeNode | null; docPath: string }>;
 
@@ -31,7 +31,7 @@ export interface IFS {
     readdir(owner_id: number, path: string): Promise<string[]>;
     readdirEx(owner_id: number, fullPath: string, loadContent: boolean): Promise<TreeNode[]>;
     mkdir(owner_id: number, path: string, options?: { recursive?: boolean }): Promise<void>;
-    mkdirEx(owner_id: number, path: string, options?: { recursive?: boolean }, is_public?: boolean): Promise<void>;
+    mkdirEx(owner_id: number, path: string, options?: { recursive?: boolean }, is_public?: boolean, ordinal?: number): Promise<void>;
 
     // File/directory manipulation
     rename(owner_id: number, oldPath: string, newPath: string): Promise<void>;

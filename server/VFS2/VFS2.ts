@@ -54,6 +54,7 @@ class VFS2 implements IFS {
             createTime: row.created_time,
             modifyTime: row.modified_time,
             content: row.content_text,  // Fixed: was row.text_content, now row.content_text
+            ordinal: row.ordinal,  // Add the ordinal field from database
         } as TreeNode;
     }
 
@@ -185,15 +186,148 @@ class VFS2 implements IFS {
     }
     
     async readFile(owner_id: number, fullPath: string, encoding?: BufferEncoding): Promise<string | Buffer> {
-        throw new Error("Method not implemented yet");
+        try {
+            const { parentPath, filename } = this.parsePath(fullPath);
+            
+            const result = await pgdb.query(
+                'SELECT vfs2_read_file($1, $2, $3, $4)',
+                pgdb.authId(owner_id), parentPath, filename, rootKey
+            );
+            
+            if (result.rows.length === 0) {
+                throw new Error(`File not found: ${fullPath}`);
+            }
+            const content = result.rows[0].vfs2_read_file;
+            if (encoding) {
+                return content.toString(encoding);
+            } else {
+                return content;
+            }
+        } catch (error) {
+            console.error('VFS2.readFile error:', error);
+            throw error;
+        }
     }
     
-    async writeFile(owner_id: number, fullPath: string, data: string | Buffer, encoding: BufferEncoding): Promise<void> {
-        throw new Error("Method not implemented yet");
+    async writeFile(owner_id: number, fullPath: string, data: string | Buffer, encoding?: BufferEncoding): Promise<void> {
+        return await this.writeFileEx(owner_id, fullPath, data, encoding || 'utf8', false);
     }
     
-    async writeFileEx(owner_id: number, fullPath: string, data: string | Buffer, encoding: BufferEncoding, is_public: boolean): Promise<void> {
-        throw new Error("Method not implemented yet");
+    
+    /**
+     * Determine if a file is binary based on its extension
+     */
+    private isBinaryFile(ext: string): boolean {
+        const binaryExtensions = [
+            '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.ico', '.tiff', '.webp',
+            '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+            '.zip', '.tar', '.gz', '.rar', '.7z',
+            '.mp3', '.mp4', '.avi', '.mov', '.wmv', '.flv',
+            '.exe', '.dll', '.so', '.dylib',
+            '.woff', '.woff2', '.ttf', '.otf'
+        ];
+        
+        return binaryExtensions.includes(ext.toLowerCase());
+    }
+
+    /**
+     * Get content type based on file extension
+     */
+    private getContentType(ext: string): string {
+        switch (ext.toLowerCase()) {
+        case '.md':
+            return 'text/markdown';
+        case '.txt':
+            return 'text/plain';
+        case '.json':
+            return 'application/json';
+        case '.html':
+        case '.htm':
+            return 'text/html';
+        case '.css':
+            return 'text/css';
+        case '.js':
+            return 'application/javascript';
+        case '.ts':
+            return 'text/typescript';
+        case '.xml':
+            return 'application/xml';
+        case '.yaml':
+        case '.yml':
+            return 'application/yaml';
+        case '.jpg':
+        case '.jpeg':
+            return 'image/jpeg';
+        case '.png':
+            return 'image/png';
+        case '.gif':
+            return 'image/gif';
+        case '.pdf':
+            return 'application/pdf';
+        case '.zip':
+            return 'application/zip';
+        case '.mp3':
+            return 'audio/mpeg';
+        case '.mp4':
+            return 'video/mp4';
+        default:
+            return 'application/octet-stream';
+        }
+    }
+    
+    async writeFileEx(owner_id: number, fullPath: string, data: string | Buffer, encoding: BufferEncoding, is_public: boolean, ordinal?: number): Promise<void> {
+        try {
+            const relativePath = this.normalizePath(fullPath);
+            const { parentPath, filename } = this.parsePath(relativePath);
+            
+            // If ordinal is not provided, get the next available ordinal (max + 1)
+            let finalOrdinal = ordinal;
+            if (finalOrdinal === undefined) {
+                const maxOrdinalResult = await pgdb.query(
+                    'SELECT COALESCE(MAX(ordinal), -1) + 1 as next_ordinal FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2',
+                    rootKey, parentPath
+                );
+                finalOrdinal = maxOrdinalResult.rows[0].next_ordinal;
+            }
+            
+            // Determine if this is a binary file based on extension
+            const ext = getFilenameExtension(filename).toLowerCase();
+            const isBinary = this.isBinaryFile(ext);
+            
+            // Determine content type based on file extension
+            const contentType = this.getContentType(ext);
+            
+            if (isBinary || Buffer.isBuffer(data)) {
+                // Handle binary files
+                let content: Buffer;
+                if (typeof data === 'string') {
+                    content = Buffer.from(data, encoding || 'utf8');
+                } else {
+                    content = data;
+                }
+                
+                await pgdb.query(
+                    'SELECT vfs2_write_binary_file($1, $2, $3, $4, $5, $6, $7, $8)',
+                    pgdb.authId(owner_id), parentPath, filename, content, rootKey, finalOrdinal, contentType, is_public
+                );
+            } else {
+                // Handle text files
+                let textContent: string;
+                if (typeof data === 'string') {
+                    textContent = data;
+                } else {
+                    textContent = data.toString(encoding || 'utf8');
+                }
+                
+                await pgdb.query(
+                    'SELECT vfs2_write_text_file($1, $2, $3, $4, $5, $6, $7, $8)',
+                    pgdb.authId(owner_id), parentPath, filename, textContent, rootKey, finalOrdinal, contentType, is_public
+                );
+            }
+        } catch (error) {
+            console.error('VFS2.writeFileEx error:', error);
+            throw error;
+        }
     }
     
     async getItemByID(uuid: string, rootKey: string): Promise<{ node: TreeNode | null; docPath: string }> {
@@ -227,8 +361,29 @@ class VFS2 implements IFS {
         throw new Error("Method not implemented yet");
     }
     
-    async mkdirEx(owner_id: number, fullPath: string, options?: { recursive?: boolean }, is_public?: boolean): Promise<void> {
-        throw new Error("Method not implemented yet");
+    async mkdirEx(owner_id: number, fullPath: string, options?: { recursive?: boolean }, is_public?: boolean, ordinal?: number): Promise<void> {
+        try {
+            const relativePath = this.normalizePath(fullPath);
+            const { parentPath, filename } = this.parsePath(relativePath);
+            
+            // If ordinal is not provided, get the next available ordinal (max + 1)
+            let finalOrdinal = ordinal;
+            if (finalOrdinal === undefined) {
+                const maxOrdinalResult = await pgdb.query(
+                    'SELECT COALESCE(MAX(ordinal), -1) + 1 as next_ordinal FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2',
+                    rootKey, parentPath
+                );
+                finalOrdinal = maxOrdinalResult.rows[0].next_ordinal;
+            }
+            
+            await pgdb.query(
+                'SELECT vfs2_mkdir($1, $2, $3, $4, $5, $6, $7)',
+                pgdb.authId(owner_id), parentPath, filename, rootKey, finalOrdinal, options?.recursive || false, is_public || false
+            );
+        } catch (error) {
+            console.error('VFS2.mkdirEx error:', error);
+            throw error;
+        }
     }
     
     async rename(owner_id: number, oldPath: string, newPath: string): Promise<void> {
@@ -256,6 +411,45 @@ class VFS2 implements IFS {
     
     async rm(owner_id: number, fullPath: string, options?: { recursive?: boolean, force?: boolean }): Promise<void> {
         throw new Error("Method not implemented yet");
+    }
+    
+    /**
+     * Shifts ordinals down for all files/folders at or above a given ordinal position
+     * This creates space for new files to be inserted at specific positions by
+     * incrementing the ordinal values directly in the database.
+     * 
+     * @param owner_id - The owner ID for authorization
+     * @param parentPath - The absolute path to the directory containing items to shift
+     * @param insertOrdinal - The ordinal position where we're inserting (files at this position and above get shifted)
+     * @param slotsToAdd - Number of ordinal slots to add (shift amount)
+     * @returns Map of old relative paths to new relative paths (filenames don't change in VFS2, so they map to themselves)
+     */
+    async shiftOrdinalsDown(owner_id: number, parentPath: string, insertOrdinal: number, slotsToAdd: number): Promise<Map<string, string>> {
+        try {
+            const relativePath = this.normalizePath(parentPath);
+            
+            const result = await pgdb.query(
+                'SELECT * FROM vfs2_shift_ordinals_down($1, $2, $3, $4, $5)',
+                pgdb.authId(owner_id), relativePath, rootKey, insertOrdinal, slotsToAdd
+            );
+            
+            // Create path mapping for compatibility with existing code
+            // In VFS2, filenames don't change (only ordinals do), so old and new filenames are the same
+            const pathMapping = new Map<string, string>();
+            
+            for (const row of result.rows) {
+                // Since filenames don't change in VFS2, we map each filename to itself
+                const filename = row.old_filename;
+                pathMapping.set(filename, filename);
+                
+                console.log(`Shifted ordinal for ${filename}: ${row.old_ordinal} -> ${row.new_ordinal}`);
+            }
+            
+            return pathMapping;
+        } catch (error) {
+            console.error('VFS2.shiftOrdinalsDown error:', error);
+            throw error;
+        }
     }
     
     checkFileAccess(filename: string, root: string): void {

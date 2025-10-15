@@ -143,8 +143,22 @@ class DocMod {
                     const parts = content.split('\n~\n');
                     
                     if (parts.length > 1) {
-                        // Extract the original file's ordinal for proper sequencing
-                        const originalOrdinal = docUtil.getOrdinalFromName(path.basename(finalFilePath));
+                        // Determine the file system type to handle ordinal extraction differently
+                        const fsType = docUtil.getFileSystemType(docRootKey!);
+                        let originalOrdinal: number;
+                        
+                        if (fsType === 'vfs') {
+                            // VFS2: Get ordinal from database
+                            const fileInfo: any = {};
+                            if (await ifs.exists(finalFilePath, fileInfo) && fileInfo.node) {
+                                originalOrdinal = fileInfo.node.ordinal;
+                            } else {
+                                originalOrdinal = 0; // Default if file doesn't exist yet
+                            }
+                        } else {
+                            // Legacy VFS: Extract ordinal from filename prefix
+                            originalOrdinal = docUtil.getOrdinalFromName(path.basename(finalFilePath));
+                        }
                         
                         // Make room for new files by shifting existing ordinals down
                         // Subtract 1 because the original file keeps its position
@@ -158,24 +172,41 @@ class DocMod {
                             let partFilePath = finalFilePath;
                             
                             if (i > 0) {
-                            // Generate new filenames for additional parts with incremented ordinals
-                                const originalBaseName = path.basename(finalFilePath);
-                                
-                                // Calculate sequential ordinal for this part
-                                const newOrdinal = originalOrdinal + i;
-                                const ordinalPrefix = newOrdinal.toString().padStart(4, '0');
-                                
-                                // Construct new filename with updated ordinal
-                                const underscoreIndex = originalBaseName.indexOf('_');
-                                const nameAfterUnderscore = originalBaseName.substring(underscoreIndex);
-                                const finalBaseName = ordinalPrefix + nameAfterUnderscore;
-                                
-                                partFilePath = path.join(path.dirname(finalFilePath), finalBaseName);
+                                if (fsType === 'vfs') {
+                                    // VFS2: Generate new filename without ordinal prefix
+                                    const originalBaseName = path.basename(finalFilePath);
+                                    const nameWithoutExt = path.parse(originalBaseName).name;
+                                    const extension = path.parse(originalBaseName).ext;
+                                    const newBaseName = `${nameWithoutExt}_${i}${extension}`;
+                                    partFilePath = path.join(path.dirname(finalFilePath), newBaseName);
+                                } else {
+                                    // Legacy VFS: Generate new filenames with ordinal prefixes
+                                    const originalBaseName = path.basename(finalFilePath);
+                                    
+                                    // Calculate sequential ordinal for this part
+                                    const newOrdinal = originalOrdinal + i;
+                                    const ordinalPrefix = newOrdinal.toString().padStart(4, '0');
+                                    
+                                    // Construct new filename with updated ordinal
+                                    const underscoreIndex = originalBaseName.indexOf('_');
+                                    const nameAfterUnderscore = originalBaseName.substring(underscoreIndex);
+                                    const finalBaseName = ordinalPrefix + nameAfterUnderscore;
+                                    
+                                    partFilePath = path.join(path.dirname(finalFilePath), finalBaseName);
+                                }
                             }
                             
                             // Write the content part to its designated file
                             ifs.checkFileAccess(partFilePath, root);
-                            await ifs.writeFile(owner_id, partFilePath, partContent, 'utf8');
+                            
+                            if (fsType === 'vfs' && 'writeFileEx' in ifs) {
+                                // VFS2: Use writeFileEx with explicit ordinal
+                                const targetOrdinal = originalOrdinal + i;
+                                await (ifs as any).writeFileEx(owner_id, partFilePath, partContent, 'utf8', false, targetOrdinal);
+                            } else {
+                                // Legacy VFS: Use standard writeFile
+                                await ifs.writeFile(owner_id, partFilePath, partContent, 'utf8');
+                            }
                             console.log(`Split file part ${i + 1} saved successfully: ${partFilePath}`);
                         }
                         

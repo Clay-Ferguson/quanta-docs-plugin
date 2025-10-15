@@ -33,8 +33,9 @@ CREATE TABLE IF NOT EXISTS vfs2_nodes (
     created_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     modified_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
-    UNIQUE(doc_root_key, parent_path, filename),
-    FOREIGN KEY (owner_id) REFERENCES user_info(id) ON DELETE CASCADE
+    UNIQUE(doc_root_key, parent_path, filename)
+    -- Note: owner_id = 0 represents admin, so we don't use a foreign key constraint
+    -- that would require this value to exist in user_info table
 );
 
 CREATE INDEX IF NOT EXISTS idx_vfs2_nodes_parent ON vfs2_nodes(doc_root_key, parent_path);

@@ -64,3 +64,31 @@ Continuing again with 'VFS2.ts', add implementation and unit test for 'rename' m
 
 Continuing again with 'VFS2.ts', add implementation and unit test for 'stat' method.
 
+### Step 29
+
+If you look at the following line in 'DocService.ts':
+
+```
+const treeNodes: TreeNode[] = await this.getTreeNodes(user_id, absolutePath, pullup==="true", root, ifs);
+```
+You can see that TreeNode is the type being returned. However we now need the TreeNode object to hold (optionally) the ordinal value for the file/folder. So please add ordinal to the 'TreeNode' type, and look at how 'getTreeNodes' queries from the database, and make sure it is populating the ordinal value. The databse should already contain the ordinal column and but we're just not yet sending it back to the server yet. For now just focus on what I just said, and don't try to go over the entire app and update all uses of TreeNode per this ordinal, because I just want you do make the 'getTreeNodes' return with ordinal, and then that's all for this step, for now.
+
+### Step 30
+
+Next we're doing to get prepared to make 'createFile' in 'DocService.ts' file able to work, by doing one step at a time. The first step is to notice this method is very dependent upon the old way of doing ordinals which used to be a prefix on filenames, but is now an integer value and no longer an ordinal. So in this step (Step 30) let's focus specifically on getting `docUtil.shiftOrdinalsDown` to where it shifts ordinals in the DB column which is ultimately going to be trivial to to, because it will simply be done by adding to the ordinal column values some specific offset/shift amount. Also since the ordinals aren't part of the file/folder names we won't even have to make this method worry about updating all sub-paths (sub-folders) because the ordinals are specific to just one folder on the tree. So the entire 'shitfOrdinalsDown' will be much simpler now. Anyway, please update the 'shiftOrdinalsDown' method and add a unit test for us to verify your new 'shiftOrdinalsDown' method works. Also don't try to find all the other uses of 'shiftOrdinalsDown' in other parts of the app. We will tackle all that independently. Just focus solely on 'shiftOrdinalsDown' as called from 'createFile'.
+
+### Step 31
+
+Now that 'shiftOrdinalsDown' is ready, please look at 'DocService.ts' 'createFile' method and make it work with this new approach rather than the filename-based prefix type ordinals. 
+
+### Step 32
+
+Next let's implement 'writeFile' and 'readFile' in `VFS2.ts`, and a unit test for them. Since the read operation can be used to verify the write opteration it may make sense to put the test for both of these in a single unit test, where the test writes some file and then verifies it can read it back. 
+
+### Step 33
+
+Now you should be able to update 'saveFile' in 'DocMod.ts', keeping in mind of course our new way of handling ordinals.
+
+### Setp 34
+
+Now that we have an ordinal column and we're not usingn filenames as anything that needs to be unique, we can make our 

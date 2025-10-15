@@ -75,7 +75,7 @@ class DocsServerPlugin implements IServerPlugin {
         context.app.post('/api/docs/set-public', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.setPublic)); 
 
         context.app.post('/api/docs/file/save', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.saveFile)); 
-        context.app.post('/api/docs/file/create', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.createFile)); 
+        context.app.post('/api/docs/file/create', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.createFile)); // vfs2 done
         context.app.post('/api/docs/folder/create', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.createFolder)); 
         context.app.post('/api/docs/folder/build', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.buildFolder));
         context.app.post('/api/docs/folder/rename', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.renameFolder)); // #vfs2 done 

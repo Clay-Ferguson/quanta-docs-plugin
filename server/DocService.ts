@@ -432,11 +432,23 @@ class DocService {
                 if (insertAfterNode && insertAfterNode.trim() !== '') {
                     console.log(`Create file "${fileName}" below node: ${insertAfterNode}`);
                 
-                    // Extract ordinal from the reference node name
-                    const underscoreIndex = insertAfterNode.indexOf('_');
-                    if (underscoreIndex !== -1) {
-                        const afterNodeOrdinal = parseInt(insertAfterNode.substring(0, underscoreIndex));
-                        insertOrdinal = afterNodeOrdinal + 1; // Insert after the reference node
+                    // For VFS2: insertAfterNode is just the filename, we need to get its ordinal from the database
+                    // For legacy VFS: insertAfterNode has ordinal prefix, extract it
+                    const fsType = docUtil.getFileSystemType(docRootKey);
+                    if (fsType === 'vfs') {
+                        // VFS2: Get ordinal from database
+                        const afterNodePath = ifs.pathJoin(absoluteParentPath, insertAfterNode);
+                        const afterNodeInfo: any = {};
+                        if (await ifs.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
+                            insertOrdinal = afterNodeInfo.node.ordinal + 1;
+                        }
+                    } else {
+                        // Legacy VFS: Extract ordinal from filename prefix
+                        const underscoreIndex = insertAfterNode.indexOf('_');
+                        if (underscoreIndex !== -1) {
+                            const afterNodeOrdinal = parseInt(insertAfterNode.substring(0, underscoreIndex));
+                            insertOrdinal = afterNodeOrdinal + 1; // Insert after the reference node
+                        }
                     }
                 } else {
                     console.log(`Create new top file "${fileName}"`);
@@ -446,32 +458,69 @@ class DocService {
                 // This ensures proper ordinal sequence is maintained
                 await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root, null, ifs);
                 
-                // Create filename with ordinal prefix
-                const ordinalPrefix = insertOrdinal.toString().padStart(4, '0'); // 4-digit zero-padded
-                const newFileName = `${ordinalPrefix}_${fileName}`;
-            
                 // Auto-add .md extension if no extension is provided
-                let finalFileName = newFileName;
+                let finalFileName = fileName;
                 if (!getFilenameExtension(fileName)) {
-                    finalFileName = `${newFileName}.md`;
+                    finalFileName = `${fileName}.md`;
                 }
-            
-                const newFilePath = ifs.pathJoin(absoluteParentPath, finalFileName);
+
+                // Determine the file system type to handle filename creation differently
+                const fsType = docUtil.getFileSystemType(docRootKey);
+                let newFilePath: string;
+                let fileNameToReturn: string;
+                
+                if (fsType === 'vfs') {
+                    // VFS2: No ordinal prefix in filename, ordinal is stored in database
+                    newFilePath = ifs.pathJoin(absoluteParentPath, finalFileName);
+                    fileNameToReturn = finalFileName;
+                } else {
+                    // Legacy VFS: Create filename with ordinal prefix
+                    const ordinalPrefix = insertOrdinal.toString().padStart(4, '0'); // 4-digit zero-padded
+                    const newFileNameWithOrdinal = `${ordinalPrefix}_${finalFileName}`;
+                    newFilePath = ifs.pathJoin(absoluteParentPath, newFileNameWithOrdinal);
+                    fileNameToReturn = newFileNameWithOrdinal;
+                }
 
                 // Safety check: prevent overwriting existing files
-                if (await ifs.exists(newFilePath)) {
-                    res.status(409).json({ error: 'A file with this name already exists at the target location' });
-                    return;
+                // If file already exists, try different random suffixes until we find a unique name
+                while (await ifs.exists(newFilePath)) {
+                    const randomSuffix = Math.floor(Math.random() * 100000);
+                    const baseFileName = finalFileName.includes('.') 
+                        ? finalFileName.substring(0, finalFileName.lastIndexOf('.'))
+                        : finalFileName;
+                    const extension = finalFileName.includes('.') 
+                        ? finalFileName.substring(finalFileName.lastIndexOf('.'))
+                        : '';
+                    
+                    const uniqueFileName = `${baseFileName}_${randomSuffix}${extension}`;
+                    
+                    if (fsType === 'vfs') {
+                        // VFS2: No ordinal prefix in filename
+                        newFilePath = ifs.pathJoin(absoluteParentPath, uniqueFileName);
+                        fileNameToReturn = uniqueFileName;
+                    } else {
+                        // Legacy VFS: Create filename with ordinal prefix
+                        const ordinalPrefix = insertOrdinal.toString().padStart(4, '0');
+                        const newFileNameWithOrdinal = `${ordinalPrefix}_${uniqueFileName}`;
+                        newFilePath = ifs.pathJoin(absoluteParentPath, newFileNameWithOrdinal);
+                        fileNameToReturn = newFileNameWithOrdinal;
+                    }
                 }
 
                 // Create the new file with empty content
-                await ifs.writeFileEx(owner_id, newFilePath, '', 'utf8', info.node.is_public);
+                if (fsType === 'vfs' && 'writeFileEx' in ifs && ifs.writeFileEx.length >= 6) {
+                    // VFS2: Pass ordinal as parameter to writeFileEx
+                    await (ifs as any).writeFileEx(owner_id, newFilePath, '', 'utf8', info.node.is_public, insertOrdinal);
+                } else {
+                    // Legacy VFS: Use standard writeFileEx (ordinal is in filename)
+                    await ifs.writeFileEx(owner_id, newFilePath, '', 'utf8', info.node.is_public);
+                }
                 //console.log(`File created successfully: ${newFilePath}`);
             
                 // Send success response with the created filename
                 res.json({ 
                     message: 'File created successfully',
-                    fileName: finalFileName 
+                    fileName: fileNameToReturn 
                 });
             } catch (error) {
                 // Handle any errors during file creation
@@ -555,11 +604,23 @@ class DocService {
                 if (insertAfterNode && insertAfterNode.trim() !== '') {
                     console.log(`Create folder "${folderName}" below node: ${insertAfterNode}`);
                 
-                    // Extract ordinal from the reference node name
-                    const underscoreIndex = insertAfterNode.indexOf('_');
-                    if (underscoreIndex !== -1) {
-                        const afterNodeOrdinal = parseInt(insertAfterNode.substring(0, underscoreIndex));
-                        insertOrdinal = afterNodeOrdinal + 1; // Insert after the reference node
+                    // For VFS2: insertAfterNode is just the filename, we need to get its ordinal from the database
+                    // For legacy VFS: insertAfterNode has ordinal prefix, extract it
+                    const fsType = docUtil.getFileSystemType(docRootKey);
+                    if (fsType === 'vfs') {
+                        // VFS2: Get ordinal from database
+                        const afterNodePath = ifs.pathJoin(absoluteParentPath, insertAfterNode);
+                        const afterNodeInfo: any = {};
+                        if (await ifs.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
+                            insertOrdinal = afterNodeInfo.node.ordinal + 1;
+                        }
+                    } else {
+                        // Legacy VFS: Extract ordinal from filename prefix
+                        const underscoreIndex = insertAfterNode.indexOf('_');
+                        if (underscoreIndex !== -1) {
+                            const afterNodeOrdinal = parseInt(insertAfterNode.substring(0, underscoreIndex));
+                            insertOrdinal = afterNodeOrdinal + 1; // Insert after the reference node
+                        }
                     }
                 } else {
                     console.log(`Create new top folder "${folderName}"`);
@@ -569,21 +630,38 @@ class DocService {
                 // This ensures proper ordinal sequence is maintained
                 await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root, null, ifs);
 
-                // Create folder name with ordinal prefix
-                const ordinalPrefix = insertOrdinal.toString().padStart(4, '0'); // 4-digit zero-padded
-                const newFolderName = `${ordinalPrefix}_${folderName}`;
-            
-                const newFolderPath = ifs.pathJoin(absoluteParentPath, newFolderName);
+                // Determine the file system type to handle folder name creation differently
+                const fsType = docUtil.getFileSystemType(docRootKey);
+                let newFolderPath: string;
+                let folderNameToReturn: string;
+                
+                if (fsType === 'vfs') {
+                    // VFS2: No ordinal prefix in folder name, ordinal is stored in database
+                    newFolderPath = ifs.pathJoin(absoluteParentPath, folderName);
+                    folderNameToReturn = folderName;
+                } else {
+                    // Legacy VFS: Create folder name with ordinal prefix
+                    const ordinalPrefix = insertOrdinal.toString().padStart(4, '0'); // 4-digit zero-padded
+                    const newFolderNameWithOrdinal = `${ordinalPrefix}_${folderName}`;
+                    newFolderPath = ifs.pathJoin(absoluteParentPath, newFolderNameWithOrdinal);
+                    folderNameToReturn = newFolderNameWithOrdinal;
+                }
 
                 // Create the directory (recursive option ensures parent directories exist, and we inherit `is_public` from parent.
-                await ifs.mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public);
+                if (fsType === 'vfs' && 'mkdirEx' in ifs && ifs.mkdirEx.length >= 5) {
+                    // VFS2: Pass ordinal as parameter to mkdirEx
+                    await (ifs as any).mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public, insertOrdinal);
+                } else {
+                    // Legacy VFS: Use standard mkdirEx (ordinal is in folder name)
+                    await ifs.mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public);
+                }
 
                 console.log(`Folder created successfully: ${newFolderPath}`);
             
                 // Send success response with the created folder name
                 res.json({ 
                     message: 'Folder created successfully',
-                    folderName: newFolderName 
+                    folderName: folderNameToReturn 
                 });
             } catch (error) {
             // Handle any errors during folder creation

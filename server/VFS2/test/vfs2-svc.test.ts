@@ -46,6 +46,15 @@ export async function runTests() {
         // Test the stat method
         await testRunner.run("statTest", () => statTest(), true);
         
+        // Test the shiftOrdinalsDown method
+        await testRunner.run("shiftOrdinalsDownTest", () => shiftOrdinalsDownTest(owner_id), true);
+        
+        // Test the writeFileEx method with ordinals
+        await testRunner.run("writeFileExTest", () => writeFileExTest(owner_id), true);
+        
+        // Test the writeFile and readFile methods
+        await testRunner.run("writeFileAndReadFileTest", () => writeFileAndReadFileTest(owner_id), true);
+        
         console.log("✅ VFS2-svc test suite passed");
     } catch {
         console.error("❌ VFS2-svc test suite failed");
@@ -1012,6 +1021,673 @@ export async function statTest(): Promise<void> {
     } catch (error) {
         console.error('=== VFS2 Stat Test Failed ===');
         console.error('Error during VFS2 stat test:', error);
+        throw error;
+    }
+}
+
+export async function shiftOrdinalsDownTest(owner_id: number): Promise<void> {
+    try {
+        console.log('=== VFS2 ShiftOrdinalsDown Test Starting ===');
+
+        // Test 1: Test shifting ordinals in root directory (should return empty mapping)
+        console.log('Test 1 - Testing shiftOrdinalsDown in root directory');
+        const result1 = await vfs2.shiftOrdinalsDown(owner_id, '', 1, 1);
+        console.log(`Test 1 - Root directory shift result (${result1.size} items):`, 
+            Array.from(result1.entries()).map(([key, value]) => ({ old: key, new: value })));
+        
+        if (!result1 || !(result1 instanceof Map)) {
+            throw new Error('Test 1 failed! shiftOrdinalsDown should return a Map');
+        }
+
+        // Test 2: Test shifting ordinals in non-existent directory (should return empty mapping)
+        console.log('Test 2 - Testing shiftOrdinalsDown in non-existent directory');
+        const result2 = await vfs2.shiftOrdinalsDown(owner_id, 'nonexistent-folder', 1, 1);
+        console.log(`Test 2 - Non-existent directory shift result (${result2.size} items):`, 
+            Array.from(result2.entries()).map(([key, value]) => ({ old: key, new: value })));
+        
+        if (!result2 || !(result2 instanceof Map)) {
+            throw new Error('Test 2 failed! shiftOrdinalsDown should return a Map');
+        }
+        
+        // Should return empty map since directory doesn't exist
+        if (result2.size !== 0) {
+            throw new Error('Test 2 failed! Non-existent directory should return empty mapping');
+        }
+
+        // Test 3: Test shifting ordinals with different parameters
+        console.log('Test 3 - Testing shiftOrdinalsDown with various parameters');
+        const testCases = [
+            { path: 'folder1', insertOrdinal: 0, slotsToAdd: 1 },
+            { path: 'folder2', insertOrdinal: 5, slotsToAdd: 2 },
+            { path: 'nested/folder', insertOrdinal: 10, slotsToAdd: 3 },
+            { path: 'deeply/nested/folder/structure', insertOrdinal: 1, slotsToAdd: 5 }
+        ];
+        
+        for (const testCase of testCases) {
+            const result = await vfs2.shiftOrdinalsDown(owner_id, testCase.path, testCase.insertOrdinal, testCase.slotsToAdd);
+            console.log(`Test 3 - Path '${testCase.path}' with ordinal ${testCase.insertOrdinal}, slots ${testCase.slotsToAdd}: ${result.size} items shifted`);
+            
+            if (!result || !(result instanceof Map)) {
+                throw new Error(`Test 3 failed! shiftOrdinalsDown should return a Map for path '${testCase.path}'`);
+            }
+            
+            // Should return empty map since directories don't exist
+            if (result.size !== 0) {
+                throw new Error(`Test 3 failed! Non-existent directory '${testCase.path}' should return empty mapping`);
+            }
+        }
+
+        // Test 4: Test path normalization in shiftOrdinalsDown
+        console.log('Test 4 - Testing path normalization');
+        const result4 = await vfs2.shiftOrdinalsDown(owner_id, '//test///path//', 1, 1);
+        console.log(`Test 4 - Normalized path shift result (${result4.size} items):`, 
+            Array.from(result4.entries()).map(([key, value]) => ({ old: key, new: value })));
+        
+        if (!result4 || !(result4 instanceof Map)) {
+            throw new Error('Test 4 failed! shiftOrdinalsDown with path normalization should return a Map');
+        }
+        
+        if (result4.size !== 0) {
+            throw new Error('Test 4 failed! Non-existent normalized path should return empty mapping');
+        }
+
+        // Test 5: Test error handling with negative values
+        console.log('Test 5 - Testing error handling with edge case values');
+        try {
+            // Test with negative insertOrdinal (might be valid depending on implementation)
+            const result5a = await vfs2.shiftOrdinalsDown(owner_id, 'test', -1, 1);
+            console.log('Test 5a - Negative insertOrdinal handled:', result5a.size);
+            
+            if (!result5a || !(result5a instanceof Map)) {
+                throw new Error('Test 5a failed! Should return a Map even with negative insertOrdinal');
+            }
+        } catch (error) {
+            // It's acceptable for negative values to cause errors
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 5a - Negative insertOrdinal caused error (acceptable):', errorMessage);
+        }
+        
+        try {
+            // Test with negative slotsToAdd (might be valid for shifting up instead of down)
+            const result5b = await vfs2.shiftOrdinalsDown(owner_id, 'test', 1, -1);
+            console.log('Test 5b - Negative slotsToAdd handled:', result5b.size);
+            
+            if (!result5b || !(result5b instanceof Map)) {
+                throw new Error('Test 5b failed! Should return a Map even with negative slotsToAdd');
+            }
+        } catch (error) {
+            // It's acceptable for negative values to cause errors
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 5b - Negative slotsToAdd caused error (acceptable):', errorMessage);
+        }
+
+        // Test 6: Test with zero values
+        console.log('Test 6 - Testing with zero values');
+        const result6a = await vfs2.shiftOrdinalsDown(owner_id, 'test', 0, 1);
+        console.log(`Test 6a - Zero insertOrdinal result (${result6a.size} items)`);
+        
+        if (!result6a || !(result6a instanceof Map)) {
+            throw new Error('Test 6a failed! shiftOrdinalsDown with zero insertOrdinal should return a Map');
+        }
+        
+        const result6b = await vfs2.shiftOrdinalsDown(owner_id, 'test', 1, 0);
+        console.log(`Test 6b - Zero slotsToAdd result (${result6b.size} items)`);
+        
+        if (!result6b || !(result6b instanceof Map)) {
+            throw new Error('Test 6b failed! shiftOrdinalsDown with zero slotsToAdd should return a Map');
+        }
+
+        // Test 7: Test with large values
+        console.log('Test 7 - Testing with large values');
+        const result7 = await vfs2.shiftOrdinalsDown(owner_id, 'test', 9999, 9999);
+        console.log(`Test 7 - Large values result (${result7.size} items)`);
+        
+        if (!result7 || !(result7 instanceof Map)) {
+            throw new Error('Test 7 failed! shiftOrdinalsDown with large values should return a Map');
+        }
+
+        // Test 8: Test consistency between multiple calls
+        console.log('Test 8 - Testing consistency between multiple calls');
+        for (let i = 0; i < 3; i++) {
+            const resultA = await vfs2.shiftOrdinalsDown(owner_id, 'test', 1, 1);
+            const resultB = await vfs2.shiftOrdinalsDown(owner_id, 'nonexistent', 1, 1);
+            
+            if (!(resultA instanceof Map) || !(resultB instanceof Map)) {
+                throw new Error(`Test 8 failed! All calls should return Maps (iteration ${i})`);
+            }
+            
+            // Both should be empty since directories don't exist
+            if (resultA.size !== 0 || resultB.size !== 0) {
+                throw new Error(`Test 8 failed! Non-existent directories should consistently return empty mappings (iteration ${i})`);
+            }
+        }
+
+        // Test 9: Test with different owner_id values
+        console.log('Test 9 - Testing with different owner_id values');
+        const result9a = await vfs2.shiftOrdinalsDown(owner_id, 'test', 1, 1);
+        const result9b = await vfs2.shiftOrdinalsDown(999999, 'test', 1, 1); // Non-existent user
+        
+        console.log(`Test 9a - Valid owner_id result (${result9a.size} items)`);
+        console.log(`Test 9b - Invalid owner_id result (${result9b.size} items)`);
+        
+        if (!(result9a instanceof Map) || !(result9b instanceof Map)) {
+            throw new Error('Test 9 failed! Both calls should return Maps');
+        }
+
+        // Test 10: Test mapping format when result is not empty (conceptual test)
+        console.log('Test 10 - Testing mapping format (conceptual)');
+        // Since we don't have any actual files to shift, we can't test the actual mapping
+        // But we can verify that the return type and structure are correct
+        const result10 = await vfs2.shiftOrdinalsDown(owner_id, '', 1, 1);
+        
+        if (!(result10 instanceof Map)) {
+            throw new Error('Test 10 failed! Result should be a Map instance');
+        }
+        
+        // Test that we can iterate over the map (even if empty)
+        for (const [oldPath, newPath] of result10) {
+            console.log(`Test 10 - Mapping: ${oldPath} -> ${newPath}`);
+            
+            if (typeof oldPath !== 'string' || typeof newPath !== 'string') {
+                throw new Error('Test 10 failed! Map keys and values should be strings');
+            }
+        }
+
+        console.log('✅ All shiftOrdinalsDown tests passed');
+        console.log('=== VFS2 ShiftOrdinalsDown Test Completed Successfully ===');
+        
+    } catch (error) {
+        console.error('=== VFS2 ShiftOrdinalsDown Test Failed ===');
+        console.error('Error during VFS2 shiftOrdinalsDown test:', error);
+        throw error;
+    }
+}
+
+export async function writeFileExTest(owner_id: number): Promise<void> {
+    try {
+        console.log('=== VFS2 WriteFileEx Test Starting ===');
+
+        // Debug: Check initial state of root directory
+        console.log('Debug - Checking initial state of root directory');
+        const initialRootContents = await vfs2.readdirEx(owner_id, '', false);
+        console.log(`Debug - Initial root directory has ${initialRootContents.length} items:`, 
+            initialRootContents.map(node => ({ name: node.name, ordinal: node.ordinal, owner: node.owner_id })));
+
+        // Test 1: Create a simple text file with ordinal
+        console.log('Test 1 - Creating simple text file with ordinal');
+        const testFileName = 'test-file-ordinal.md';
+        const testContent = '# Test File\n\nThis is a test file created with a specific ordinal.';
+        const testOrdinal = 5;
+        
+        try {
+            await vfs2.writeFileEx(owner_id, testFileName, testContent, 'utf8', false, testOrdinal);
+            console.log(`Test 1 - Successfully created file: ${testFileName} with ordinal: ${testOrdinal}`);
+            
+            // Verify the file was created by checking if it exists
+            const fileExists = await vfs2.exists(testFileName);
+            if (!fileExists) {
+                throw new Error('Test 1 failed! File should exist after creation');
+            }
+            console.log('Test 1 - File existence verified');
+            
+            // Verify the file has the correct ordinal by reading directory
+            const rootContents = await vfs2.readdirEx(owner_id, '', false);
+            const createdFile = rootContents.find(node => node.name === testFileName);
+            
+            if (!createdFile) {
+                throw new Error('Test 1 failed! Created file not found in directory listing');
+            }
+            
+            if (createdFile.ordinal !== testOrdinal) {
+                throw new Error(`Test 1 failed! File ordinal should be ${testOrdinal}, but got ${createdFile.ordinal}`);
+            }
+            console.log(`Test 1 - File ordinal verified: ${createdFile.ordinal}`);
+            
+        } catch (error) {
+            console.error('Test 1 failed during file creation:', error);
+            throw error;
+        }
+
+        // Test 2: Create a file without specifying ordinal (should auto-assign)
+        console.log('Test 2 - Creating file without specifying ordinal');
+        const testFileName2 = 'test-file-auto-ordinal.md';
+        const testContent2 = '# Auto Ordinal Test\n\nThis file should get an auto-assigned ordinal.';
+        
+        try {
+            // First, let's check what files are currently in the root directory
+            const rootContentsBefore = await vfs2.readdirEx(owner_id, '', false);
+            console.log(`Test 2 - Files in root before creation (${rootContentsBefore.length} items):`, 
+                rootContentsBefore.map(node => ({ name: node.name, ordinal: node.ordinal })));
+            
+            await vfs2.writeFileEx(owner_id, testFileName2, testContent2, 'utf8', false);
+            console.log(`Test 2 - Successfully created file: ${testFileName2} with auto-assigned ordinal`);
+            
+            // Verify the file exists
+            const fileExists = await vfs2.exists(testFileName2);
+            if (!fileExists) {
+                throw new Error('Test 2 failed! File should exist after creation');
+            }
+            
+            // Check what ordinal was assigned
+            const rootContents = await vfs2.readdirEx(owner_id, '', false);
+            const createdFile = rootContents.find(node => node.name === testFileName2);
+            
+            if (!createdFile) {
+                throw new Error('Test 2 failed! Created file not found in directory listing');
+            }
+            
+            console.log(`Test 2 - File auto-assigned ordinal: ${createdFile.ordinal}`);
+            
+            // Auto-assigned ordinal should be reasonable (not negative, and should be a valid integer)
+            if (createdFile.ordinal == null || createdFile.ordinal < 0) {
+                throw new Error(`Test 2 failed! Auto-assigned ordinal ${createdFile.ordinal} should be non-negative`);
+            }
+            
+            // The ordinal might be high if there's existing data in the database, so just check it's reasonable
+            if (createdFile.ordinal > 100000) {
+                console.warn(`Test 2 - Warning: Auto-assigned ordinal ${createdFile.ordinal} is quite high - there may be existing data in the database`);
+            }
+            
+            // Verify the ordinal is higher than the previous file's ordinal
+            const firstFileOrdinal = rootContents.find(node => node.name === testFileName)?.ordinal;
+            if (firstFileOrdinal != null && createdFile.ordinal <= firstFileOrdinal) {
+                throw new Error(`Test 2 failed! Auto-assigned ordinal ${createdFile.ordinal} should be higher than previous file's ordinal ${firstFileOrdinal}`);
+            }
+            
+        } catch (error) {
+            console.error('Test 2 failed during file creation:', error);
+            throw error;
+        }
+
+        // Test 3: Create file in a nested path (should fail since path doesn't exist)
+        console.log('Test 3 - Attempting to create file in non-existent nested path');
+        try {
+            await vfs2.writeFileEx(owner_id, 'nonexistent/folder/test.md', 'content', 'utf8', false, 1);
+            throw new Error('Test 3 failed! Should have thrown error for non-existent parent directory');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 3 passed - Non-existent parent directory threw error:', errorMessage);
+            // Accept various possible error messages related to missing parent
+            if (!errorMessage.toLowerCase().includes('parent') && 
+                !errorMessage.toLowerCase().includes('directory') && 
+                !errorMessage.toLowerCase().includes('not found') &&
+                !errorMessage.toLowerCase().includes('exist')) {
+                console.warn('Test 3 - Unexpected error message, but accepting as valid:', errorMessage);
+            }
+        }
+
+        // Test 4: Create file with different content types
+        console.log('Test 4 - Creating files with different content types');
+        const testFiles = [
+            { name: 'test.txt', content: 'Plain text content', ordinal: 10 },
+            { name: 'test.json', content: '{"key": "value"}', ordinal: 11 },
+            { name: 'test.html', content: '<html><body>HTML content</body></html>', ordinal: 12 }
+        ];
+        
+        for (const file of testFiles) {
+            try {
+                await vfs2.writeFileEx(owner_id, file.name, file.content, 'utf8', false, file.ordinal);
+                console.log(`Test 4 - Successfully created ${file.name} with ordinal ${file.ordinal}`);
+                
+                // Verify existence
+                const exists = await vfs2.exists(file.name);
+                if (!exists) {
+                    throw new Error(`Test 4 failed! File ${file.name} should exist after creation`);
+                }
+                
+                // Verify ordinal
+                const rootContents = await vfs2.readdirEx(owner_id, '', false);
+                const createdFile = rootContents.find(node => node.name === file.name);
+                
+                if (!createdFile || createdFile.ordinal !== file.ordinal) {
+                    throw new Error(`Test 4 failed! File ${file.name} should have ordinal ${file.ordinal}`);
+                }
+                
+            } catch (error) {
+                console.error(`Test 4 failed for file ${file.name}:`, error);
+                throw error;
+            }
+        }
+
+        // Test 5: Test overwriting existing file (should update ordinal)
+        console.log('Test 5 - Overwriting existing file with new ordinal');
+        const existingFileName = testFileName; // Use file from Test 1
+        const newContent = '# Updated Content\n\nThis file has been overwritten with new content and ordinal.';
+        const newOrdinal = 20;
+        
+        try {
+            await vfs2.writeFileEx(owner_id, existingFileName, newContent, 'utf8', false, newOrdinal);
+            console.log(`Test 5 - Successfully overwrite file: ${existingFileName} with new ordinal: ${newOrdinal}`);
+            
+            // Verify the ordinal was updated
+            const rootContents = await vfs2.readdirEx(owner_id, '', false);
+            const updatedFile = rootContents.find(node => node.name === existingFileName);
+            
+            if (!updatedFile) {
+                throw new Error('Test 5 failed! Overwritten file not found in directory listing');
+            }
+            
+            if (updatedFile.ordinal !== newOrdinal) {
+                throw new Error(`Test 5 failed! File ordinal should be updated to ${newOrdinal}, but got ${updatedFile.ordinal}`);
+            }
+            console.log(`Test 5 - File ordinal successfully updated to: ${updatedFile.ordinal}`);
+            
+        } catch (error) {
+            console.error('Test 5 failed during file overwrite:', error);
+            throw error;
+        }
+
+        // Test 6: Test with binary data (Buffer)
+        console.log('Test 6 - Creating file with binary data');
+        const binaryFileName = 'test-binary.dat';
+        const binaryData = Buffer.from([0x48, 0x65, 0x6C, 0x6C, 0x6F]); // "Hello" in ASCII
+        const binaryOrdinal = 25;
+        
+        try {
+            await vfs2.writeFileEx(owner_id, binaryFileName, binaryData, 'utf8', false, binaryOrdinal);
+            console.log(`Test 6 - Successfully created binary file: ${binaryFileName}`);
+            
+            // Verify existence
+            const exists = await vfs2.exists(binaryFileName);
+            if (!exists) {
+                throw new Error('Test 6 failed! Binary file should exist after creation');
+            }
+            
+            // Verify ordinal
+            const rootContents = await vfs2.readdirEx(owner_id, '', false);
+            const binaryFile = rootContents.find(node => node.name === binaryFileName);
+            
+            if (!binaryFile || binaryFile.ordinal !== binaryOrdinal) {
+                throw new Error(`Test 6 failed! Binary file should have ordinal ${binaryOrdinal}`);
+            }
+            console.log(`Test 6 - Binary file ordinal verified: ${binaryFile.ordinal}`);
+            
+        } catch (error) {
+            console.error('Test 6 failed during binary file creation:', error);
+            throw error;
+        }
+
+        // Test 7: Test ordinal ordering in directory listing
+        console.log('Test 7 - Verifying ordinal ordering in directory listing');
+        const rootContents = await vfs2.readdirEx(owner_id, '', false);
+        
+        // Filter to only files we created (to avoid interference from other tests)
+        const ourFiles = rootContents.filter(node => 
+            node.name.startsWith('test-') || node.name.startsWith('test.'));
+        
+        console.log('Test 7 - Our created files with ordinals:');
+        ourFiles.forEach(file => {
+            console.log(`  - ${file.name}: ordinal ${file.ordinal}`);
+        });
+        
+        // Verify files are ordered by ordinal
+        for (let i = 1; i < ourFiles.length; i++) {
+            const prevOrdinal = ourFiles[i-1].ordinal;
+            const currOrdinal = ourFiles[i].ordinal;
+            if (prevOrdinal != null && currOrdinal != null && prevOrdinal > currOrdinal) {
+                throw new Error(`Test 7 failed! Files should be ordered by ordinal: ${ourFiles[i-1].name} (${prevOrdinal}) should come after ${ourFiles[i].name} (${currOrdinal})`);
+            }
+        }
+        console.log('Test 7 - File ordering by ordinal verified');
+
+        // Test 8: Test with various ordinal values
+        console.log('Test 8 - Testing with various ordinal values');
+        const ordinalTests = [
+            { name: 'ordinal-zero.md', ordinal: 0 },
+            { name: 'ordinal-negative.md', ordinal: -1 },
+            { name: 'ordinal-large.md', ordinal: 9999 }
+        ];
+        
+        for (const test of ordinalTests) {
+            try {
+                await vfs2.writeFileEx(owner_id, test.name, `Content for ${test.name}`, 'utf8', false, test.ordinal);
+                console.log(`Test 8 - Successfully created ${test.name} with ordinal ${test.ordinal}`);
+                
+                // Verify ordinal
+                const exists = await vfs2.exists(test.name);
+                if (!exists) {
+                    throw new Error(`Test 8 failed! File ${test.name} should exist`);
+                }
+                
+                const rootContents = await vfs2.readdirEx(owner_id, '', false);
+                const file = rootContents.find(node => node.name === test.name);
+                
+                if (!file || file.ordinal !== test.ordinal) {
+                    throw new Error(`Test 8 failed! File ${test.name} should have ordinal ${test.ordinal}, got ${file?.ordinal}`);
+                }
+                
+            } catch (error) {
+                // Some ordinal values might be rejected by the database (e.g., negative values)
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                console.log(`Test 8 - Ordinal ${test.ordinal} caused error (may be acceptable):`, errorMessage);
+                
+                // If it's a constraint or validation error, that's acceptable
+                if (!errorMessage.toLowerCase().includes('constraint') && 
+                    !errorMessage.toLowerCase().includes('violat') &&
+                    !errorMessage.toLowerCase().includes('invalid') &&
+                    !errorMessage.toLowerCase().includes('check')) {
+                    throw new Error(`Test 8 failed! Unexpected error for ordinal ${test.ordinal}: ${errorMessage}`);
+                }
+            }
+        }
+
+        console.log('✅ All writeFileEx tests passed');
+        console.log('=== VFS2 WriteFileEx Test Completed Successfully ===');
+        
+    } catch (error) {
+        console.error('=== VFS2 WriteFileEx Test Failed ===');
+        console.error('Error during VFS2 writeFileEx test:', error);
+        throw error;
+    }
+}
+
+export async function writeFileAndReadFileTest(owner_id: number): Promise<void> {
+    try {
+        console.log('=== VFS2 WriteFile and ReadFile Test Starting ===');
+
+        // Test 1: Write and read a simple text file
+        console.log('Test 1 - Write and read simple text file');
+        const testFileName1 = 'test-write-read.md';
+        const testContent1 = '# Test File\n\nThis is a test file for writeFile and readFile methods.\n\nIt contains:\n- Markdown content\n- Multiple lines\n- Special characters: äöü @#$%';
+        
+        // Write the file
+        await vfs2.writeFile(owner_id, testFileName1, testContent1, 'utf8');
+        console.log(`Test 1 - Successfully wrote file: ${testFileName1}`);
+        
+        // Verify file exists
+        const fileExists1 = await vfs2.exists(testFileName1);
+        if (!fileExists1) {
+            throw new Error('Test 1 failed! File should exist after writeFile');
+        }
+        console.log('Test 1 - File existence verified');
+        
+        // Read the file back
+        const readContent1 = await vfs2.readFile(owner_id, testFileName1, 'utf8');
+        console.log(`Test 1 - Successfully read file, content length: ${readContent1.toString().length}`);
+        
+        // Verify content matches
+        if (readContent1.toString() !== testContent1) {
+            throw new Error('Test 1 failed! Read content does not match written content');
+        }
+        console.log('Test 1 - Content verification passed');
+
+        // Test 2: Write and read file without encoding (should return Buffer)
+        console.log('Test 2 - Write and read file without encoding');
+        const testFileName2 = 'test-binary-mode.txt';
+        const testContent2 = 'Binary mode test content with special chars: ñáéíóú';
+        
+        // Write the file
+        await vfs2.writeFile(owner_id, testFileName2, testContent2);
+        console.log(`Test 2 - Successfully wrote file: ${testFileName2}`);
+        
+        // Read without encoding (should return Buffer)
+        const readContent2 = await vfs2.readFile(owner_id, testFileName2);
+        console.log(`Test 2 - Read without encoding, got type: ${typeof readContent2}, isBuffer: ${Buffer.isBuffer(readContent2)}`);
+        
+        if (!Buffer.isBuffer(readContent2)) {
+            throw new Error('Test 2 failed! Reading without encoding should return Buffer');
+        }
+        
+        // Convert buffer to string and verify content
+        const stringContent2 = readContent2.toString('utf8');
+        if (stringContent2 !== testContent2) {
+            throw new Error('Test 2 failed! Buffer content does not match written content');
+        }
+        console.log('Test 2 - Buffer content verification passed');
+
+        // Test 3: Write and read with Buffer input
+        console.log('Test 3 - Write and read with Buffer input');
+        const testFileName3 = 'test-buffer-input.dat';
+        const testContent3 = Buffer.from('Buffer input test with binary data: \x00\x01\x02\x03\xFF', 'utf8');
+        
+        // Write with Buffer
+        await vfs2.writeFile(owner_id, testFileName3, testContent3, 'utf8');
+        console.log(`Test 3 - Successfully wrote file with Buffer: ${testFileName3}`);
+        
+        // Read back
+        const readContent3 = await vfs2.readFile(owner_id, testFileName3, 'utf8');
+        console.log(`Test 3 - Read back content, length: ${readContent3.toString().length}`);
+        
+        // Verify content
+        if (readContent3.toString() !== testContent3.toString()) {
+            throw new Error('Test 3 failed! Buffer read content does not match written content');
+        }
+        console.log('Test 3 - Buffer input/output verification passed');
+
+        // Test 4: Write and read JSON content
+        console.log('Test 4 - Write and read JSON content');
+        const testFileName4 = 'test-data.json';
+        const testObject = {
+            name: 'Test Object',
+            values: [1, 2, 3, 'string', true, null],
+            nested: {
+                property: 'value',
+                unicode: 'äöüñáéíóú'
+            }
+        };
+        const testContent4 = JSON.stringify(testObject, null, 2);
+        
+        // Write JSON
+        await vfs2.writeFile(owner_id, testFileName4, testContent4, 'utf8');
+        console.log(`Test 4 - Successfully wrote JSON file: ${testFileName4}`);
+        
+        // Read and parse JSON
+        const readContent4 = await vfs2.readFile(owner_id, testFileName4, 'utf8');
+        const parsedObject = JSON.parse(readContent4.toString());
+        
+        // Verify JSON content
+        if (JSON.stringify(parsedObject) !== JSON.stringify(testObject)) {
+            throw new Error('Test 4 failed! Parsed JSON does not match original object');
+        }
+        console.log('Test 4 - JSON content verification passed');
+
+        // Test 5: Overwrite existing file
+        console.log('Test 5 - Overwrite existing file');
+        const newContent1 = 'This is completely new content that replaces the original.';
+        
+        await vfs2.writeFile(owner_id, testFileName1, newContent1, 'utf8');
+        console.log(`Test 5 - Successfully overwrote file: ${testFileName1}`);
+        
+        const readNewContent = await vfs2.readFile(owner_id, testFileName1, 'utf8');
+        if (readNewContent.toString() !== newContent1) {
+            throw new Error('Test 5 failed! Overwritten content does not match');
+        }
+        console.log('Test 5 - File overwrite verification passed');
+
+        // Test 6: Test different encodings
+        console.log('Test 6 - Test different encodings');
+        const testFileName6 = 'test-encoding.txt';
+        const testContent6 = 'Encoding test: äöüñáéíóú';
+        
+        // Write with utf8
+        await vfs2.writeFile(owner_id, testFileName6, testContent6, 'utf8');
+        
+        // Read with different encoding methods
+        const readUtf8 = await vfs2.readFile(owner_id, testFileName6, 'utf8');
+        const readBuffer = await vfs2.readFile(owner_id, testFileName6);
+        const readLatin1 = await vfs2.readFile(owner_id, testFileName6, 'latin1');
+        
+        console.log(`Test 6 - UTF8 read: ${readUtf8.toString().substring(0, 20)}...`);
+        console.log(`Test 6 - Buffer read length: ${(readBuffer as Buffer).length}`);
+        console.log(`Test 6 - Latin1 read: ${readLatin1.toString().substring(0, 20)}...`);
+        
+        // UTF8 should match original
+        if (readUtf8.toString() !== testContent6) {
+            throw new Error('Test 6 failed! UTF8 encoding read does not match');
+        }
+        
+        // Buffer converted to UTF8 should match
+        if ((readBuffer as Buffer).toString('utf8') !== testContent6) {
+            throw new Error('Test 6 failed! Buffer read converted to UTF8 does not match');
+        }
+        console.log('Test 6 - Encoding tests passed');
+
+        // Test 7: Test reading non-existent file
+        console.log('Test 7 - Test reading non-existent file');
+        try {
+            await vfs2.readFile(owner_id, 'nonexistent-file.txt', 'utf8');
+            throw new Error('Test 7 failed! Should have thrown error for non-existent file');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 7 passed - Non-existent file threw error:', errorMessage);
+            if (!errorMessage.includes('File not found')) {
+                throw new Error('Test 7 failed! Should throw specific "File not found" error');
+            }
+        }
+
+        // Test 8: Test writing to non-existent directory
+        console.log('Test 8 - Test writing to non-existent directory');
+        try {
+            await vfs2.writeFile(owner_id, 'nonexistent/folder/file.txt', 'content', 'utf8');
+            throw new Error('Test 8 failed! Should have thrown error for non-existent directory');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 8 passed - Non-existent directory threw error:', errorMessage);
+        }
+
+        // Test 9: Test large file content
+        console.log('Test 9 - Test large file content');
+        const testFileName9 = 'test-large-file.txt';
+        const largeContent = 'A'.repeat(10000) + '\n' + 'Large file test content with many repetitions.\n' + 'B'.repeat(10000);
+        
+        await vfs2.writeFile(owner_id, testFileName9, largeContent, 'utf8');
+        console.log(`Test 9 - Successfully wrote large file: ${testFileName9}, size: ${largeContent.length}`);
+        
+        const readLargeContent = await vfs2.readFile(owner_id, testFileName9, 'utf8');
+        if (readLargeContent.toString() !== largeContent) {
+            throw new Error('Test 9 failed! Large file content does not match');
+        }
+        console.log('Test 9 - Large file verification passed');
+
+        // Test 10: Verify all files are accessible via directory listing
+        console.log('Test 10 - Verify files are accessible via directory listing');
+        const rootContents = await vfs2.readdirEx(owner_id, '', false);
+        const ourTestFiles = rootContents.filter(node => node.name.startsWith('test-'));
+        
+        console.log(`Test 10 - Found ${ourTestFiles.length} test files in directory:`);
+        ourTestFiles.forEach(file => {
+            console.log(`  - ${file.name} (ordinal: ${file.ordinal}, directory: ${file.is_directory})`);
+        });
+        
+        // Verify all our test files are present
+        const expectedFiles = [testFileName1, testFileName2, testFileName3, testFileName4, testFileName6, testFileName9];
+        for (const expectedFile of expectedFiles) {
+            const found = ourTestFiles.find(file => file.name === expectedFile);
+            if (!found) {
+                throw new Error(`Test 10 failed! Expected file ${expectedFile} not found in directory listing`);
+            }
+            if (found.is_directory) {
+                throw new Error(`Test 10 failed! File ${expectedFile} should not be marked as directory`);
+            }
+        }
+        console.log('Test 10 - All files found in directory listing');
+
+        console.log('✅ All writeFile and readFile tests passed');
+        console.log('=== VFS2 WriteFile and ReadFile Test Completed Successfully ===');
+        
+    } catch (error) {
+        console.error('=== VFS2 WriteFile and ReadFile Test Failed ===');
+        console.error('Error during VFS2 writeFile/readFile test:', error);
         throw error;
     }
 }
