@@ -76,7 +76,18 @@ Next you can proably do `vfs_mkdir` and `vfs_rmdir` and integrate them into the 
 
 Next please do both `fs_ensure_path` and `vfs_rename`. For the test case you can just generate some random path, to ensure it exists, and then verify it exists, and then rename it, and then verify it got renamed.
 
-
 ### Step 16
 
 Next do `vfs2_set_public` and it's unit test.
+
+### Step 17
+
+Next do `vfs2_check_auth` and it's unit test.
+
+### Step 18
+
+Next do `vfs_get_node_by_uuid` and it's unit test.
+
+### Step 19
+
+Next do `vfs_search_text` and it's unit test.

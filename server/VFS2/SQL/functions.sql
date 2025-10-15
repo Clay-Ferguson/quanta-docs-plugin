@@ -918,3 +918,47 @@ BEGIN
     RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_get_node_by_uuid
+-- Gets a VFS2 node by its UUID, returning the node data including full path reconstruction
+-- Used for UUID-based navigation to get the docPath for a specific node
+-- Uses vfs2_nodes table and includes ordinal column (key difference from VFS)
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_get_node_by_uuid(
+    uuid_arg UUID,
+    root_key TEXT
+) 
+RETURNS TABLE(
+    owner_id INTEGER,
+    is_public BOOLEAN,
+    filename VARCHAR(255),
+    is_directory BOOLEAN,
+    size_bytes BIGINT,
+    content_type VARCHAR(100),
+    created_time TIMESTAMP WITH TIME ZONE,
+    modified_time TIMESTAMP WITH TIME ZONE,
+    parent_path TEXT,
+    ordinal INTEGER,
+    content_text TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        n.owner_id,
+        n.is_public,
+        n.filename,
+        n.is_directory,
+        n.size_bytes,
+        n.content_type,
+        n.created_time,
+        n.modified_time,
+        n.parent_path,
+        n.ordinal,
+        n.content_text
+    FROM vfs2_nodes n
+    WHERE 
+        n.uuid = uuid_arg
+        AND n.doc_root_key = root_key;
+END;
+$$ LANGUAGE plpgsql;
