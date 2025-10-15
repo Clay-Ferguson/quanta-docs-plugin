@@ -55,3 +55,12 @@ Continuing again with 'VFS2.ts', add implementation and unit test for 'readdirEx
 ### Step 26
 
 Continuing again with 'VFS2.ts', add implementation and unit test for 'childrenExist'.
+
+### Step 27
+
+Continuing again with 'VFS2.ts', add implementation and unit test for 'rename' method.
+
+### Step 28
+
+Continuing again with 'VFS2.ts', add implementation and unit test for 'stat' method.
+

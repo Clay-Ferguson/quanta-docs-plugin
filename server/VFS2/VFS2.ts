@@ -143,8 +143,45 @@ class VFS2 implements IFS {
         }
     }
     
-    async stat(fullPath: string): Promise<IFSStats> {
-        throw new Error("Method not implemented yet");
+    async stat(fullPath: string): Promise<IFSStats> { 
+        try {
+            const relativePath = this.normalizePath(fullPath);
+            
+            // Special case for root directory
+            if (relativePath === '') {
+                // Return mock stats for root directory
+                return {
+                    // Root is considered owned by admin and not public.
+                    is_public: false,
+                    is_directory: true,
+                    birthtime: new Date(),
+                    mtime: new Date(),
+                    size: 0
+                } as IFSStats;
+            }
+            
+            const { parentPath, filename } = this.parsePath(relativePath);
+            const result = await pgdb.query(
+                'SELECT * FROM vfs2_get_node_by_name($1, $2, $3)',
+                parentPath, filename, rootKey
+            );
+            
+            if (result.rows.length === 0) {
+                throw new Error(`File not found: ${fullPath}`);
+            }
+            
+            const row = result.rows[0];
+            return {
+                is_public: row.is_public,
+                is_directory: row.is_directory,
+                birthtime: new Date(row.created_time),
+                mtime: new Date(row.modified_time),
+                size: row.size_bytes || 0
+            } as IFSStats;
+        } catch (error) {
+            console.error('VFS2.stat error:', error);
+            throw error;
+        }
     }
     
     async readFile(owner_id: number, fullPath: string, encoding?: BufferEncoding): Promise<string | Buffer> {
@@ -195,7 +232,22 @@ class VFS2 implements IFS {
     }
     
     async rename(owner_id: number, oldPath: string, newPath: string): Promise<void> {
-        throw new Error("Method not implemented yet");
+        if (!this.validPath(newPath)) {
+            throw new Error(`Invalid new path: ${newPath}. Only alphanumeric characters and underscores`);
+        }
+        
+        const { parentPath: oldParentPath, filename: oldFilename } = this.parsePath(oldPath);
+        const { parentPath: newParentPath, filename: newFilename } = this.parsePath(newPath);
+            
+        const result = await pgdb.query(
+            'SELECT * FROM vfs2_rename($1, $2, $3, $4, $5, $6)',
+            pgdb.authId(owner_id), oldParentPath, oldFilename, newParentPath, newFilename, rootKey
+        );
+            
+        // If the operation wasn't successful, throw an error with the diagnostic message
+        if (!result.rows[0].success) {
+            throw new Error(`Failed to rename: ${result.rows[0].diagnostic}`);
+        }
     }
     
     async unlink(owner_id: number, fullPath: string): Promise<void> {
@@ -214,6 +266,21 @@ class VFS2 implements IFS {
         return this.normalizePath(parts.join('/'));
     }
     
+    // Split 'fullPath' by '/' and then run 'validName' on each part or if there's no '/' just run 'validName' on the fullPath
+    public validPath(fullPath: string): boolean {
+        // Normalize the path to ensure consistent formatting
+        fullPath = this.normalizePath(fullPath);
+
+        // Split the path by '/' and check each part
+        const parts = fullPath.split('/');
+        for (const part of parts) {
+            if (!svrUtil.validName(part)) {
+                return false; // If any part is invalid, return false
+            }
+        }
+        return true; // All parts are valid
+    }
+
     /* NOTE: VFS2 requires there be NO leading slashes on paths */
     public normalizePath(fullPath: string): string {
         // use regex to strip any leading slashes or dots

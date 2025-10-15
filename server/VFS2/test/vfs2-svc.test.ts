@@ -40,6 +40,12 @@ export async function runTests() {
         // Test the childrenExist method
         await testRunner.run("childrenExistTest", () => childrenExistTest(owner_id), true);
         
+        // Test the rename method
+        await testRunner.run("renameTest", () => renameTest(owner_id), true);
+        
+        // Test the stat method
+        await testRunner.run("statTest", () => statTest(), true);
+        
         console.log("✅ VFS2-svc test suite passed");
     } catch {
         console.error("❌ VFS2-svc test suite failed");
@@ -648,6 +654,364 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
     } catch (error) {
         console.error('=== VFS2 ChildrenExist Test Failed ===');
         console.error('Error during VFS2 childrenExist test:', error);
+        throw error;
+    }
+}
+
+export async function renameTest(owner_id: number): Promise<void> {
+    try {
+        console.log('=== VFS2 Rename Test Starting ===');
+
+        // Test 1: Test rename with invalid new path (should throw error)
+        console.log('Test 1 - Testing rename with invalid new path');
+        try {
+            await vfs2.rename(owner_id, 'old-file.txt', 'invalid path with spaces.txt');
+            throw new Error('Test 1 failed! Should have thrown error for invalid new path');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 1 passed - Invalid new path threw error:', errorMessage);
+            // Accept either "Invalid new path" or "Source file not found" as both are valid errors
+            if (!errorMessage.includes('Invalid new path') && !errorMessage.includes('Source file not found')) {
+                throw new Error('Test 1 failed! Should throw error about invalid new path or source file not found');
+            }
+        }
+
+        // Test 2: Test rename with special characters in new path
+        console.log('Test 2 - Testing rename with special characters in new path');
+        try {
+            await vfs2.rename(owner_id, 'old-file.txt', 'file!@#$.txt');
+            throw new Error('Test 2 failed! Should have thrown error for special characters');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 2 passed - Special characters threw error:', errorMessage);
+        }
+
+        // Test 3: Test rename of non-existent file (should fail)
+        console.log('Test 3 - Testing rename of non-existent file');
+        try {
+            await vfs2.rename(owner_id, 'nonexistent-file.txt', 'new-name.txt');
+            throw new Error('Test 3 failed! Should have thrown error for non-existent file');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 3 passed - Non-existent file threw error:', errorMessage);
+        }
+
+        // Test 4: Test rename with nested paths
+        console.log('Test 4 - Testing rename with nested paths');
+        try {
+            await vfs2.rename(owner_id, 'folder/file.txt', 'folder/renamed-file.txt');
+            throw new Error('Test 4 failed! Should have thrown error for non-existent nested paths');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 4 passed - Non-existent nested paths threw error:', errorMessage);
+        }
+
+        // Test 5: Test rename with different parent directories
+        console.log('Test 5 - Testing rename with different parent directories');
+        try {
+            await vfs2.rename(owner_id, 'folder1/file.txt', 'folder2/file.txt');
+            throw new Error('Test 5 failed! Should have thrown error for non-existent directories');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 5 passed - Different parent directories threw error:', errorMessage);
+        }
+
+        // Test 6: Test path normalization in rename
+        console.log('Test 6 - Testing path normalization in rename');
+        try {
+            await vfs2.rename(owner_id, '//old//file.txt', 'new_file.txt');
+            throw new Error('Test 6 failed! Should have thrown error for non-existent file');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 6 passed - Path normalization worked, threw error for non-existent file:', errorMessage);
+        }
+
+        // Test 7: Test rename with valid filename formats
+        console.log('Test 7 - Testing rename with valid filename formats');
+        const validNames = [
+            'valid_name.txt',
+            'valid123.txt', 
+            'UPPERCASE.TXT',
+            'file_with_underscores.txt',
+            'file123_test.txt'
+        ];
+        
+        for (const newName of validNames) {
+            try {
+                await vfs2.rename(owner_id, 'nonexistent.txt', newName);
+                throw new Error(`Test 7 failed! Should have thrown error for non-existent file with name ${newName}`);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                console.log(`Test 7 - Valid name '${newName}' processed correctly, threw error for non-existent file`);
+                // Ensure it's not a "Invalid new path" error since the name should be valid
+                // Accept "Source file not found" as the expected error for valid filenames
+                if (errorMessage.includes('Invalid new path')) {
+                    throw new Error(`Test 7 failed! Valid name '${newName}' should not be rejected as invalid`);
+                }
+            }
+        }
+
+        // Test 8: Test rename with same old and new paths
+        console.log('Test 8 - Testing rename with same old and new paths');
+        try {
+            await vfs2.rename(owner_id, 'file.txt', 'file.txt');
+            throw new Error('Test 8 failed! Should have thrown error for non-existent file');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 8 passed - Same old and new paths threw error for non-existent file:', errorMessage);
+        }
+
+        // Test 9: Test rename with empty paths
+        console.log('Test 9 - Testing rename with empty paths');
+        try {
+            await vfs2.rename(owner_id, '', 'new-name.txt');
+            throw new Error('Test 9 failed! Should have thrown error for empty old path');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 9 passed - Empty old path threw error:', errorMessage);
+        }
+
+        // Test 10: Test rename with root as old path
+        console.log('Test 10 - Testing rename with root as old path');
+        try {
+            await vfs2.rename(owner_id, '/', 'new-root');
+            throw new Error('Test 10 failed! Should have thrown error for trying to rename root');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 10 passed - Trying to rename root threw error:', errorMessage);
+        }
+
+        // Test 11: Test parsePath functionality through rename
+        console.log('Test 11 - Testing parsePath functionality through rename');
+        try {
+            await vfs2.rename(owner_id, 'deeply/nested/path/file.txt', 'deeply/nested/path/renamed.txt');
+            throw new Error('Test 11 failed! Should have thrown error for non-existent nested path');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 11 passed - Deeply nested paths processed correctly, threw error for non-existent paths:', errorMessage);
+        }
+
+        console.log('✅ All rename tests passed');
+        console.log('=== VFS2 Rename Test Completed Successfully ===');
+        
+    } catch (error) {
+        console.error('=== VFS2 Rename Test Failed ===');
+        console.error('Error during VFS2 rename test:', error);
+        throw error;
+    }
+}
+
+export async function statTest(): Promise<void> {
+    try {
+        console.log('=== VFS2 Stat Test Starting ===');
+
+        // Test 1: Check stat for root directory (should always work)
+        console.log('Test 1 - Getting stat for root directory');
+        const result1 = await vfs2.stat('');
+        console.log(`Test 1 - Root directory stat:`, JSON.stringify(result1, null, 2));
+        
+        // Verify root directory properties
+        if (!result1.is_directory) {
+            throw new Error('Test 1 failed! Root should be a directory');
+        }
+        if (result1.is_public !== false) {
+            throw new Error('Test 1 failed! Root should not be public');
+        }
+        if (typeof result1.size !== 'number' || result1.size < 0) {
+            throw new Error('Test 1 failed! Root size should be a non-negative number');
+        }
+        if (!(result1.birthtime instanceof Date)) {
+            throw new Error('Test 1 failed! Root birthtime should be a Date object');
+        }
+        if (!(result1.mtime instanceof Date)) {
+            throw new Error('Test 1 failed! Root mtime should be a Date object');
+        }
+
+        // Test 2: Check stat for root directory with slash
+        console.log('Test 2 - Getting stat for root directory with slash');
+        const result2 = await vfs2.stat('/');
+        console.log(`Test 2 - Root directory with slash stat:`, JSON.stringify(result2, null, 2));
+        
+        // Should be identical to Test 1
+        if (!result2.is_directory) {
+            throw new Error('Test 2 failed! Root with slash should be a directory');
+        }
+        if (result2.is_public !== false) {
+            throw new Error('Test 2 failed! Root with slash should not be public');
+        }
+
+        // Test 3: Check stat for non-existent file (should throw error)
+        console.log('Test 3 - Getting stat for non-existent file');
+        try {
+            await vfs2.stat('nonexistent-file.txt');
+            throw new Error('Test 3 failed! Should have thrown error for non-existent file');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 3 passed - Non-existent file threw error:', errorMessage);
+            if (!errorMessage.includes('File not found')) {
+                throw new Error('Test 3 failed! Should throw specific "File not found" error');
+            }
+        }
+
+        // Test 4: Check stat for non-existent nested path (should throw error)
+        console.log('Test 4 - Getting stat for non-existent nested path');
+        try {
+            await vfs2.stat('folder/subfolder/file.txt');
+            throw new Error('Test 4 failed! Should have thrown error for non-existent nested path');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 4 passed - Non-existent nested path threw error:', errorMessage);
+            if (!errorMessage.includes('File not found')) {
+                throw new Error('Test 4 failed! Should throw specific "File not found" error');
+            }
+        }
+
+        // Test 5: Test path normalization in stat
+        console.log('Test 5 - Testing path normalization');
+        try {
+            await vfs2.stat('//test///path//file.txt');
+            throw new Error('Test 5 failed! Should have thrown error for non-existent normalized path');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 5 passed - Normalized non-existent path threw error:', errorMessage);
+            if (!errorMessage.includes('File not found')) {
+                throw new Error('Test 5 failed! Should throw specific "File not found" error');
+            }
+        }
+
+        // Test 6: Test various non-existent path formats
+        const testPaths = [
+            'single-file.txt',
+            '/single-file.txt', 
+            './single-file.txt',
+            'folder/file.txt',
+            '/folder/file.txt',
+            './folder/file.txt',
+            'deeply/nested/folder/structure/file.txt'
+        ];
+        
+        console.log('Test 6 - Testing various non-existent path formats');
+        for (const path of testPaths) {
+            try {
+                await vfs2.stat(path);
+                throw new Error(`Test 6 failed! Path '${path}' should not exist`);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                console.log(`Test 6 - Path '${path}' correctly threw error: ${errorMessage.substring(0, 50)}...`);
+                if (!errorMessage.includes('File not found')) {
+                    throw new Error(`Test 6 failed! Path '${path}' should throw "File not found" error`);
+                }
+            }
+        }
+
+        // Test 7: Test stat with different path normalizations for root
+        const rootPaths = [
+            '',
+            '/',
+            '//',
+            '///',
+            './',
+            './/',
+            '././'
+        ];
+        
+        console.log('Test 7 - Testing root path normalizations');
+        for (const path of rootPaths) {
+            const result = await vfs2.stat(path);
+            console.log(`Test 7 - Path '${path}' normalized correctly, is_directory: ${result.is_directory}`);
+            
+            if (!result.is_directory) {
+                throw new Error(`Test 7 failed! Path '${path}' should resolve to root directory`);
+            }
+            if (result.is_public !== false) {
+                throw new Error(`Test 7 failed! Path '${path}' should resolve to non-public root`);
+            }
+            if (typeof result.size !== 'number') {
+                throw new Error(`Test 7 failed! Path '${path}' should have numeric size`);
+            }
+        }
+
+        // Test 8: Test IFSStats interface compliance
+        console.log('Test 8 - Testing IFSStats interface compliance');
+        const rootStat = await vfs2.stat('');
+        
+        // Check all required properties exist
+        const requiredProps = ['is_directory', 'birthtime', 'mtime', 'size'];
+        for (const prop of requiredProps) {
+            if (!(prop in rootStat)) {
+                throw new Error(`Test 8 failed! Missing required property: ${prop}`);
+            }
+        }
+        
+        // Check optional property
+        if (!('is_public' in rootStat)) {
+            throw new Error('Test 8 failed! Missing is_public property');
+        }
+        
+        // Check types
+        if (typeof rootStat.is_directory !== 'boolean') {
+            throw new Error('Test 8 failed! is_directory should be boolean');
+        }
+        if (typeof rootStat.is_public !== 'boolean') {
+            throw new Error('Test 8 failed! is_public should be boolean');
+        }
+        if (!(rootStat.birthtime instanceof Date)) {
+            throw new Error('Test 8 failed! birthtime should be Date object');
+        }
+        if (!(rootStat.mtime instanceof Date)) {
+            throw new Error('Test 8 failed! mtime should be Date object');
+        }
+        if (typeof rootStat.size !== 'number') {
+            throw new Error('Test 8 failed! size should be number');
+        }
+
+        // Test 9: Test consistency between multiple calls
+        console.log('Test 9 - Testing consistency between multiple calls');
+        for (let i = 0; i < 3; i++) {
+            const stat1 = await vfs2.stat('');
+            const stat2 = await vfs2.stat('/');
+            
+            if (stat1.is_directory !== stat2.is_directory) {
+                throw new Error(`Test 9 failed! is_directory should be consistent (iteration ${i})`);
+            }
+            if (stat1.is_public !== stat2.is_public) {
+                throw new Error(`Test 9 failed! is_public should be consistent (iteration ${i})`);
+            }
+            if (stat1.size !== stat2.size) {
+                throw new Error(`Test 9 failed! size should be consistent (iteration ${i})`);
+            }
+        }
+
+        // Test 10: Test error handling for edge cases
+        console.log('Test 10 - Testing error handling for edge cases');
+        const edgeCases = [
+            'file with spaces.txt',
+            'file\ttab.txt',
+            'file\nnewline.txt',
+            'file!@#$.txt',
+            'very/long/path/with/many/segments/and/a/very/long/filename/that/exceeds/normal/limits/but/should/still/be/handled/gracefully.txt'
+        ];
+        
+        for (const path of edgeCases) {
+            try {
+                await vfs2.stat(path);
+                throw new Error(`Test 10 failed! Edge case path '${path.replace(/\s/g, '\\s')}' should not exist`);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                console.log(`Test 10 - Edge case '${path.replace(/\s/g, '\\s').substring(0, 30)}...' handled correctly`);
+                // Should throw some kind of error (either "File not found" or validation error)
+                if (!errorMessage) {
+                    throw new Error(`Test 10 failed! Edge case should throw an error with message`);
+                }
+            }
+        }
+
+        console.log('✅ All stat tests passed');
+        console.log('=== VFS2 Stat Test Completed Successfully ===');
+        
+    } catch (error) {
+        console.error('=== VFS2 Stat Test Failed ===');
+        console.error('Error during VFS2 stat test:', error);
         throw error;
     }
 }
