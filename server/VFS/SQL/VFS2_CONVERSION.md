@@ -24,70 +24,34 @@ Please create the new `schema.sql` for the VFS2 implementation, using the origin
 
 You'll notice in the file named `plugins/docs/server/VFS/test/vfs.test.ts` we have all of our existing testing for VFS. we of course cannot replicate all of those test cases right now , and I'm not asking you to , but what you can do for now is create a test file named `plugins/docs/server/VFS2/test/vfs2.test.ts` and using the appropriate similar approaches to what we have in the VFS version, I would like for you to create just one single unit test following that same pattern , which will simply verify that we can write a record to our new VFS2 table and read it back. for now don't try to wire up this test case to actually run because you won't know how to make it run, I would just like for you to focus on creating the actual test file with this implementation in it, and we'll worry about getting the test to run in the next step . 
 
-### Step 3
+### Steps 3 thru 19
 
-Next let's implement `vfs2_readdir` in our vfs2 `functions.sql` file, and then add a unit test to exercise this new function. Remember the significant change to it, is that it's now going to have the ordinal column in it's results.
+Note: Steps 3 thru 19 have been removed from this markdown, to save space (and AI tokens), but what those steps accomplished was to create the vfs2 version of `functions.sql` using the vfs version of `functions.sql` as the example, and all that work is comkplete. The `functions.sql` for vfs2 is fully completed with Unit Tests for each as well.
 
-### Step 4
+### Step 20
 
-Next let's implement `vfs2_readdir_by_owner` in our vfs2 `functions.sql` file, and then add a unit test to exercise this new function. Remember the significant change to it, is that it's now going to have the ordinal column in it's results.
+The original VFS TypeScript implementation is in file `plugins/docs/server/VFS/VFS.ts` and so please create the vfs2 version of this file in `plugins/docs/server/VFS/VFS2.ts`, but don't add any functions into the class yet, and don't try to use the class anywhere. We're going to be carefully adding methods to it one by one, under my guidance. For now just create the new vfs2 file with proper imports.
 
-### Step 5
+### Step 21
 
-Next let's implement `vfs_get_max_ordinal` in our vfs2 `functions.sql` file, and then add a unit test to exercise this new function. Remember we now hold ordinal values in a column so this will not be parsing substrings to build ordinals but just directly using the column.
+I've created the file named `vfs2-svc.test.ts` (which I have a special way of executing that you don't need to worry about, because it's essentially done by me starting up the docker stack manually to cause tests to execute). Please create the implementation of 'normalizePath' method, in `VFS2.ts` and then create a unit test for that method inside `vfs2-svc.test.ts`. To understand how our test framework works, you can refer to `vfs2.test.ts` as the example to follow. When you're done creating this new method and it's unit test, please don't desribe what you've done or even try to run it yourself. Just say 'done.' and I'll know how to go test it myself.
 
-### Step 6
+### Step 22
 
-Next do `vfs_read_file` and also a unit test of course. 
+Next, smilar to Step 21, add implementation and unit test for 'joinPath'.
 
-### Step 7
+### Step 23
 
-Next do `vfs_write_text_file`, and it's unit test.
+Continuing again with 'VFS2.ts', add implementation and unit test for 'exists'.
 
-### Step 8
+### Step 24
 
-Next do `vfs_write_binary_file` and it's unit test. 
+Continuing again with 'VFS2.ts', add implementation and unit test for 'checkFileAccess'.
 
-### Step 9
+### Step 25
 
-Next do `vfs_exists` and it's unit test. 
+Continuing again with 'VFS2.ts', add implementation and unit test for 'readdirEx'.
 
-### Step 10
+### Step 26
 
-Next do `vfs_get_node_by_name` and it's unit test.
-
-### Step 11
-
-Next do `vfs_stat` and it's unit test.
-
-### Step 12
-
-Next do `vfs_unlink` and it's unit test. 
-
-### Step 13
-
-Next do `vfs_children_exist` and it's unit test. 
-
-### Step 14
-
-Next you can proably do `vfs_mkdir` and `vfs_rmdir` and integrate them into the same unit test, which creates a dir, verifies it exists, then deletes it, and then verifies it's gone.
-
-### Step 15
-
-Next please do both `fs_ensure_path` and `vfs_rename`. For the test case you can just generate some random path, to ensure it exists, and then verify it exists, and then rename it, and then verify it got renamed.
-
-### Step 16
-
-Next do `vfs2_set_public` and it's unit test.
-
-### Step 17
-
-Next do `vfs2_check_auth` and it's unit test.
-
-### Step 18
-
-Next do `vfs_get_node_by_uuid` and it's unit test.
-
-### Step 19
-
-Next do `vfs_search_text` and it's unit test.
+Continuing again with 'VFS2.ts', add implementation and unit test for 'childrenExist'.

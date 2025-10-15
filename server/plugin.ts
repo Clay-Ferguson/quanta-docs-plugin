@@ -1,7 +1,8 @@
 import { config } from "../../../server/Config.js";
 import { Request } from 'express';
-import { runTests as runVfsTests } from './VFS/test/vfs.test.js';
+// import { runTests as runVfsTests } from './VFS/test/vfs.test.js';
 import { runTests as runVfs2Tests } from './VFS2/test/vfs2.test.js';
+import { runTests as runVfs2SvcTests } from './VFS2/test/vfs2-svc.test.js';
 import { httpServerUtil } from "../../../server/HttpServerUtil.js";
 import { docSvc } from "./DocService.js";
 import { ssg } from "./SSGService.js";
@@ -185,8 +186,9 @@ class DocsServerPlugin implements IServerPlugin {
     async runAllTests(): Promise<void> {
         console.log("Running embedded tests...");
         if (process.env.POSTGRES_HOST) { // todo-0: This is how we were doing a lot of checking to see if we're running docker or not and it no longer applies. 
-            await runVfsTests();
+            // await runVfsTests(); // todo-0: put this back soon.
             await runVfs2Tests();
+            await runVfs2SvcTests();
         }
         else {
             throw new Error('PostgreSQL host not configured. Cannot run VFS tests.');

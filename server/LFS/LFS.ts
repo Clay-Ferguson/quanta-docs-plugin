@@ -6,6 +6,8 @@ import { TreeNode } from '../../../../common/types/CommonTypes.js';
 /**
  * Linux File System. This is a wrapper around the standard NodeJS 'fs' module, as an abstraction layer for file operations.
  * This implementation provides direct access to the real file system through the Node.js fs module.
+ * 
+ * todo-0: we can delete this file soon!
  */
 class LFS implements IFS {
     

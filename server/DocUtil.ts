@@ -4,7 +4,8 @@ import path from 'path';
 import { handleError } from "../../../server/ServerUtil.js";
 import { config } from "../../../server/Config.js";
 import { IFS } from './IFS.js';
-import vfs from './VFS/VFS.js';
+// import vfs from './VFS/VFS.js';
+import vfs2 from './VFS2/VFS2.js';
 const { exec } = await import('child_process');
 
 /**
@@ -49,7 +50,7 @@ class DocUtil {
         const rootType = rootConfig.type || 'vfs'; // Default to vfs if type not specified
         
         if (rootType === 'vfs') {
-            return vfs;
+            return vfs2;
         } else {
             throw new Error(`Unsupported file system type: ${rootType}`); // Currently only VFS is implemented
         }

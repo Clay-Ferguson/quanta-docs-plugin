@@ -75,6 +75,7 @@ class DocService {
      * @param treeFolder - Non-ordinal path to resolve (e.g., "FolderName/SubFolderName")
      * @returns The resolved path with ordinals (e.g., "/1234_FolderName/5678_SubFolderName"), or null if no path found
      */
+    // todo-0: this method will be going away soon, since we are moving away from VFS to VFS2
     resolveNonOrdinalPath = async (owner_id: number, docRootKey: string, treeFolder: string, ifs: IFS): Promise<string | null> => {       
         treeFolder = ifs.normalizePath(treeFolder);
         // Resolve the document root path using the provided key
@@ -226,14 +227,8 @@ class DocService {
                 return;
             }
 
-            const slashFreeTreeFolder = treeFolder.replace(/^\//, ''); // Remove leading slashes
+            // const slashFreeTreeFolder = treeFolder.replace(/^\//, ''); // Remove leading slashes
             // Use regex to check if treeFolder starts with pattern "NNNN_" where 4 is a numeric digit
-            const ordinalPattern = /^\d{4}_/;
-            // If treeFolder does not start with an ordinal, we call "resolveNonOrdinalPath" to convert it to a real path.
-            if (!ordinalPattern.test(slashFreeTreeFolder)) {
-                treeFolder = await docSvc.resolveNonOrdinalPath(0, req.params.docRootKey, slashFreeTreeFolder, ifs) || "";
-                treeFolder = ifs.normalizePath(treeFolder); // Normalize the path after resolution
-            }
         
             // Construct the absolute path to the target directory
             const absolutePath = ifs.pathJoin(root, treeFolder);
