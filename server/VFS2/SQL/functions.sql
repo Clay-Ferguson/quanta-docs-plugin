@@ -962,3 +962,145 @@ BEGIN
         AND n.doc_root_key = root_key;
 END;
 $$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_search_text
+-- PostgreSQL-based text search function for VFS2
+-- Searches through text content in non-binary files
+-- Supports REGEX, MATCH_ANY, and MATCH_ALL search modes
+-- Optionally filters by timestamp requirements
+-- Uses vfs2_nodes table instead of vfs_nodes (key difference from VFS)
+-- 
+-- Empty Query Handling:
+-- - Empty, null, or undefined queries are treated as "match everything"
+-- - Automatically converts to REGEX mode with pattern ".*" to match all content
+-- - Returns file-level results for all text files in the specified path
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_search_text(
+    owner_id_arg INTEGER,
+    search_query TEXT,
+    search_path TEXT,
+    root_key TEXT,
+    search_mode TEXT DEFAULT 'MATCH_ANY',
+    search_order TEXT DEFAULT 'MOD_TIME'
+) 
+RETURNS TABLE(
+    file VARCHAR(255),
+    full_path TEXT,
+    content_type VARCHAR(100),
+    size_bytes BIGINT,
+    modified_time TIMESTAMP WITH TIME ZONE,
+    created_time TIMESTAMP WITH TIME ZONE
+) AS $$
+DECLARE
+    search_terms TEXT[];
+    term TEXT;
+    where_clause TEXT := '';
+    order_clause TEXT := '';
+    is_empty_query BOOLEAN;
+BEGIN
+    -- Handle empty, null, or undefined query as "match everything"
+    is_empty_query := (search_query IS NULL OR trim(search_query) = '');
+    
+    IF is_empty_query THEN
+        -- For empty queries, we'll match all files without content filtering
+        search_query := '.*';  -- This won't be used but kept for consistency
+        search_mode := 'REGEX';  -- Force REGEX mode but we'll handle it specially
+    END IF;
+    
+    -- Build the base WHERE clause
+    -- Handle root path search specially
+    IF search_path = '/' THEN
+        -- Search all files when path is root
+        where_clause := format('doc_root_key = %L AND is_binary = FALSE AND content_text IS NOT NULL',
+                              root_key);
+    ELSE
+        -- Search within specific path
+        where_clause := format('doc_root_key = %L AND parent_path LIKE %L AND is_binary = FALSE AND content_text IS NOT NULL',
+                              root_key, search_path || '%');
+    END IF;
+    
+    -- Build search condition based on mode (skip content filtering for empty queries)
+    IF NOT is_empty_query THEN
+        IF search_mode = 'REGEX' THEN
+            -- REGEX mode: use the query as-is as a regex pattern
+            where_clause := where_clause || format(' AND content_text ~* %L', search_query);
+            
+        ELSIF search_mode = 'MATCH_ANY' THEN
+            -- MATCH_ANY mode: split query into terms and search for any term (OR logic)
+            -- Simple word splitting on whitespace, handling quoted phrases
+            SELECT string_to_array(
+                regexp_replace(
+                    regexp_replace(search_query, '"([^"]*)"', '\1', 'g'), 
+                    '\s+', ' ', 'g'
+                ), 
+                ' '
+            ) INTO search_terms;
+            
+            -- Remove empty terms
+            search_terms := array_remove(search_terms, '');
+            
+            IF array_length(search_terms, 1) > 0 THEN
+                -- Build OR condition for any term match
+                where_clause := where_clause || ' AND (';
+                FOR i IN 1..array_length(search_terms, 1) LOOP
+                    IF i > 1 THEN
+                        where_clause := where_clause || ' OR ';
+                    END IF;
+                    where_clause := where_clause || format('content_text ILIKE %L', '%' || search_terms[i] || '%');
+                END LOOP;
+                where_clause := where_clause || ')';
+            END IF;
+            
+        ELSIF search_mode = 'MATCH_ALL' THEN
+            -- MATCH_ALL mode: split query into terms and search for all terms (AND logic)
+            SELECT string_to_array(
+                regexp_replace(
+                    regexp_replace(search_query, '"([^"]*)"', '\1', 'g'), 
+                    '\s+', ' ', 'g'
+                ), 
+                ' '
+            ) INTO search_terms;
+            
+            -- Remove empty terms
+            search_terms := array_remove(search_terms, '');
+            
+            IF array_length(search_terms, 1) > 0 THEN
+                -- Build AND condition for all terms match
+                FOR i IN 1..array_length(search_terms, 1) LOOP
+                    where_clause := where_clause || format(' AND content_text ILIKE %L', '%' || search_terms[i] || '%');
+                END LOOP;
+            END IF;
+        END IF;
+    END IF;  -- End of NOT is_empty_query condition
+    
+    -- Build ORDER BY clause
+    IF search_order = 'MOD_TIME' THEN
+        order_clause := 'ORDER BY modified_time DESC, filename ASC';
+    ELSIF search_order = 'DATE' THEN
+        -- For DATE ordering, we need to extract the timestamp from content
+        -- This is complex, so for now we'll fall back to modification time
+        order_clause := 'ORDER BY modified_time DESC, filename ASC';
+    ELSE
+        order_clause := 'ORDER BY filename ASC';
+    END IF;
+    
+    -- Execute the dynamic query
+    RETURN QUERY EXECUTE format('
+        SELECT 
+            n.filename as file,
+            n.parent_path || ''/'' || n.filename as full_path,
+            n.content_type,
+            n.size_bytes,
+            n.modified_time,
+            n.created_time
+        FROM vfs2_nodes n 
+        WHERE %s AND (%s=0 OR n.owner_id = %s OR n.is_public = TRUE) 
+        %s', 
+        where_clause, 
+        owner_id_arg,
+        owner_id_arg,
+        order_clause
+    );
+END;
+$$ LANGUAGE plpgsql;
