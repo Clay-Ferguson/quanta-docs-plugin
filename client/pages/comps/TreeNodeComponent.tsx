@@ -122,7 +122,7 @@ export default function TreeNodeComponent({
                         <div className="mt-3 text-s text-gray-400 flex justify-end items-center">
                             {gs.docsMetaMode && 
                                 <>
-                                    <span className="mr-4">{node.name}</span>
+                                    <span className="mr-4">{node.name} ({node.ordinal || 0})</span>
                                     <span 
                                         className="mr-4 cursor-pointer" 
                                         title={`Timestamps: \n\nCreated: ${formatDateTime(node.createTime)}\n\nModified: ${formatDateTime(node.modifyTime)}`}

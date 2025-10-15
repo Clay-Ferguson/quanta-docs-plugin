@@ -57,7 +57,7 @@ export default function TopRightComps({ gs, rootNode, itemsAreSelected, reRender
                     onChange={async () => await handleNamesModeToggle(gs)}
                     className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                 />
-                <span className="ml-2 text-sm font-medium text-gray-300">Names</span>
+                <span className="ml-2 text-sm font-medium text-gray-300">Names</span> 
             </label>
             {gs.docsEditMode && isOurRootNode && 
                 <div className="flex items-center space-x-2">
