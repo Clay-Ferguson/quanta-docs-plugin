@@ -880,3 +880,41 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs2_set_public
+-- Sets the is_public flag for a file or directory
+-- Returns true if the operation was successful
+-- Uses vfs2_nodes table instead of vfs_nodes (key difference from VFS)
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs2_set_public(
+    owner_id_arg INTEGER,
+    parent_path_param TEXT,
+    filename_param TEXT,
+    root_key TEXT,
+    is_public_param BOOLEAN
+) 
+RETURNS BOOLEAN AS $$
+DECLARE
+    updated_count INTEGER;
+BEGIN
+    -- Update the is_public flag
+    UPDATE vfs2_nodes
+    SET 
+        is_public = is_public_param,
+        modified_time = NOW()
+    WHERE 
+        doc_root_key = root_key
+        AND parent_path = parent_path_param
+        AND filename = filename_param
+        AND (owner_id_arg = 0 OR owner_id = owner_id_arg);
+        
+    GET DIAGNOSTICS updated_count = ROW_COUNT;
+    
+    IF updated_count = 0 THEN
+        RAISE EXCEPTION 'File or directory not found or access denied: %/%', parent_path_param, filename_param;
+    END IF;
+    
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
