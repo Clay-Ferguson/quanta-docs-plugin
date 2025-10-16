@@ -28,7 +28,8 @@ interface TopRightCompsProps {
 export default function TopRightComps({ gs, rootNode, itemsAreSelected, reRenderTree, treeNodes, setTreeNodes, isLoading }: TopRightCompsProps) {
     const hasCutItems = gs.docsCutItems && gs.docsCutItems.size > 0;
     const isOurRootNode = rootNode && rootNode.owner_id === gs.userProfile?.userId;
-
+    // console.log("isOurRootNode:", isOurRootNode, "rootNode.ownerId:", rootNode?.owner_id, "userId:", gs.userProfile?.userId);
+  
     return (
         <div className="flex items-center gap-2">
             {isOurRootNode &&

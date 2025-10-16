@@ -548,8 +548,8 @@ class DocService {
      */
     createFolder = async (req: Request<any, any, { folderName: string; treeFolder: string; insertAfterNode: string, docRootKey: string }>, res: Response): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
-        if (owner_id==null) {
-            return;
+        if (!owner_id) {
+            throw new Error('Invalid owner_id: ' + owner_id);
         }
 
         await runTrans(async () => {
@@ -641,7 +641,8 @@ class DocService {
                     await (ifs as any).mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public, insertOrdinal);
                 } else {
                     // Legacy VFS: Use standard mkdirEx (ordinal is in folder name)
-                    await ifs.mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public);
+                    // await ifs.mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public);
+                    throw new Error('mkdirEx with recursive not supported in legacy VFS');
                 }
 
                 console.log(`Folder created successfully: ${newFolderPath}`);

@@ -431,12 +431,10 @@ export const scrollToItem = (itemName: string) => {
 };
 
 export const insertFolder = async (gs: DocsGlobalState, reRenderTree: any, node: TreeNode | null) => {
-    let name = await promptModal("Enter new folder name");
+    const name = await promptModal("Enter new folder name");
     if (!name || name.trim() === '') {
         return;
     }
-    // replace spaces and dashes with underscores to create a valid folder name
-    name = name.replace(/[ -]/g, '_');
         
     try {
         const requestBody = {

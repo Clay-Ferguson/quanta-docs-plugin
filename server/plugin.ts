@@ -189,6 +189,10 @@ class DocsServerPlugin implements IServerPlugin {
             // await runVfsTests(); // todo-0: put this back soon.
             await runVfs2Tests();
             await runVfs2SvcTests();
+
+            // need to wipe database table here.
+            console.log('Clearing vfs2_nodes table...');
+            await pgdb.query('DELETE FROM vfs2_nodes;');
         }
         else {
             throw new Error('PostgreSQL host not configured. Cannot run VFS tests.');

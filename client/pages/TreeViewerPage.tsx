@@ -22,7 +22,7 @@ import InsertItemsRow from './comps/InsertItemsRow';
 import TreeNodeComponent from './comps/TreeNodeComponent';
 
 declare const PAGE: string;
-declare const DESKTOP_MODE: boolean;
+declare const DESKTOP_MODE: boolean; // todo-0: this var is completely obsolete.
 declare const ADMIN_PUBLIC_KEY: string;
 
 /**
@@ -184,7 +184,7 @@ export default function TreeViewerPage() {
             // console.log(`Refreshing tree for folder [${folder}] with rootKey=[${gs.docsRootKey}]`);
             const url = `/api/docs/render/${gs.docsRootKey}${folder}${!gs.docsEditMode ? '?pullup=true' : ''}`;
             const treeResponse: TreeRender_Response | null = await httpClientUtil.secureHttpPost(url, {});
-            // console.log(`DocsFolder server response: ${treeResponse!.treeFolder}`);
+            // console.log(`DocsFolder server response:`, JSON.stringify(treeResponse?.treeNodes, null, 2));
             
             if (treeResponse) {
                 // ================================================
