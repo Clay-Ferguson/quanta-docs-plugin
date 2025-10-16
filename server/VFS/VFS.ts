@@ -567,11 +567,6 @@ class VFS implements IFS {
         );
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    checkFileAccess(filename: string, root: string): void {
-        // NOTE to AI: Do not try to implement this method, it is not needed for VFS. It needs to remain a no-op.
-    }
-
     public pathJoin(...parts: string[]): string {
         return this.normalizePath(parts.join('/'));
     }

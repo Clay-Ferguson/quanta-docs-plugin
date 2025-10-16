@@ -110,9 +110,6 @@ class DocService {
                 return null;
             }
             
-            // Security check: ensure we're still within the allowed root
-            ifs.checkFileAccess(currentPath, root);
-            
             // Read directory contents to find matching folders
             const entries = await ifs.readdir(owner_id, currentPath);
             
@@ -247,9 +244,6 @@ class DocService {
                 throw new Error(`Failed to create TreeNode ${absolutePath}`);
             }
 
-            // Security validation: ensure path is within allowed root
-            ifs.checkFileAccess(absolutePath, root);
-            
             // Verify the target is actually a directory (not a file)
             if (!info.node.is_directory) {
                 console.warn(`Path is not a directory: ${absolutePath}`);
@@ -307,10 +301,7 @@ class DocService {
      * @param root - The document root path for security validation
      * @returns Array of TreeNode objects representing directory contents, sorted alphabetically
      */
-    getTreeNodes = async (owner_id: number, absolutePath: string, pullup: boolean, root: string, ifs: IFS): Promise<TreeNode[]> => {
-        // Security check: ensure the path is within the allowed root directory
-        ifs.checkFileAccess(absolutePath, root); 
-        
+    getTreeNodes = async (owner_id: number, absolutePath: string, pullup: boolean, root: string, ifs: IFS): Promise<TreeNode[]> => { 
         // Read the directory contents
         let fileNodes = await ifs.readdirEx(owner_id, absolutePath, true);
 
@@ -321,7 +312,6 @@ class DocService {
         for (const file of fileNodes) {    
             // Get file information
             const filePath = ifs.pathJoin(absolutePath, file.name);
-            ifs.checkFileAccess(filePath, root); 
 
             // DIRECTORY
             if (file.is_directory) {
@@ -421,7 +411,6 @@ class DocService {
 
                 // Verify parent directory exists and is accessible
                 const info: any = {};
-                ifs.checkFileAccess(absoluteParentPath, root); 
                 if (!await ifs.exists(absoluteParentPath, info)) {
                     res.status(404).json({ error: `Parent directory not found [${absoluteParentPath}]` });
                     return;
@@ -592,7 +581,6 @@ class DocService {
 
                 // Verify parent directory exists and is accessible
                 const parentInfo: any = {};
-                ifs.checkFileAccess(absoluteParentPath, root);
                 if (!await ifs.exists(absoluteParentPath, parentInfo)) {
                     res.status(404).json({ error: 'Parent directory not found' });
                     return;
@@ -751,7 +739,6 @@ class DocService {
             const ifs = docUtil.getFileSystem(docRootKey);
             // Construct and validate search path
             const absoluteSearchPath = ifs.pathJoin(root, treeFolder);
-            ifs.checkFileAccess(absoluteSearchPath, root);
             
             if (!fs.existsSync(absoluteSearchPath)) {
                 res.status(404).json({ error: 'Search directory not found' });
@@ -1140,7 +1127,6 @@ class DocService {
             // Get filesystem and construct search path with boundary check
             const ifs = docUtil.getFileSystem(docRootKey);
             const absoluteSearchPath = ifs.pathJoin(root, treeFolder);
-            ifs.checkFileAccess(absoluteSearchPath, root);
             
             if (!fs.existsSync(absoluteSearchPath)) {
                 res.status(404).json({ error: 'Search directory not found' });
@@ -1649,7 +1635,6 @@ class DocService {
             try {
                 // Try to read .TAGS.md from the root directory
                 const tagsFilePath = ifs.pathJoin(root.path, '.TAGS.md');
-                ifs.checkFileAccess(tagsFilePath, root.path);
                 
                 const fileContent = await ifs.readFile(owner_id, tagsFilePath, 'utf8') as string;
                 
@@ -1727,7 +1712,6 @@ class DocService {
             let existingContent = '';
             
             try {
-                ifs.checkFileAccess(tagsFilePath, root.path);
                 existingContent = await ifs.readFile(owner_id, tagsFilePath, 'utf8') as string;
                 const existingTags = this.extractHashtagsFromText(existingContent);
                 
@@ -1817,7 +1801,6 @@ class DocService {
         newTags: Map<string, boolean>
     ): Promise<void> {
         try {
-            ifs.checkFileAccess(currentPath, rootPath);
             const items = await ifs.readdirEx(owner_id, currentPath, true);
             
             for (const item of items) {

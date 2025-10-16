@@ -46,7 +46,7 @@ Continuing again with 'VFS2.ts', add implementation and unit test for 'exists'.
 
 ### Step 24
 
-Continuing again with 'VFS2.ts', add implementation and unit test for 'checkFileAccess'.
+...omitted
 
 ### Step 25
 
@@ -100,3 +100,7 @@ Next implement the 'rm' function in 'VFS2.ts' and a unit test for it.
 ### Step 36
 
 Next implement the 'unlink' function in 'VFS2.ts' and create a unit test for it.
+
+### Step 37
+
+Next implement the 'readdir' function in 'VFS2.ts' and create a unit test for it.

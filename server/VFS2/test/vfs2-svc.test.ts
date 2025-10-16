@@ -2,8 +2,6 @@ import pgdb from '../../../../../server/db/PGDB.js';
 import { TestRunner } from '../../../../../common/TestRunner.js';
 import vfs2 from '../VFS2.js';
 
-// const testRootKey = 'usr';
-
 export async function runTests() {
     console.log("🚀 Starting VFS2-svc embedded tests...");
     
@@ -30,10 +28,7 @@ export async function runTests() {
         
         // Test the exists method
         await testRunner.run("existsTest", () => existsTest(), true);
-        
-        // Test the checkFileAccess method
-        await testRunner.run("checkFileAccessTest", () => checkFileAccessTest(), true);
-        
+                
         // Test the readdirEx method
         await testRunner.run("readdirExTest", () => readdirExTest(owner_id), true);
         
@@ -356,63 +351,6 @@ export async function existsTest(): Promise<void> {
     } catch (error) {
         console.error('=== VFS2 Exists Test Failed ===');
         console.error('Error during VFS2 exists test:', error);
-        throw error;
-    }
-}
-
-export async function checkFileAccessTest(): Promise<void> {
-    try {
-        console.log('=== VFS2 Check File Access Test Starting ===');
-
-        // Test 1: Basic file access check (should not throw any errors)
-        console.log('Test 1 - Calling checkFileAccess with basic parameters');
-        vfs2.checkFileAccess('test.txt', 'usr');
-        console.log('Test 1 passed - checkFileAccess completed without errors');
-
-        // Test 2: Check file access with empty filename
-        console.log('Test 2 - Calling checkFileAccess with empty filename');
-        vfs2.checkFileAccess('', 'usr');
-        console.log('Test 2 passed - checkFileAccess completed without errors');
-
-        // Test 3: Check file access with empty root
-        console.log('Test 3 - Calling checkFileAccess with empty root');
-        vfs2.checkFileAccess('test.txt', '');
-        console.log('Test 3 passed - checkFileAccess completed without errors');
-
-        // Test 4: Check file access with path containing slashes
-        console.log('Test 4 - Calling checkFileAccess with path containing slashes');
-        vfs2.checkFileAccess('folder/subfolder/test.txt', 'usr');
-        console.log('Test 4 passed - checkFileAccess completed without errors');
-
-        // Test 5: Check file access with special characters
-        console.log('Test 5 - Calling checkFileAccess with special characters');
-        vfs2.checkFileAccess('test-file_123.txt', 'root');
-        console.log('Test 5 passed - checkFileAccess completed without errors');
-
-        // Test 6: Check file access with null/undefined-like values (as strings)
-        console.log('Test 6 - Calling checkFileAccess with null-like string values');
-        vfs2.checkFileAccess('null', 'undefined');
-        console.log('Test 6 passed - checkFileAccess completed without errors');
-
-        // Test 7: Multiple calls to ensure consistency
-        console.log('Test 7 - Multiple calls to checkFileAccess');
-        for (let i = 0; i < 5; i++) {
-            vfs2.checkFileAccess(`test${i}.txt`, 'usr');
-        }
-        console.log('Test 7 passed - multiple checkFileAccess calls completed without errors');
-
-        // Test 8: Very long paths
-        console.log('Test 8 - Calling checkFileAccess with very long paths');
-        const longPath = 'very/long/path/with/many/segments/and/a/very/long/filename/that/should/still/work.txt';
-        vfs2.checkFileAccess(longPath, 'usr');
-        console.log('Test 8 passed - checkFileAccess with long path completed without errors');
-
-        console.log('✅ All checkFileAccess tests passed');
-        console.log('=== VFS2 Check File Access Test Completed Successfully ===');
-        
-    } catch (error) {
-        console.error('=== VFS2 Check File Access Test Failed ===');
-        console.error('Error during VFS2 checkFileAccess test:', error);
         throw error;
     }
 }

@@ -28,7 +28,6 @@ class DocBinary {
      * 
      * Security features:
      * - Validates docRootKey against configured public folders
-     * - Checks file access permissions using ifs.checkFileAccess
      * - Validates file extensions to ensure only supported image formats are served
      * - Prevents directory traversal attacks through path validation
      * 
@@ -79,7 +78,6 @@ class DocBinary {
 
             // Perform security check to ensure file is within allowed directory
             // and verify file exists
-            ifs.checkFileAccess(absoluteImagePath, root);
             if (!await ifs.exists(absoluteImagePath)) {
                 console.error(`Image file not found at absolute path: ${absoluteImagePath}`);
                 res.status(404).json({ error: 'Image file not found' });
@@ -198,7 +196,6 @@ class DocBinary {
                 const absoluteFolderPath = path.join(root, treeFolder);
             
                 const parentInfo: any = {};
-                ifs.checkFileAccess(absoluteFolderPath, root);
                 if (!await ifs.exists(absoluteFolderPath, parentInfo)) {
                     res.status(404).json({ error: 'Parent directory not found' });
                     return;
@@ -232,10 +229,7 @@ class DocBinary {
                     const finalFileName = `${ordinalPrefix}_${file.name}`;
                     const finalFilePath = path.join(absoluteFolderPath, finalFileName);
     
-                    try {
-                        // Validate file access permissions
-                        ifs.checkFileAccess(finalFilePath, root);
-                            
+                    try {    
                         // Prevent overwriting existing files
                         const info: any = {};
                         const exists = await ifs.exists(finalFilePath, info);

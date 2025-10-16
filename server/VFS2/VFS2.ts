@@ -13,7 +13,6 @@ const rootKey = "usr"; // Default root key for VFS2, can be changed based on con
  * Virtual File System 2 (VFS2) for handling file operations in a server environment, by using PostgreSQL as a backend for storage of files and folders.
  */
 class VFS2 implements IFS {
-    // Methods will be added one by one under guidance
     
     /**
      * Parse a full path to extract parent path and filename
@@ -554,11 +553,7 @@ class VFS2 implements IFS {
             throw error;
         }
     }
-    
-    checkFileAccess(filename: string, root: string): void {
-        // NOTE to AI: Do not try to implement this method, it is not needed for VFS2. It needs to remain a no-op.
-    }
-    
+        
     pathJoin(...parts: string[]): string {
         return this.normalizePath(parts.join('/'));
     }

@@ -40,6 +40,4 @@ export interface IFS {
 
     pathJoin(...parts: string[]): string;
     normalizePath(fullPath: string): string;
-
-    checkFileAccess(filename: string, root: string): void;
 }

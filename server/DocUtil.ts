@@ -113,7 +113,6 @@ class DocUtil {
     shiftOrdinalsDown = async (owner_id: number, slotsToAdd: number, absoluteParentPath: string, insertOrdinal: number, root: string, 
         itemsToIgnore: string[] | null, ifs: IFS): Promise<Map<string, string>> => {
         // console.log(`Shifting ordinals down by ${slotsToAdd} slots at ${absoluteParentPath} for insert ordinal ${insertOrdinal}`);
-        ifs.checkFileAccess(absoluteParentPath, root);
         
         // Check if we're using VFS2 which has efficient database-based ordinal shifting
         if ('shiftOrdinalsDown' in ifs && typeof ifs.shiftOrdinalsDown === 'function') {
@@ -232,9 +231,6 @@ class DocUtil {
                     return fileName; // Return original name if target exists
                 }
                 
-                // Rename the file/folder to have 4-digit ordinal prefix
-                ifs.checkFileAccess(oldFilePath, root);
-                ifs.checkFileAccess(newFilePath, root);
                 await ifs.rename(owner_id, oldFilePath, newFilePath);
                 console.log(`Renamed ${fileName} to ${newFileName} for 4-digit ordinal prefix(a)`);
                 
@@ -265,9 +261,6 @@ class DocUtil {
                         return fileName; // Return original name if target exists
                     }
                     
-                    // Rename the file/folder to have 4-digit ordinal prefix
-                    ifs.checkFileAccess(oldFilePath, root);
-                    ifs.checkFileAccess(newFilePath, root);
                     await ifs.rename(owner_id, oldFilePath, newFilePath);
                     console.log(`Renamed ${fileName} to ${newFileName} for 4-digit ordinal prefix(b)`);
                     
@@ -300,7 +293,6 @@ class DocUtil {
      * @returns The maximum ordinal value found, or 0 if no numbered files exist
      */
     getMaxOrdinal = async (owner_id: number, absolutePath: string, root: string, ifs: IFS): Promise<number> => {
-        ifs.checkFileAccess(absolutePath, root);
                 
         // Read directory contents and filter for files/folders with numeric prefixes
         const allFiles = await ifs.readdir(owner_id, absolutePath);
@@ -360,9 +352,6 @@ class DocUtil {
                 return fileName; // Return original name if target exists
             }
             
-            // Rename the file/folder to have 4-digit ordinal prefix
-            ifs.checkFileAccess(oldFilePath, root);
-            ifs.checkFileAccess(newFilePath, root);
             await ifs.rename(owner_id, oldFilePath, newFilePath);
             console.log(`Renamed ${fileName} to ${newFileName} for 4-digit ordinal prefix (b)`);
                 
@@ -419,10 +408,6 @@ class DocUtil {
     
             // Construct the absolute path to the item
             const absoluteItemPath = path.join(root, treeItem);
-    
-            // Security check - ensure the path is within the allowed root
-            // Won't need this security check, because in this mode of the app, we're giving full access to the file system, and it's by an admin user
-            // ifs.checkFileAccess(absoluteItemPath, root);
     
             // Verify the item exists in the file system
             if (!fs.existsSync(absoluteItemPath)) {
