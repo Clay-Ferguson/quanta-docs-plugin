@@ -104,3 +104,8 @@ Next implement the 'unlink' function in 'VFS2.ts' and create a unit test for it.
 ### Step 37
 
 Next implement the 'readdir' function in 'VFS2.ts' and create a unit test for it.
+
+### Step 38
+
+Next implement the 'getItemByID' function in 'VFS2.ts' and create a unit test for it
+

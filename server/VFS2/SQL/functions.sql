@@ -15,6 +15,7 @@ CREATE OR REPLACE FUNCTION vfs2_readdir(
     include_content BOOLEAN DEFAULT FALSE
 ) 
 RETURNS TABLE(
+    uuid UUID,
     owner_id INTEGER,
     is_public BOOLEAN,
     filename VARCHAR(255),
@@ -30,6 +31,7 @@ BEGIN
     IF include_content THEN
         RETURN QUERY
         SELECT 
+            n.uuid,
             n.owner_id,
             n.is_public,
             n.filename,
@@ -50,6 +52,7 @@ BEGIN
     ELSE
         RETURN QUERY
         SELECT 
+            n.uuid,
             n.owner_id,
             n.is_public,
             n.filename,

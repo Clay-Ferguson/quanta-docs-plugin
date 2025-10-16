@@ -329,12 +329,58 @@ class VFS2 implements IFS {
         }
     }
     
-    async getItemByID(uuid: string, rootKey: string): Promise<{ node: TreeNode | null; docPath: string }> {
-        throw new Error("Method not implemented yet");
+    /**
+     * Get a node by its UUID and return the TreeNode with constructed docPath
+     * @param uuid - The UUID of the node to retrieve
+     * @param rootKey - The root key for the VFS2 (defaults to "usr")
+     * @returns The TreeNode with docPath constructed from parent_path and filename, or null if not found
+     */
+    async getItemByID(uuid: string, rootKey: string = "usr"): Promise<{ node: TreeNode | null; docPath: string }> {
+        try {
+            const result = await pgdb.query(
+                'SELECT * FROM vfs2_nodes WHERE uuid = $1 AND doc_root_key = $2',
+                uuid, rootKey
+            );
+            
+            if (result.rows.length === 0) {
+                return { node: null, docPath: '' };
+            }
+            
+            const row = result.rows[0];
+            const node = this.convertToTreeNode(row);
+            
+            // Construct the docPath from parent_path and filename
+            let docPath: string;
+            if (row.parent_path === '' || row.parent_path === '/') {
+                // If parent_path is empty or root, docPath is just the filename
+                docPath = row.filename;
+            } else {
+                // Combine parent_path and filename with proper path separator
+                docPath = this.pathJoin(row.parent_path, row.filename);
+            }
+            
+            return { node, docPath };
+        } catch (error) {
+            console.error('VFS2.getItemByID error:', error);
+            return { node: null, docPath: '' };
+        }
     }
     
     async readdir(owner_id: number, fullPath: string): Promise<string[]> {
-        throw new Error("Method not implemented yet");
+        try {
+            const relativePath = this.normalizePath(fullPath);
+            
+            const result = await pgdb.query(
+                'SELECT * FROM vfs2_readdir($1, $2, $3, $4)',
+                pgdb.authId(owner_id), relativePath, rootKey, false
+            );
+            
+            // Extract just the filenames from the result
+            return result.rows.map((row: any) => row.filename);
+        } catch (error) {
+            console.error('VFS2.readdir error:', error);
+            throw error;
+        }
     }
     
     async readdirEx(owner_id: number, fullPath: string, loadContent: boolean): Promise<TreeNode[]> {

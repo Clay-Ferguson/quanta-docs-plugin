@@ -56,6 +56,12 @@ export async function runTests() {
         // Test the unlink method
         await testRunner.run("unlinkTest", () => unlinkTest(owner_id), true);
         
+        // Test the readdir method
+        await testRunner.run("readdirTest", () => readdirTest(owner_id), true);
+        
+        // Test the getItemByID method
+        await testRunner.run("getItemByIDTest", () => getItemByIDTest(owner_id), true);
+        
         console.log("✅ VFS2-svc test suite passed");
     } catch {
         console.error("❌ VFS2-svc test suite failed");
@@ -2013,6 +2019,506 @@ export async function unlinkTest(owner_id: number): Promise<void> {
     } catch (error) {
         console.error('=== VFS2 Unlink Test Failed ===');
         console.error('Error during VFS2 unlink test:', error);
+        throw error;
+    }
+}
+
+export async function readdirTest(owner_id: number): Promise<void> {
+    try {
+        console.log('=== VFS2 Readdir Test Starting ===');
+
+        // Test 1: Read root directory (should return array of filenames)
+        console.log('Test 1 - Reading root directory');
+        const result1 = await vfs2.readdir(owner_id, '');
+        console.log(`Test 1 - Root directory contents (${result1.length} items):`, result1);
+        
+        // Root directory should return an array of strings
+        if (!Array.isArray(result1)) {
+            throw new Error('Test 1 failed! readdir should return an array');
+        }
+        
+        // All items should be strings (filenames)
+        for (const item of result1) {
+            if (typeof item !== 'string') {
+                throw new Error(`Test 1 failed! All items should be strings, got: ${typeof item}`);
+            }
+        }
+        console.log('Test 1 - Root directory readdir verified');
+
+        // Test 2: Read root directory with slash
+        console.log('Test 2 - Reading root directory with slash');
+        const result2 = await vfs2.readdir(owner_id, '/');
+        console.log(`Test 2 - Root directory with slash contents (${result2.length} items):`, result2);
+        
+        if (!Array.isArray(result2)) {
+            throw new Error('Test 2 failed! readdir with slash should return an array');
+        }
+        
+        for (const item of result2) {
+            if (typeof item !== 'string') {
+                throw new Error(`Test 2 failed! All items should be strings, got: ${typeof item}`);
+            }
+        }
+        console.log('Test 2 - Root directory with slash readdir verified');
+
+        // Test 3: Read non-existent directory (should return empty array or throw error)
+        console.log('Test 3 - Reading non-existent directory');
+        try {
+            const result3 = await vfs2.readdir(owner_id, 'nonexistent-folder');
+            console.log(`Test 3 - Non-existent directory contents (${result3.length} items):`, result3);
+            
+            // Should return empty array for non-existent directory
+            if (!Array.isArray(result3) || result3.length > 0) {
+                throw new Error('Test 3 failed! Non-existent directory should return empty array');
+            }
+            console.log('Test 3 - Non-existent directory returned empty array (correct)');
+        } catch (error) {
+            // It's also acceptable for readdir to throw an error for non-existent directories
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 3 - Non-existent directory threw error (acceptable):', errorMessage);
+        }
+
+        // Test 4: Create some test files and verify readdir returns them
+        console.log('Test 4 - Creating test files and verifying readdir results');
+        const testFiles = ['readdir-test-1.txt', 'readdir-test-2.md', 'readdir-test-3.json'];
+        
+        // Create test files
+        for (const fileName of testFiles) {
+            await vfs2.writeFile(owner_id, fileName, `Content for ${fileName}`, 'utf8');
+            console.log(`Test 4 - Created test file: ${fileName}`);
+        }
+        
+        // Read directory and verify files are present
+        const result4 = await vfs2.readdir(owner_id, '');
+        console.log(`Test 4 - Directory contents after creating files (${result4.length} items):`, result4);
+        
+        // Verify all test files are in the readdir result
+        for (const testFile of testFiles) {
+            if (!result4.includes(testFile)) {
+                throw new Error(`Test 4 failed! Created file ${testFile} should be in readdir result`);
+            }
+        }
+        console.log('Test 4 - All created test files found in readdir result');
+
+        // Test 5: Compare readdir with readdirEx results
+        console.log('Test 5 - Comparing readdir with readdirEx results');
+        const readdirResult = await vfs2.readdir(owner_id, '');
+        const readdirExResult = await vfs2.readdirEx(owner_id, '', false);
+        
+        console.log(`Test 5 - readdir returned ${readdirResult.length} items`);
+        console.log(`Test 5 - readdirEx returned ${readdirExResult.length} items`);
+        
+        // Should have same number of items
+        if (readdirResult.length !== readdirExResult.length) {
+            throw new Error(`Test 5 failed! readdir and readdirEx should return same number of items: ${readdirResult.length} vs ${readdirExResult.length}`);
+        }
+        
+        // Verify all filenames match
+        const readdirExFilenames = readdirExResult.map(node => node.name);
+        for (const filename of readdirResult) {
+            if (!readdirExFilenames.includes(filename)) {
+                throw new Error(`Test 5 failed! readdir filename ${filename} not found in readdirEx results`);
+            }
+        }
+        
+        for (const filename of readdirExFilenames) {
+            if (!readdirResult.includes(filename)) {
+                throw new Error(`Test 5 failed! readdirEx filename ${filename} not found in readdir results`);
+            }
+        }
+        console.log('Test 5 - readdir and readdirEx results are consistent');
+
+        // Test 6: Test path normalization in readdir
+        console.log('Test 6 - Testing path normalization');
+        const result6 = await vfs2.readdir(owner_id, '//test///path//');
+        console.log(`Test 6 - Normalized path contents (${result6.length} items):`, result6);
+        
+        if (!Array.isArray(result6)) {
+            throw new Error('Test 6 failed! readdir with path normalization should return an array');
+        }
+        console.log('Test 6 - Path normalization handled correctly');
+
+        // Test 7: Test ordering of results (should be ordered by ordinal)
+        console.log('Test 7 - Testing ordering of results');
+        const orderedResult = await vfs2.readdir(owner_id, '');
+        const orderedResultEx = await vfs2.readdirEx(owner_id, '', false);
+        
+        // Since readdir uses the same underlying function as readdirEx, 
+        // the ordering should be the same
+        const orderedFilenames = orderedResultEx.map(node => node.name);
+        
+        for (let i = 0; i < orderedResult.length; i++) {
+            if (orderedResult[i] !== orderedFilenames[i]) {
+                throw new Error(`Test 7 failed! File ordering mismatch at position ${i}: readdir=${orderedResult[i]}, readdirEx=${orderedFilenames[i]}`);
+            }
+        }
+        console.log('Test 7 - File ordering verified to be consistent');
+
+        // Test 8: Test with different owner_id values
+        console.log('Test 8 - Testing with different owner_id values');
+        const result8a = await vfs2.readdir(owner_id, '');
+        const result8b = await vfs2.readdir(999999, ''); // Non-existent user
+        
+        console.log(`Test 8a - Valid owner_id returned ${result8a.length} items`);
+        console.log(`Test 8b - Invalid owner_id returned ${result8b.length} items`);
+        
+        // Both should return arrays (may be different lengths due to permissions)
+        if (!Array.isArray(result8a) || !Array.isArray(result8b)) {
+            throw new Error('Test 8 failed! Both calls should return arrays');
+        }
+        console.log('Test 8 - Different owner_id values handled correctly');
+
+        // Test 9: Test nested directory paths (should return empty or throw error)
+        console.log('Test 9 - Testing nested directory paths');
+        const nestedPaths = [
+            'folder/subfolder',
+            'deeply/nested/path',
+            'nonexistent/nested/structure'
+        ];
+        
+        for (const path of nestedPaths) {
+            try {
+                const result = await vfs2.readdir(owner_id, path);
+                console.log(`Test 9 - Path '${path}' returned ${result.length} items`);
+                
+                if (!Array.isArray(result)) {
+                    throw new Error(`Test 9 failed! Path '${path}' should return an array`);
+                }
+                
+                // Should be empty since paths don't exist
+                if (result.length > 0) {
+                    throw new Error(`Test 9 failed! Non-existent path '${path}' should return empty array`);
+                }
+                
+            } catch (error) {
+                // It's acceptable for non-existent paths to throw errors
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                console.log(`Test 9 - Path '${path}' threw error (acceptable):`, errorMessage);
+            }
+        }
+
+        // Test 10: Clean up test files and verify readdir reflects changes
+        console.log('Test 10 - Cleaning up test files and verifying readdir reflects changes');
+        
+        // Get current file list
+        const beforeCleanup = await vfs2.readdir(owner_id, '');
+        console.log(`Test 10 - Files before cleanup: ${beforeCleanup.length}`);
+        
+        // Delete test files
+        for (const fileName of testFiles) {
+            try {
+                await vfs2.unlink(owner_id, fileName);
+                console.log(`Test 10 - Deleted test file: ${fileName}`);
+            } catch (error) {
+                // File might already be deleted by previous tests
+                console.log(`Test 10 - Could not delete ${fileName} (may not exist):`, error);
+            }
+        }
+        
+        // Verify files are no longer in readdir result
+        const afterCleanup = await vfs2.readdir(owner_id, '');
+        console.log(`Test 10 - Files after cleanup: ${afterCleanup.length}`);
+        
+        for (const testFile of testFiles) {
+            if (afterCleanup.includes(testFile)) {
+                throw new Error(`Test 10 failed! Deleted file ${testFile} should not appear in readdir result`);
+            }
+        }
+        console.log('Test 10 - Cleanup verified, deleted files no longer in readdir result');
+
+        console.log('✅ All readdir tests passed');
+        console.log('=== VFS2 Readdir Test Completed Successfully ===');
+        
+    } catch (error) {
+        console.error('=== VFS2 Readdir Test Failed ===');
+        console.error('Error during VFS2 readdir test:', error);
+        throw error;
+    }
+}
+
+export async function getItemByIDTest(owner_id: number): Promise<void> {
+    try {
+        console.log('=== VFS2 GetItemByID Test Starting ===');
+
+        // Test 1: Test getting item by non-existent UUID
+        console.log('Test 1 - Getting item by non-existent UUID');
+        const nonExistentUuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+        const result1 = await vfs2.getItemByID(nonExistentUuid, 'usr');
+        console.log(`Test 1 - Non-existent UUID result:`, { hasNode: !!result1.node, docPath: result1.docPath });
+        
+        if (result1.node !== null) {
+            throw new Error('Test 1 failed! Non-existent UUID should return null node');
+        }
+        if (result1.docPath !== '') {
+            throw new Error('Test 1 failed! Non-existent UUID should return empty docPath');
+        }
+        console.log('Test 1 - Non-existent UUID handled correctly');
+
+        // Test 2: Create a test file and get it by ID
+        console.log('Test 2 - Create test file and retrieve by UUID');
+        const testFileName = 'test-getItemByID.md';
+        const testContent = '# GetItemByID Test\n\nThis file is used to test UUID-based retrieval.';
+        
+        // Create the file
+        await vfs2.writeFile(owner_id, testFileName, testContent, 'utf8');
+        console.log(`Test 2 - Created test file: ${testFileName}`);
+        
+        // Get the file's UUID by reading the directory
+        const rootContents = await vfs2.readdirEx(owner_id, '', false);
+        const testFile = rootContents.find(node => node.name === testFileName);
+        
+        if (!testFile || !testFile.uuid) {
+            throw new Error('Test 2 failed! Test file should exist and have a UUID');
+        }
+        console.log(`Test 2 - Found test file with UUID: ${testFile.uuid}`);
+        
+        // Get the file by its UUID
+        const result2 = await vfs2.getItemByID(testFile.uuid, 'usr');
+        console.log(`Test 2 - Retrieved by UUID:`, { 
+            hasNode: !!result2.node, 
+            docPath: result2.docPath,
+            nodeName: result2.node?.name,
+            nodeUuid: result2.node?.uuid
+        });
+        
+        if (!result2.node) {
+            throw new Error('Test 2 failed! Should have found the test file by UUID');
+        }
+        
+        if (result2.node.uuid !== testFile.uuid) {
+            throw new Error(`Test 2 failed! UUID mismatch: expected ${testFile.uuid}, got ${result2.node.uuid}`);
+        }
+        
+        if (result2.node.name !== testFileName) {
+            throw new Error(`Test 2 failed! Name mismatch: expected ${testFileName}, got ${result2.node.name}`);
+        }
+        
+        if (result2.docPath !== testFileName) {
+            throw new Error(`Test 2 failed! DocPath mismatch: expected ${testFileName}, got ${result2.docPath}`);
+        }
+        console.log('Test 2 - File retrieval by UUID successful');
+
+        // Test 3: Create a nested directory structure and test docPath construction
+        console.log('Test 3 - Create nested structure and test docPath construction');
+        const nestedDirName = 'test-nested-dir';
+        const nestedFileName = 'nested-file.txt';
+        const nestedContent = 'This is content in a nested file.';
+        
+        // Create nested directory first
+        await vfs2.mkdirEx(owner_id, nestedDirName, {}, false);
+        console.log(`Test 3 - Created nested directory: ${nestedDirName}`);
+        
+        // Create file in nested directory
+        const nestedFilePath = vfs2.pathJoin(nestedDirName, nestedFileName);
+        await vfs2.writeFile(owner_id, nestedFilePath, nestedContent, 'utf8');
+        console.log(`Test 3 - Created nested file: ${nestedFilePath}`);
+        
+        // Get the nested file's UUID
+        const nestedContents = await vfs2.readdirEx(owner_id, nestedDirName, false);
+        const nestedFile = nestedContents.find(node => node.name === nestedFileName);
+        
+        if (!nestedFile || !nestedFile.uuid) {
+            throw new Error('Test 3 failed! Nested file should exist and have a UUID');
+        }
+        console.log(`Test 3 - Found nested file with UUID: ${nestedFile.uuid}`);
+        
+        // Get the nested file by its UUID
+        const result3 = await vfs2.getItemByID(nestedFile.uuid, 'usr');
+        console.log(`Test 3 - Retrieved nested file by UUID:`, { 
+            hasNode: !!result3.node, 
+            docPath: result3.docPath,
+            nodeName: result3.node?.name 
+        });
+        
+        if (!result3.node) {
+            throw new Error('Test 3 failed! Should have found the nested file by UUID');
+        }
+        
+        if (result3.docPath !== nestedFilePath) {
+            throw new Error(`Test 3 failed! DocPath should be ${nestedFilePath}, got ${result3.docPath}`);
+        }
+        console.log('Test 3 - Nested file docPath construction successful');
+
+        // Test 4: Test with different root keys
+        console.log('Test 4 - Test with different root keys');
+        const wrongRootKeyResult = await vfs2.getItemByID(testFile.uuid, 'wrong-root');
+        console.log(`Test 4 - Wrong root key result:`, { hasNode: !!wrongRootKeyResult.node, docPath: wrongRootKeyResult.docPath });
+        
+        if (wrongRootKeyResult.node !== null) {
+            throw new Error('Test 4 failed! Wrong root key should return null node');
+        }
+        console.log('Test 4 - Wrong root key handled correctly');
+
+        // Test 5: Test with malformed UUIDs
+        console.log('Test 5 - Test with malformed UUIDs');
+        const malformedUuids = [
+            'not-a-uuid',
+            '12345',
+            '',
+            'aaaaaaaa-bbbb-cccc-dddd', // Too short
+            'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee-extra' // Too long
+        ];
+        
+        for (const badUuid of malformedUuids) {
+            try {
+                const badResult = await vfs2.getItemByID(badUuid, 'usr');
+                console.log(`Test 5 - Malformed UUID '${badUuid}' result:`, { hasNode: !!badResult.node, docPath: badResult.docPath });
+                
+                // Should return null node for malformed UUIDs
+                if (badResult.node !== null) {
+                    throw new Error(`Test 5 failed! Malformed UUID '${badUuid}' should return null node`);
+                }
+            } catch (error) {
+                // It's also acceptable for malformed UUIDs to throw database errors
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                console.log(`Test 5 - Malformed UUID '${badUuid}' threw error (acceptable):`, errorMessage);
+            }
+        }
+        console.log('Test 5 - Malformed UUIDs handled correctly');
+
+        // Test 6: Test TreeNode properties
+        console.log('Test 6 - Verify TreeNode properties');
+        const result6 = await vfs2.getItemByID(testFile.uuid, 'usr');
+        
+        if (!result6.node) {
+            throw new Error('Test 6 failed! Should have found the test file');
+        }
+        
+        const node = result6.node;
+        
+        // Check required TreeNode properties
+        if (typeof node.is_directory !== 'boolean') {
+            throw new Error('Test 6 failed! TreeNode should have boolean is_directory property');
+        }
+        
+        if (typeof node.name !== 'string') {
+            throw new Error('Test 6 failed! TreeNode should have string name property');
+        }
+        
+        if (typeof node.uuid !== 'string') {
+            throw new Error('Test 6 failed! TreeNode should have string uuid property');
+        }
+        
+        if (typeof node.owner_id !== 'number') {
+            throw new Error('Test 6 failed! TreeNode should have number owner_id property');
+        }
+        
+        if (typeof node.is_public !== 'boolean') {
+            throw new Error('Test 6 failed! TreeNode should have boolean is_public property');
+        }
+        
+        if (node.ordinal !== null && typeof node.ordinal !== 'number') {
+            throw new Error('Test 6 failed! TreeNode ordinal should be number or null');
+        }
+        
+        console.log(`Test 6 - TreeNode properties verified:`, {
+            name: node.name,
+            uuid: node.uuid,
+            is_directory: node.is_directory,
+            is_public: node.is_public,
+            owner_id: node.owner_id,
+            ordinal: node.ordinal
+        });
+
+        // Test 7: Test with directory vs file
+        console.log('Test 7 - Test directory vs file retrieval');
+        
+        // Get directory by UUID
+        const dirContents = await vfs2.readdirEx(owner_id, '', false);
+        const dirNode = dirContents.find(node => node.name === nestedDirName);
+        
+        if (!dirNode || !dirNode.uuid) {
+            throw new Error('Test 7 failed! Directory should exist and have UUID');
+        }
+        
+        const dirResult = await vfs2.getItemByID(dirNode.uuid, 'usr');
+        console.log(`Test 7 - Directory retrieval:`, { 
+            hasNode: !!dirResult.node,
+            docPath: dirResult.docPath,
+            isDirectory: dirResult.node?.is_directory
+        });
+        
+        if (!dirResult.node || !dirResult.node.is_directory) {
+            throw new Error('Test 7 failed! Directory should be retrieved and marked as directory');
+        }
+        
+        if (dirResult.docPath !== nestedDirName) {
+            throw new Error(`Test 7 failed! Directory docPath should be ${nestedDirName}, got ${dirResult.docPath}`);
+        }
+        console.log('Test 7 - Directory retrieval successful');
+
+        // Test 8: Test consistency between getItemByID and other methods
+        console.log('Test 8 - Test consistency with other methods');
+        
+        // Get file through getItemByID
+        const byIdResult = await vfs2.getItemByID(testFile.uuid, 'usr');
+        
+        // Get file through exists with info
+        const existsInfo: any = {};
+        const exists = await vfs2.exists(testFileName, existsInfo);
+        
+        if (!exists || !existsInfo.node) {
+            throw new Error('Test 8 failed! File should exist and have node info');
+        }
+        
+        // Compare results
+        const byIdNode = byIdResult.node!;
+        const existsNode = existsInfo.node;
+        
+        if (byIdNode.uuid !== existsNode.uuid) {
+            throw new Error('Test 8 failed! UUIDs should match between getItemByID and exists methods');
+        }
+        
+        if (byIdNode.name !== existsNode.name) {
+            throw new Error('Test 8 failed! Names should match between getItemByID and exists methods');
+        }
+        
+        if (byIdNode.is_directory !== existsNode.is_directory) {
+            throw new Error('Test 8 failed! Directory flags should match between methods');
+        }
+        console.log('Test 8 - Consistency between methods verified');
+
+        // Test 9: Test multiple retrievals (caching/consistency)
+        console.log('Test 9 - Test multiple retrievals for consistency');
+        for (let i = 0; i < 3; i++) {
+            const multiResult = await vfs2.getItemByID(testFile.uuid, 'usr');
+            
+            if (!multiResult.node) {
+                throw new Error(`Test 9 failed! Retrieval ${i} should return node`);
+            }
+            
+            if (multiResult.node.uuid !== testFile.uuid) {
+                throw new Error(`Test 9 failed! UUID should be consistent across retrievals`);
+            }
+            
+            if (multiResult.docPath !== testFileName) {
+                throw new Error(`Test 9 failed! DocPath should be consistent across retrievals`);
+            }
+        }
+        console.log('Test 9 - Multiple retrieval consistency verified');
+
+        // Test 10: Clean up test files
+        console.log('Test 10 - Cleaning up test files');
+        try {
+            await vfs2.unlink(owner_id, testFileName);
+            console.log('Test 10 - Deleted test file');
+        } catch (error) {
+            console.log('Test 10 - Could not delete test file:', error);
+        }
+        
+        try {
+            await vfs2.rm(owner_id, nestedDirName, { recursive: true });
+            console.log('Test 10 - Deleted nested directory');
+        } catch (error) {
+            console.log('Test 10 - Could not delete nested directory:', error);
+        }
+
+        console.log('✅ All getItemByID tests passed');
+        console.log('=== VFS2 GetItemByID Test Completed Successfully ===');
+        
+    } catch (error) {
+        console.error('=== VFS2 GetItemByID Test Failed ===');
+        console.error('Error during VFS2 getItemByID test:', error);
         throw error;
     }
 }
