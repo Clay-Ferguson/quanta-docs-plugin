@@ -109,3 +109,12 @@ Next implement the 'readdir' function in 'VFS2.ts' and create a unit test for it
 
 Next implement the 'getItemByID' function in 'VFS2.ts' and create a unit test for it
 
+### Step 39
+
+Please add to VFS2.ts a method named 'setOrdinal' which will simply set the ordinal value of a file/folder record using it's ID value to identify it for updating, and then add a unit test for it.
+
+### Step 40
+
+Based on our new way of dealing with ordinals please update the DocMod.ts 'moveUpOrDown' method. It needs to stop assuming filenames have ordinal prefixes and instead use the new way of dealing with ordinals. Be sure to read the method documentation before you start to see the old details, and then you'll update the documentation when you're done with our new ordinals approach.
+
+

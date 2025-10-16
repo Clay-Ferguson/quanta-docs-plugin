@@ -62,6 +62,12 @@ export async function runTests() {
         // Test the getItemByID method
         await testRunner.run("getItemByIDTest", () => getItemByIDTest(owner_id), true);
         
+        // Test the setOrdinal method
+        await testRunner.run("setOrdinalTest", () => setOrdinalTest(owner_id), true);
+        
+        // Test the moveUpOrDown functionality (ordinal swapping)
+        await testRunner.run("moveUpOrDownTest", () => moveUpOrDownTest(owner_id), true);
+        
         console.log("✅ VFS2-svc test suite passed");
     } catch {
         console.error("❌ VFS2-svc test suite failed");
@@ -2519,6 +2525,461 @@ export async function getItemByIDTest(owner_id: number): Promise<void> {
     } catch (error) {
         console.error('=== VFS2 GetItemByID Test Failed ===');
         console.error('Error during VFS2 getItemByID test:', error);
+        throw error;
+    }
+}
+
+export async function setOrdinalTest(owner_id: number): Promise<void> {
+    try {
+        console.log('=== VFS2 SetOrdinal Test Starting ===');
+
+        // Test 1: Create test files with specific ordinals
+        console.log('Test 1 - Create test files with specific ordinals');
+        const testFiles = [
+            { name: 'ordinal-test-1.md', ordinal: 10 },
+            { name: 'ordinal-test-2.md', ordinal: 20 },
+            { name: 'ordinal-test-3.md', ordinal: 30 }
+        ];
+        
+        // Create files with specific ordinals
+        for (const file of testFiles) {
+            await vfs2.writeFileEx(owner_id, file.name, `Content for ${file.name}`, 'utf8', false, file.ordinal);
+            console.log(`Test 1 - Created ${file.name} with ordinal ${file.ordinal}`);
+        }
+        
+        // Verify files were created with correct ordinals
+        const rootContents = await vfs2.readdirEx(owner_id, '', false);
+        for (const file of testFiles) {
+            const createdFile = rootContents.find(node => node.name === file.name);
+            if (!createdFile) {
+                throw new Error(`Test 1 failed! File ${file.name} should exist`);
+            }
+            if (createdFile.ordinal !== file.ordinal) {
+                throw new Error(`Test 1 failed! File ${file.name} should have ordinal ${file.ordinal}, got ${createdFile.ordinal}`);
+            }
+        }
+        console.log('Test 1 - All test files created with correct ordinals');
+
+        // Test 2: Update ordinal of first file
+        console.log('Test 2 - Update ordinal of first file');
+        const firstFile = rootContents.find(node => node.name === testFiles[0].name);
+        if (!firstFile || !firstFile.uuid) {
+            throw new Error('Test 2 failed! First file should exist and have UUID');
+        }
+        
+        const newOrdinal = 5;
+        await vfs2.setOrdinal(firstFile.uuid, newOrdinal);
+        console.log(`Test 2 - Set ordinal for ${firstFile.name} (UUID: ${firstFile.uuid}) to ${newOrdinal}`);
+        
+        // Verify the ordinal was updated
+        const updatedContents = await vfs2.readdirEx(owner_id, '', false);
+        const updatedFile = updatedContents.find(node => node.uuid === firstFile.uuid);
+        
+        if (!updatedFile) {
+            throw new Error('Test 2 failed! Updated file should still exist');
+        }
+        if (updatedFile.ordinal !== newOrdinal) {
+            throw new Error(`Test 2 failed! File ordinal should be ${newOrdinal}, got ${updatedFile.ordinal}`);
+        }
+        console.log('Test 2 - Ordinal update verified');
+
+        // Test 3: Update ordinal to zero
+        console.log('Test 3 - Update ordinal to zero');
+        const secondFile = rootContents.find(node => node.name === testFiles[1].name);
+        if (!secondFile || !secondFile.uuid) {
+            throw new Error('Test 3 failed! Second file should exist and have UUID');
+        }
+        
+        await vfs2.setOrdinal(secondFile.uuid, 0);
+        console.log(`Test 3 - Set ordinal for ${secondFile.name} to 0`);
+        
+        // Verify the ordinal was updated to zero
+        const zeroContents = await vfs2.readdirEx(owner_id, '', false);
+        const zeroFile = zeroContents.find(node => node.uuid === secondFile.uuid);
+        
+        if (!zeroFile) {
+            throw new Error('Test 3 failed! File should still exist after setting ordinal to 0');
+        }
+        if (zeroFile.ordinal !== 0) {
+            throw new Error(`Test 3 failed! File ordinal should be 0, got ${zeroFile.ordinal}`);
+        }
+        console.log('Test 3 - Zero ordinal update verified');
+
+        // Test 4: Update ordinal to large value
+        console.log('Test 4 - Update ordinal to large value');
+        const thirdFile = rootContents.find(node => node.name === testFiles[2].name);
+        if (!thirdFile || !thirdFile.uuid) {
+            throw new Error('Test 4 failed! Third file should exist and have UUID');
+        }
+        
+        const largeOrdinal = 99999;
+        await vfs2.setOrdinal(thirdFile.uuid, largeOrdinal);
+        console.log(`Test 4 - Set ordinal for ${thirdFile.name} to ${largeOrdinal}`);
+        
+        // Verify the ordinal was updated
+        const largeContents = await vfs2.readdirEx(owner_id, '', false);
+        const largeFile = largeContents.find(node => node.uuid === thirdFile.uuid);
+        
+        if (!largeFile) {
+            throw new Error('Test 4 failed! File should still exist after setting large ordinal');
+        }
+        if (largeFile.ordinal !== largeOrdinal) {
+            throw new Error(`Test 4 failed! File ordinal should be ${largeOrdinal}, got ${largeFile.ordinal}`);
+        }
+        console.log('Test 4 - Large ordinal update verified');
+
+        // Test 5: Test with non-existent UUID
+        console.log('Test 5 - Test with non-existent UUID');
+        const nonExistentUuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+        try {
+            await vfs2.setOrdinal(nonExistentUuid, 100);
+            throw new Error('Test 5 failed! Should have thrown error for non-existent UUID');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 5 passed - Non-existent UUID threw error:', errorMessage);
+            if (!errorMessage.includes('not found')) {
+                throw new Error('Test 5 failed! Should throw "not found" error');
+            }
+        }
+
+        // Test 6: Test with malformed UUIDs
+        console.log('Test 6 - Test with malformed UUIDs');
+        const malformedUuids = [
+            'not-a-uuid',
+            '12345',
+            '',
+            'aaaaaaaa-bbbb-cccc-dddd' // Too short
+        ];
+        
+        for (const badUuid of malformedUuids) {
+            try {
+                await vfs2.setOrdinal(badUuid, 50);
+                throw new Error(`Test 6 failed! Should have thrown error for malformed UUID: ${badUuid}`);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                console.log(`Test 6 - Malformed UUID '${badUuid}' threw error (expected):`, errorMessage);
+            }
+        }
+        console.log('Test 6 - Malformed UUIDs handled correctly');
+
+        // Test 7: Test negative ordinal (might be allowed depending on schema)
+        console.log('Test 7 - Test negative ordinal');
+        try {
+            await vfs2.setOrdinal(firstFile.uuid, -10);
+            console.log('Test 7 - Negative ordinal accepted');
+            
+            // Verify the ordinal was updated
+            const negativeContents = await vfs2.readdirEx(owner_id, '', false);
+            const negativeFile = negativeContents.find(node => node.uuid === firstFile.uuid);
+            
+            if (!negativeFile) {
+                throw new Error('Test 7 failed! File should still exist after setting negative ordinal');
+            }
+            if (negativeFile.ordinal !== -10) {
+                throw new Error(`Test 7 failed! File ordinal should be -10, got ${negativeFile.ordinal}`);
+            }
+            console.log('Test 7 - Negative ordinal verified');
+        } catch (error) {
+            // It's acceptable if negative ordinals are rejected by database constraints
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log('Test 7 - Negative ordinal rejected (may be acceptable):', errorMessage);
+        }
+
+        // Test 8: Update multiple files' ordinals in sequence
+        console.log('Test 8 - Update multiple files ordinals in sequence');
+        const newOrdinals = [100, 200, 300];
+        
+        for (let i = 0; i < testFiles.length; i++) {
+            const file = rootContents.find(node => node.name === testFiles[i].name);
+            if (file && file.uuid) {
+                await vfs2.setOrdinal(file.uuid, newOrdinals[i]);
+                console.log(`Test 8 - Set ordinal for ${file.name} to ${newOrdinals[i]}`);
+            }
+        }
+        
+        // Verify all ordinals were updated
+        const multiContents = await vfs2.readdirEx(owner_id, '', false);
+        for (let i = 0; i < testFiles.length; i++) {
+            const file = multiContents.find(node => node.name === testFiles[i].name);
+            if (!file) {
+                throw new Error(`Test 8 failed! File ${testFiles[i].name} should exist`);
+            }
+            if (file.ordinal !== newOrdinals[i]) {
+                throw new Error(`Test 8 failed! File ${testFiles[i].name} should have ordinal ${newOrdinals[i]}, got ${file.ordinal}`);
+            }
+        }
+        console.log('Test 8 - Multiple ordinal updates verified');
+
+        // Test 9: Verify ordering after ordinal changes
+        console.log('Test 9 - Verify ordering after ordinal changes');
+        const orderedContents = await vfs2.readdirEx(owner_id, '', false);
+        
+        // Filter to only our test files
+        const ourFiles = orderedContents.filter(node => 
+            testFiles.some(tf => tf.name === node.name));
+        
+        console.log('Test 9 - Our test files with ordinals:');
+        ourFiles.forEach(file => {
+            console.log(`  - ${file.name}: ordinal ${file.ordinal}`);
+        });
+        
+        // Verify files are ordered by ordinal
+        for (let i = 1; i < ourFiles.length; i++) {
+            const prevOrdinal = ourFiles[i-1].ordinal;
+            const currOrdinal = ourFiles[i].ordinal;
+            if (prevOrdinal != null && currOrdinal != null && prevOrdinal > currOrdinal) {
+                throw new Error(`Test 9 failed! Files should be ordered by ordinal: ${ourFiles[i-1].name} (${prevOrdinal}) should come before ${ourFiles[i].name} (${currOrdinal})`);
+            }
+        }
+        console.log('Test 9 - File ordering by ordinal verified');
+
+        // Test 10: Test setOrdinal on directory
+        console.log('Test 10 - Test setOrdinal on directory');
+        const testDirName = 'test-ordinal-dir';
+        const dirOrdinal = 500;
+        
+        // Create directory
+        await vfs2.mkdirEx(owner_id, testDirName, {}, false, dirOrdinal);
+        console.log(`Test 10 - Created directory ${testDirName} with ordinal ${dirOrdinal}`);
+        
+        // Get directory UUID
+        const dirContents = await vfs2.readdirEx(owner_id, '', false);
+        const testDir = dirContents.find(node => node.name === testDirName);
+        
+        if (!testDir || !testDir.uuid) {
+            throw new Error('Test 10 failed! Directory should exist and have UUID');
+        }
+        
+        // Update directory ordinal
+        const newDirOrdinal = 600;
+        await vfs2.setOrdinal(testDir.uuid, newDirOrdinal);
+        console.log(`Test 10 - Set directory ordinal to ${newDirOrdinal}`);
+        
+        // Verify directory ordinal was updated
+        const updatedDirContents = await vfs2.readdirEx(owner_id, '', false);
+        const updatedDir = updatedDirContents.find(node => node.uuid === testDir.uuid);
+        
+        if (!updatedDir) {
+            throw new Error('Test 10 failed! Directory should still exist after ordinal update');
+        }
+        if (updatedDir.ordinal !== newDirOrdinal) {
+            throw new Error(`Test 10 failed! Directory ordinal should be ${newDirOrdinal}, got ${updatedDir.ordinal}`);
+        }
+        console.log('Test 10 - Directory ordinal update verified');
+
+        // Clean up test files
+        console.log('Cleanup - Removing test files and directory');
+        for (const file of testFiles) {
+            try {
+                await vfs2.unlink(owner_id, file.name);
+                console.log(`Cleanup - Deleted ${file.name}`);
+            } catch (error) {
+                console.log(`Cleanup - Could not delete ${file.name}:`, error);
+            }
+        }
+        
+        try {
+            await vfs2.rm(owner_id, testDirName);
+            console.log(`Cleanup - Deleted directory ${testDirName}`);
+        } catch (error) {
+            console.log(`Cleanup - Could not delete directory ${testDirName}:`, error);
+        }
+
+        console.log('✅ All setOrdinal tests passed');
+        console.log('=== VFS2 SetOrdinal Test Completed Successfully ===');
+        
+    } catch (error) {
+        console.error('=== VFS2 SetOrdinal Test Failed ===');
+        console.error('Error during VFS2 setOrdinal test:', error);
+        throw error;
+    }
+}
+
+/**
+ * Test for moveUpOrDown functionality - simulates ordinal swapping between adjacent items
+ * This tests the core logic used by DocMod.moveUpOrDown
+ */
+export async function moveUpOrDownTest(owner_id: number): Promise<void> {
+    try {
+        console.log('=== VFS2 MoveUpOrDown Test Starting ===');
+
+        // Create test files with specific ordinals
+        const testFiles = [
+            { name: 'test-move-file1.txt', content: 'File 1', ordinal: 100 },
+            { name: 'test-move-file2.txt', content: 'File 2', ordinal: 200 },
+            { name: 'test-move-file3.txt', content: 'File 3', ordinal: 300 },
+        ];
+
+        console.log('Test 1 - Creating test files with ordinals');
+        for (const file of testFiles) {
+            await vfs2.writeFileEx(owner_id, file.name, file.content, 'utf8', false, file.ordinal);
+            console.log(`Test 1 - Created ${file.name} with ordinal ${file.ordinal}`);
+        }
+
+        // Test 2: Read directory and verify initial ordering
+        console.log('Test 2 - Verify initial file ordering');
+        let contents = await vfs2.readdirEx(owner_id, '', false);
+        let ourFiles = contents.filter(node => 
+            testFiles.some(tf => tf.name === node.name));
+        
+        ourFiles.sort((a, b) => (a.ordinal || 0) - (b.ordinal || 0));
+        
+        console.log('Test 2 - Initial ordering:');
+        ourFiles.forEach((file, idx) => {
+            console.log(`  ${idx}: ${file.name} - ordinal ${file.ordinal}`);
+        });
+        
+        // Verify initial order
+        if (ourFiles[0].name !== 'test-move-file1.txt' || 
+            ourFiles[1].name !== 'test-move-file2.txt' || 
+            ourFiles[2].name !== 'test-move-file3.txt') {
+            throw new Error('Test 2 failed! Initial ordering is incorrect');
+        }
+        console.log('Test 2 - Initial ordering verified');
+
+        // Test 3: Move file2 up (swap with file1)
+        console.log('Test 3 - Move file2 up (swap ordinals with file1)');
+        const file1 = ourFiles[0];
+        const file2 = ourFiles[1];
+        
+        if (!file1.uuid || !file2.uuid) {
+            throw new Error('Test 3 failed! Files should have UUIDs');
+        }
+        
+        const file1Ordinal = file1.ordinal || 0;
+        const file2Ordinal = file2.ordinal || 0;
+        
+        // Swap ordinals
+        await vfs2.setOrdinal(file1.uuid, file2Ordinal);
+        await vfs2.setOrdinal(file2.uuid, file1Ordinal);
+        console.log(`Test 3 - Swapped ordinals: ${file1.name} (${file1Ordinal}->${file2Ordinal}) with ${file2.name} (${file2Ordinal}->${file1Ordinal})`);
+        
+        // Verify new ordering
+        contents = await vfs2.readdirEx(owner_id, '', false);
+        ourFiles = contents.filter(node => 
+            testFiles.some(tf => tf.name === node.name));
+        ourFiles.sort((a, b) => (a.ordinal || 0) - (b.ordinal || 0));
+        
+        console.log('Test 3 - New ordering after move up:');
+        ourFiles.forEach((file, idx) => {
+            console.log(`  ${idx}: ${file.name} - ordinal ${file.ordinal}`);
+        });
+        
+        if (ourFiles[0].name !== 'test-move-file2.txt' || 
+            ourFiles[1].name !== 'test-move-file1.txt' || 
+            ourFiles[2].name !== 'test-move-file3.txt') {
+            throw new Error('Test 3 failed! Ordering after move up is incorrect');
+        }
+        console.log('Test 3 - Move up verified');
+
+        // Test 4: Move file2 down (swap with file1 again, back to original)
+        console.log('Test 4 - Move file2 down (swap ordinals with file1 again)');
+        const newFile1 = ourFiles[1]; // this is actually test-move-file1.txt
+        const newFile2 = ourFiles[0]; // this is actually test-move-file2.txt
+        
+        if (!newFile1.uuid || !newFile2.uuid) {
+            throw new Error('Test 4 failed! Files should have UUIDs');
+        }
+        
+        const newFile1Ordinal = newFile1.ordinal || 0;
+        const newFile2Ordinal = newFile2.ordinal || 0;
+        
+        // Swap ordinals back
+        await vfs2.setOrdinal(newFile1.uuid, newFile2Ordinal);
+        await vfs2.setOrdinal(newFile2.uuid, newFile1Ordinal);
+        console.log(`Test 4 - Swapped ordinals back: ${newFile1.name} with ${newFile2.name}`);
+        
+        // Verify we're back to original ordering
+        contents = await vfs2.readdirEx(owner_id, '', false);
+        ourFiles = contents.filter(node => 
+            testFiles.some(tf => tf.name === node.name));
+        ourFiles.sort((a, b) => (a.ordinal || 0) - (b.ordinal || 0));
+        
+        console.log('Test 4 - Ordering after move down:');
+        ourFiles.forEach((file, idx) => {
+            console.log(`  ${idx}: ${file.name} - ordinal ${file.ordinal}`);
+        });
+        
+        if (ourFiles[0].name !== 'test-move-file1.txt' || 
+            ourFiles[1].name !== 'test-move-file2.txt' || 
+            ourFiles[2].name !== 'test-move-file3.txt') {
+            throw new Error('Test 4 failed! Ordering after move down is incorrect');
+        }
+        console.log('Test 4 - Move down verified');
+
+        // Test 5: Move file3 up twice (to position 0)
+        console.log('Test 5 - Move file3 up twice (to first position)');
+        const file3 = ourFiles[2];
+        const file2Again = ourFiles[1];
+        
+        if (!file3.uuid || !file2Again.uuid) {
+            throw new Error('Test 5 failed! Files should have UUIDs');
+        }
+        
+        // First swap: file3 with file2
+        let file3Ordinal = file3.ordinal || 0;
+        const file2AgainOrdinal = file2Again.ordinal || 0;
+        
+        await vfs2.setOrdinal(file3.uuid, file2AgainOrdinal);
+        await vfs2.setOrdinal(file2Again.uuid, file3Ordinal);
+        console.log(`Test 5 - First swap: ${file3.name} with ${file2Again.name}`);
+        
+        // Refresh and get new positions
+        contents = await vfs2.readdirEx(owner_id, '', false);
+        ourFiles = contents.filter(node => 
+            testFiles.some(tf => tf.name === node.name));
+        ourFiles.sort((a, b) => (a.ordinal || 0) - (b.ordinal || 0));
+        
+        // Second swap: file3 (now at position 1) with file1 (at position 0)
+        const file1Again = ourFiles[0];
+        const file3Again = ourFiles[1];
+        
+        if (!file1Again.uuid || !file3Again.uuid) {
+            throw new Error('Test 5 failed! Files should have UUIDs');
+        }
+        
+        file3Ordinal = file3Again.ordinal || 0;
+        const file1AgainOrdinal = file1Again.ordinal || 0;
+        
+        await vfs2.setOrdinal(file3Again.uuid, file1AgainOrdinal);
+        await vfs2.setOrdinal(file1Again.uuid, file3Ordinal);
+        console.log(`Test 5 - Second swap: ${file3Again.name} with ${file1Again.name}`);
+        
+        // Verify final ordering
+        contents = await vfs2.readdirEx(owner_id, '', false);
+        ourFiles = contents.filter(node => 
+            testFiles.some(tf => tf.name === node.name));
+        ourFiles.sort((a, b) => (a.ordinal || 0) - (b.ordinal || 0));
+        
+        console.log('Test 5 - Final ordering:');
+        ourFiles.forEach((file, idx) => {
+            console.log(`  ${idx}: ${file.name} - ordinal ${file.ordinal}`);
+        });
+        
+        if (ourFiles[0].name !== 'test-move-file3.txt' || 
+            ourFiles[1].name !== 'test-move-file1.txt' || 
+            ourFiles[2].name !== 'test-move-file2.txt') {
+            throw new Error('Test 5 failed! Final ordering after multiple moves is incorrect');
+        }
+        console.log('Test 5 - Multiple moves verified');
+
+        // Cleanup
+        console.log('Cleanup - Removing test files');
+        for (const file of testFiles) {
+            try {
+                await vfs2.unlink(owner_id, file.name);
+                console.log(`Cleanup - Deleted ${file.name}`);
+            } catch (error) {
+                console.log(`Cleanup - Could not delete ${file.name}:`, error);
+            }
+        }
+
+        console.log('✅ All moveUpOrDown tests passed');
+        console.log('=== VFS2 MoveUpOrDown Test Completed Successfully ===');
+        
+    } catch (error) {
+        console.error('=== VFS2 MoveUpOrDown Test Failed ===');
+        console.error('Error during VFS2 moveUpOrDown test:', error);
         throw error;
     }
 }

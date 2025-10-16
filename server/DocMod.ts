@@ -151,7 +151,7 @@ class DocMod {
                             }
                         } else {
                             // Legacy VFS: Extract ordinal from filename prefix
-                            originalOrdinal = docUtil.getOrdinalFromName(path.basename(finalFilePath));
+                            throw new Error("Legacy VFS is no longer supported");
                         }
                         
                         // Make room for new files by shifting existing ordinals down
@@ -481,6 +481,34 @@ class DocMod {
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */
+    /**
+     * Moves a file or folder up or down in the ordering within its parent directory
+     * 
+     * This operation swaps the ordinal values of two adjacent items in the directory listing,
+     * effectively changing their display order. The ordinals are stored as integer values in 
+     * the database and control the sorting order independent of filenames.
+     * 
+     * Process:
+     * 1. Validates the target file/folder exists in the specified directory
+     * 2. Retrieves all items in the directory with their ordinal values
+     * 3. Sorts items by ordinal to establish current ordering
+     * 4. Identifies the adjacent item to swap with (up = previous item, down = next item)
+     * 5. Swaps the ordinal values in the database using VFS2.setOrdinal()
+     * 
+     * Features:
+     * - Database-based ordinal swapping (no file renaming required)
+     * - Validates boundary conditions (can't move top item up or bottom item down)
+     * - Atomic operation within transaction context
+     * - Returns success message upon completion
+     * 
+     * @param req - Express request object containing:
+     *   - direction: string - "up" or "down" to specify move direction
+     *   - filename: string - Name of the file/folder to move
+     *   - treeFolder: string - Relative path to the parent directory
+     *   - docRootKey: string - Key identifying the document root configuration
+     * @param res - Express response object for sending results
+     * @returns Promise<void> - Resolves when operation completes
+     */
     moveUpOrDown = async (req: Request<any, any, { direction: string; filename: string; treeFolder: string, docRootKey: string }>, res: Response): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
@@ -491,10 +519,10 @@ class DocMod {
             console.log(`Move Up/Down Request: arguments = ${JSON.stringify(req.body, null, 2)}`);
         
             try {
-            // Extract request parameters
+                // Extract request parameters
                 const { direction, filename, treeFolder, docRootKey } = req.body;
             
-                // Get the appropriate file system implementation
+                // Get the appropriate file system implementation (VFS2)
                 const ifs = docUtil.getFileSystem(docRootKey);
             
                 // Validate document root configuration
@@ -519,16 +547,14 @@ class DocMod {
                     return;
                 }
 
-                // Read directory contents and filter for items with numeric ordinal prefixes
-                // Only files/folders matching the pattern "NNNN_*" are considered for ordering
-                const allFiles = await ifs.readdir(owner_id, absoluteParentPath);
-                const numberedFiles = allFiles.filter(file => /^\d+_/.test(file));
+                // Read directory contents with ordinal information
+                const treeNodes = await ifs.readdirEx(owner_id, absoluteParentPath, false);
             
-                // Sort by filename which naturally sorts by numeric prefix due to zero-padding
-                numberedFiles.sort((a, b) => a.localeCompare(b));
+                // Sort by ordinal to establish current ordering
+                treeNodes.sort((a, b) => (a.ordinal || 0) - (b.ordinal || 0));
 
                 // Locate the target file/folder in the ordered list
-                const currentIndex = numberedFiles.findIndex(file => file === filename);
+                const currentIndex = treeNodes.findIndex(node => node.name === filename);
                 if (currentIndex === -1) {
                     res.status(404).json({ error: `File not found in directory: ${filename}` });
                     return;
@@ -545,54 +571,40 @@ class DocMod {
                     targetIndex = currentIndex - 1;
                 } else { // direction === 'down'
                     // Check if already at the bottom of the list
-                    if (currentIndex === numberedFiles.length - 1) {
+                    if (currentIndex === treeNodes.length - 1) {
                         res.status(400).json({ error: 'File is already at the bottom' });
                         return;
                     }
                     targetIndex = currentIndex + 1;
                 }
 
-                // Get the two files that will swap ordinals
-                const currentFile = numberedFiles[currentIndex];
-                const targetFile = numberedFiles[targetIndex];
+                // Get the two nodes that will swap ordinals
+                const currentNode = treeNodes[currentIndex];
+                const targetNode = treeNodes[targetIndex];
 
-                // Extract the numeric ordinal prefixes (including underscore)
-                const currentPrefix = currentFile.substring(0, currentFile.indexOf('_') + 1);
-                const targetPrefix = targetFile.substring(0, targetFile.indexOf('_') + 1);
+                // Get current ordinal values
+                const currentOrdinal = currentNode.ordinal || 0;
+                const targetOrdinal = targetNode.ordinal || 0;
 
-                // Extract the actual names without the ordinal prefixes
-                const currentName = currentFile.substring(currentFile.indexOf('_') + 1);
-                const targetName = targetFile.substring(targetFile.indexOf('_') + 1);
+                // Swap ordinal values in the database
+                if (currentNode.uuid && targetNode.uuid) {
+                    await ifs.setOrdinal(currentNode.uuid, targetOrdinal);
+                    await ifs.setOrdinal(targetNode.uuid, currentOrdinal);
+                } else {
+                    res.status(500).json({ error: 'Unable to swap ordinals: missing UUID' });
+                    return;
+                }
 
-                // Create new filenames by swapping the ordinal prefixes
-                const newCurrentName = targetPrefix + currentName;
-                const newTargetName = currentPrefix + targetName;
-
-                // Construct full paths for the rename operations
-                const currentPath = path.join(absoluteParentPath, currentFile);
-                const targetPath = path.join(absoluteParentPath, targetFile);
-                const tempPath = path.join(absoluteParentPath, `temp_${Date.now()}_${currentFile}`);
-
-                // Perform atomic rename operation using temporary file to avoid conflicts
-                // Step 1: Move current file to temporary location
-                await ifs.rename(owner_id, currentPath, tempPath);
-                // Step 2: Rename target file to current file's new name
-                await ifs.rename(owner_id, targetPath, path.join(absoluteParentPath, newTargetName));
-                // Step 3: Move temporary file to target file's new name
-                await ifs.rename(owner_id, tempPath, path.join(absoluteParentPath, newCurrentName));
-
-                // console.log(`Files swapped successfully: ${currentFile} <-> ${targetFile}`);
+                // console.log(`Ordinals swapped successfully: ${currentNode.name} <-> ${targetNode.name}`);
             
-                // Return detailed information about the swap for UI updates
+                // Return success message
                 res.json({ 
                     message: 'Files moved successfully',
-                    oldName1: currentFile,
-                    newName1: newCurrentName,
-                    oldName2: targetFile,
-                    newName2: newTargetName
+                    file1: currentNode.name,
+                    file2: targetNode.name
                 });
             } catch (error) {
-            // Handle any errors that occurred during the move operation
+                // Handle any errors that occurred during the move operation
                 handleError(error, res, 'Failed to move file or folder');
                 throw error;
             }

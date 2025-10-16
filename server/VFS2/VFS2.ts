@@ -599,6 +599,29 @@ class VFS2 implements IFS {
             throw error;
         }
     }
+    
+    /**
+     * Set the ordinal value for a file/folder record
+     * @param uuid - The UUID of the file/folder to update
+     * @param ordinal - The new ordinal value to set
+     */
+    async setOrdinal(uuid: string, ordinal: number): Promise<void> {
+        try {
+            const result = await pgdb.query(
+                'UPDATE vfs2_nodes SET ordinal = $1 WHERE uuid = $2 AND doc_root_key = $3 RETURNING *',
+                ordinal, uuid, rootKey
+            );
+            
+            if (result.rowCount === 0) {
+                throw new Error(`File/folder with UUID ${uuid} not found`);
+            }
+            
+            console.log(`Set ordinal for UUID ${uuid} to ${ordinal}`);
+        } catch (error) {
+            console.error('VFS2.setOrdinal error:', error);
+            throw error;
+        }
+    }
         
     pathJoin(...parts: string[]): string {
         return this.normalizePath(parts.join('/'));

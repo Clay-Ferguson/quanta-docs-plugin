@@ -7,7 +7,7 @@ import { httpClientUtil } from "@client/HttpClientUtil";
 import { DBKeys } from "@client/AppServiceTypes";
 import { idb } from "@client/IndexedDB";
 import { util } from "@client/Util";
-import { formatDisplayName, getFilenameExtension, isImageFile, isTextFile, stripOrdinal } from "@common/CommonUtils";
+import { formatDisplayName, getFilenameExtension, isTextFile, stripOrdinal } from "@common/CommonUtils";
 
 declare const ADMIN_PUBLIC_KEY: string;
 declare const DESKTOP_MODE: boolean;
@@ -292,32 +292,35 @@ const moveFileOrFolder = async (gs: DocsGlobalState, treeNodes: TreeNode[], setT
             
         const response = await httpClientUtil.secureHttpPost('/api/docs/move-up-down', requestBody);
             
-        // Update the local tree nodes based on the server response
-        if (response && response.oldName1 && response.newName1 && response.oldName2 && response.newName2) {
-            const updatedNodes = treeNodes.map(treeNode => {
-                if (treeNode.name === response.oldName1) {
-                    // Update the name and also update content if it's an image (content contains file path)
-                    const updatedNode = { ...treeNode, name: response.newName1 };
-                    if (isImageFile(treeNode.name) && treeNode.content) {
-                        // Update the file path in content to reflect the new filename
-                        updatedNode.content = treeNode.content.replace(response.oldName1, response.newName1);
+        // Update the local tree nodes by swapping ordinals
+        // The server returns file1 and file2 (the two files that had their ordinals swapped)
+        if (response && response.file1 && response.file2) {
+            // Find the two nodes that were swapped
+            const node1 = treeNodes.find(n => n.name === response.file1);
+            const node2 = treeNodes.find(n => n.name === response.file2);
+            
+            if (node1 && node2 && node1.ordinal !== undefined && node2.ordinal !== undefined) {
+                // Swap ordinals in the local tree nodes
+                const updatedNodes = treeNodes.map(treeNode => {
+                    if (treeNode.name === response.file1) {
+                        return { ...treeNode, ordinal: node2.ordinal };
+                    } else if (treeNode.name === response.file2) {
+                        return { ...treeNode, ordinal: node1.ordinal };
                     }
-                    return updatedNode;
-                } else if (treeNode.name === response.oldName2) {
-                    // Update the name and also update content if it's an image (content contains file path)
-                    const updatedNode = { ...treeNode, name: response.newName2 };
-                    if (isImageFile(treeNode.name) && treeNode.content) {
-                        // Update the file path in content to reflect the new filename
-                        updatedNode.content = treeNode.content.replace(response.oldName2, response.newName2);
-                    }
-                    return updatedNode;
-                }
-                return treeNode;
-            });
+                    return treeNode;
+                });
                 
-            // Sort the nodes by filename to maintain proper order
-            updatedNodes.sort((a, b) => a.name.localeCompare(b.name));
-            setTreeNodes(updatedNodes);
+                // Sort the nodes by ordinal to maintain proper order
+                updatedNodes.sort((a, b) => {
+                    const ordinalA = a.ordinal ?? 0;
+                    const ordinalB = b.ordinal ?? 0;
+                    return ordinalA - ordinalB;
+                });
+                
+                setTreeNodes(updatedNodes);
+            } else {
+                console.error('Could not find nodes or ordinals for swap:', { node1, node2 });
+            }
         }
     } catch (error) {
         console.error('Error moving file or folder:', error);
@@ -484,18 +487,11 @@ export const handleSaveClick = (gs: DocsGlobalState, treeNodes: TreeNode[], setT
                 newFileName = newFileName.trim() + 'md';
             }
         }
-            
-        // Extract the numeric prefix from the original file name
-        const underscoreIdx = originalName.indexOf('_');
-        const numericPrefix = underscoreIdx !== -1 ? originalName.substring(0, underscoreIdx + 1) : '';
-            
-        // Create the new full file name with the numeric prefix, and replace spaces and dashes with underscores to create a valid file name
-        const newFullFileName = numericPrefix + newFileName.replace(/[ ]/g, '_');
 
         // Find the node in treeNodes and update its content and name
         const updatedNodes = treeNodes.map(node => 
             node === gs.docsEditNode 
-                ? { ...node, content: content, name: newFullFileName }
+                ? { ...node, content: content, name: newFileName }
                 : node
         );
         setTreeNodes(updatedNodes);
@@ -509,7 +505,7 @@ export const handleSaveClick = (gs: DocsGlobalState, treeNodes: TreeNode[], setT
 
         // Save to server with a delay to ensure UI updates first
         setTimeout(() => {
-            saveToServer(gs, gs.docsEditNode!.name, reRenderTree, content, newFullFileName);
+            saveToServer(gs, gs.docsEditNode!.name, reRenderTree, content, newFileName);
         }, 500);
     }
 };
@@ -523,7 +519,7 @@ const saveToServer = async (gs: DocsGlobalState, filename: string, reRenderTree:
             newFileName: newFileName || filename,
             docRootKey: gs.docsRootKey
         };
-        // console.log('Saving file to server with request body:', requestBody);
+        console.log('Saving file to server with request body:', requestBody);
         const response = await httpClientUtil.secureHttpPost('/api/docs/file/save', requestBody);
         if (!response) {
             reRenderTree();

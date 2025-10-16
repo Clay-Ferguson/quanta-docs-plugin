@@ -636,6 +636,18 @@ class VFS implements IFS {
             return { node: null, docPath: '' };
         }
     }
+
+    /**
+     * Set the ordinal value for a file/folder record
+     * Note: VFS uses filename-based ordinals with prefixes, so this method is not applicable
+     * This is a stub implementation for interface compatibility
+     * @param _uuid - The UUID of the file/folder (unused in VFS)
+     * @param _ordinal - The new ordinal value (unused in VFS)
+     */
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async setOrdinal(_uuid: string, _ordinal: number): Promise<void> {
+        throw new Error('setOrdinal is not supported in VFS - VFS uses filename-based ordinals');
+    }
 }
 
 const vfs = new VFS();
