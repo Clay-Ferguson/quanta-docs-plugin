@@ -89,6 +89,14 @@ Next let's implement 'writeFile' and 'readFile' in `VFS2.ts`, and a unit test fo
 
 Now you should be able to update 'saveFile' in 'DocMod.ts', keeping in mind of course our new way of handling ordinals.
 
-### Setp 34
+### Step 34
 
 Now that we have an ordinal column and we're not usingn filenames as anything that needs to be unique, we can make our 
+
+### Step 35
+
+Next implement the 'rm' function in 'VFS2.ts' and a unit test for it.
+
+### Step 36
+
+Next implement the 'unlink' function in 'VFS2.ts' and create a unit test for it.

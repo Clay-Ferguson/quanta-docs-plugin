@@ -406,11 +406,114 @@ class VFS2 implements IFS {
     }
     
     async unlink(owner_id: number, fullPath: string): Promise<void> {
-        throw new Error("Method not implemented yet");
+        try {
+            const relativePath = this.normalizePath(fullPath);
+            
+            // Special case: prevent deletion of root directory
+            if (relativePath === '') {
+                throw new Error('Cannot unlink root directory');
+            }
+            
+            const { parentPath, filename } = this.parsePath(relativePath);
+            
+            // Check if the file exists and get its info
+            let stats: IFSStats;
+            try {
+                stats = await this.stat(fullPath);
+            } catch (error) {
+                throw new Error(`File not found: ${fullPath}`);
+            }
+            
+            // unlink should only work on files, not directories
+            if (stats.is_directory) {
+                throw new Error(`Cannot unlink directory: ${fullPath}. Use rm with recursive option instead.`);
+            }
+            
+            // Delete the file using direct DELETE query
+            const result = await pgdb.query(
+                'DELETE FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3 AND is_directory = false AND (owner_id = $4 OR $4 = 0) RETURNING *',
+                rootKey, parentPath, filename, pgdb.authId(owner_id)
+            );
+            
+            if (result.rowCount === 0) {
+                throw new Error(`Permission denied or file not found: ${fullPath}`);
+            }
+        } catch (error) {
+            console.error('VFS2.unlink error:', error);
+            throw error;
+        }
     }
     
     async rm(owner_id: number, fullPath: string, options?: { recursive?: boolean, force?: boolean }): Promise<void> {
-        throw new Error("Method not implemented yet");
+        try {
+            const relativePath = this.normalizePath(fullPath);
+            
+            // Special case: prevent deletion of root directory
+            if (relativePath === '') {
+                throw new Error('Cannot delete root directory');
+            }
+            
+            const { parentPath, filename } = this.parsePath(relativePath);
+            
+            // Check if the file/directory exists and get its info
+            let stats: IFSStats;
+            try {
+                stats = await this.stat(fullPath);
+            } catch (error) {
+                // If force option is enabled, don't throw errors for non-existent files/directories
+                if (options?.force) {
+                    return;
+                }
+                throw error;
+            }
+            
+            if (stats.is_directory) {
+                // For directories, check if they have children (unless recursive is enabled)
+                if (!options?.recursive) {
+                    const hasChildren = await this.childrenExist(owner_id, relativePath);
+                    if (hasChildren) {
+                        throw new Error(`Directory not empty: ${fullPath}. Use recursive option to delete non-empty directories.`);
+                    }
+                }
+                
+                // Use a direct DELETE query for now since vfs2_rmdir doesn't exist yet
+                const result = await pgdb.query(
+                    'DELETE FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3 AND (owner_id = $4 OR $4 = 0) RETURNING *',
+                    rootKey, parentPath, filename, pgdb.authId(owner_id)
+                );
+                
+                if (result.rowCount === 0) {
+                    throw new Error(`Permission denied or directory not found: ${fullPath}`);
+                }
+                
+                // If recursive, also delete all children
+                if (options?.recursive) {
+                    const childPath = relativePath;
+                    await pgdb.query(
+                        'DELETE FROM vfs2_nodes WHERE doc_root_key = $1 AND (parent_path = $2 OR parent_path LIKE $3) AND (owner_id = $4 OR $4 = 0)',
+                        rootKey, childPath, childPath + '/%', pgdb.authId(owner_id)
+                    );
+                }
+            } else {
+                // For files, use direct DELETE query since vfs2_unlink doesn't exist yet
+                const result = await pgdb.query(
+                    'DELETE FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3 AND (owner_id = $4 OR $4 = 0) RETURNING *',
+                    rootKey, parentPath, filename, pgdb.authId(owner_id)
+                );
+                
+                if (result.rowCount === 0) {
+                    throw new Error(`Permission denied or file not found: ${fullPath}`);
+                }
+            }
+        } catch (error) {
+            // If force option is enabled, don't throw errors for certain types of failures
+            if (options?.force && error instanceof Error && 
+                (error.message.includes('not found') || error.message.includes('File not found'))) {
+                return;
+            }
+            console.error('VFS2.rm error:', error);
+            throw error;
+        }
     }
     
     /**
