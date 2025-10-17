@@ -884,7 +884,7 @@ export const uploadAttachment = async (gs: DocsGlobalState, reRenderTree: any, n
         
         // Add metadata
         formData.append('treeFolder', gs.docsFolder || '/');
-        formData.append('insertAfterNode', node ? node.name : '');
+        formData.append('insertAfterOrdinal', node?.ordinal?.toString() || '');
         formData.append('docRootKey', gs.docsRootKey || '');
 
         // Upload files to server

@@ -117,7 +117,14 @@ Please add to VFS2.ts a method named 'setOrdinal' which will simply set the ordi
 
 Based on our new way of dealing with ordinals please update the DocMod.ts 'moveUpOrDown' method. It needs to stop assuming filenames have ordinal prefixes and instead use the new way of dealing with ordinals. Be sure to read the method documentation before you start to see the old details, and then you'll update the documentation when you're done with our new ordinals approach.
 
-### 41
+### Step 41
 
 Next you should be able to update the `joinFiles` function (in 'DocMod.ts') to make it have the new way of handling ordinals (as an integer value rather than the old file name prefix approach). be sure to read the documentation of the method before starting to understand this function , and then also update the documentation if necessary when you're done. Do the server side and client side updates.
 
+### Step 42
+
+Next update the 'upload' endpoint on the server side so that it's now compatible with our new way of handling ordinals.
+```
+context.app.post('/api/docs/upload', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docBinary.uploadFiles));
+```
+Then in the 'TreeViewerPageOpos.ts' function you can also confirm that the correct information is being sent to the server if you needed to change anytying abou thow the server works. Remember our upload doe upload to a specific ordinal location point so it will need to shift ordinals down to make space unless the upload is appending to the end.

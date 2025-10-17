@@ -13,10 +13,10 @@ import { ANON_USER_ID } from '../../../common/types/CommonTypes.js';
  * This class provides functionality for:
  * - Serving image files from the document tree with proper content types and caching
  * - Handling file uploads with multipart form data parsing
- * - Managing ordinal-based file positioning in the document tree structure
+ * - Managing database-based ordinal positioning in the document tree structure
  * 
  * The class ensures proper security checks, validates file types, and maintains
- * the hierarchical structure of documents with ordinal prefixes for ordering.
+ * the hierarchical structure of documents with ordinals stored in the database.
  */
 class DocBinary {
     /**
@@ -127,7 +127,7 @@ class DocBinary {
                 // Initialize variables to store extracted form data
                 let docRootKey = '';
                 let treeFolder = '';
-                let insertAfterNode = '';
+                let insertAfterOrdinal: number | null = null;
                 const files: { name: string; data: Buffer; type: string }[] = [];
     
                 // Process each multipart section to extract form fields and files
@@ -169,8 +169,8 @@ class DocBinary {
                         case 'treeFolder':
                             treeFolder = value;
                             break;
-                        case 'insertAfterNode':
-                            insertAfterNode = value;
+                        case 'insertAfterOrdinal':
+                            insertAfterOrdinal = value ? parseInt(value) : null;
                             break;
                         }
                     }
@@ -203,30 +203,24 @@ class DocBinary {
     
                 // Determine the ordinal position for inserting new files
                 let insertOrdinal = 0; // Default to beginning if no position specified
-                if (insertAfterNode) {
-                    try {
-                        // Extract ordinal from the specified node and insert after it
-                        insertOrdinal = docUtil.getOrdinalFromName(insertAfterNode) + 1;
-                    } catch (error) {
-                        console.warn(`Could not parse ordinal from insertAfterNode: ${insertAfterNode}, using default ordinal 1`, error);
-                        throw error;
-                    }
+                if (insertAfterOrdinal !== null) {
+                    // Insert after the specified ordinal position
+                    insertOrdinal = insertAfterOrdinal + 1;
                 }
     
                 // Shift existing files down to make room for new uploads
                 // This maintains the ordinal sequence without gaps
                 await docUtil.shiftOrdinalsDown(owner_id, files.length, absoluteFolderPath, insertOrdinal, root, null, ifs);
     
-                // Save each uploaded file with proper ordinal prefix
+                // Save each uploaded file with proper ordinal value in database
                 let savedCount = 0;
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
                     file.name = fixName(file.name); // Ensure valid file name
                     const ordinal = insertOrdinal + i;
-                        
-                    // Create zero-padded ordinal prefix (e.g., "0001", "0002")
-                    const ordinalPrefix = ordinal.toString().padStart(4, '0');
-                    const finalFileName = `${ordinalPrefix}_${file.name}`;
+                    
+                    // File names no longer have ordinal prefixes in VFS2
+                    const finalFileName = file.name;
                     const finalFilePath = path.join(absoluteFolderPath, finalFileName);
     
                     try {    
@@ -237,10 +231,10 @@ class DocBinary {
                             console.error(`Target file already exists, skipping upload: ${finalFilePath}`);
                             continue;
                         }
-                        // Write the file data to disk (inheriting public access from parent)
-                        await ifs.writeFileEx(owner_id, finalFilePath, file.data, 'utf8', parentInfo.node.is_public);
+                        // Write the file data to disk with ordinal stored in database
+                        await ifs.writeFileEx(owner_id, finalFilePath, file.data, 'utf8', parentInfo.node.is_public, ordinal);
                         savedCount++;
-                        console.log(`Uploaded file saved: ${finalFilePath}`);
+                        console.log(`Uploaded file saved: ${finalFilePath} with ordinal ${ordinal}`);
                     } 
                     catch (error) {
                         console.error(`Error saving uploaded file ${file.name}:`);
@@ -266,24 +260,25 @@ class DocBinary {
      * 
      * This method processes multipart form data uploads containing multiple files and metadata.
      * It manually parses the multipart data to extract files and form fields, then saves the
-     * files to the document tree with proper ordinal-based naming for hierarchical organization.
+     * files to the document tree with ordinals stored in the database for hierarchical organization.
      * 
      * Key features:
      * - Manual multipart form data parsing (no external dependencies)
      * - Support for multiple file uploads in a single request
-     * - Ordinal-based file naming for maintaining document order
+     * - Database-based ordinal management for maintaining document order
      * - Automatic ordinal shifting to insert files at specific positions
      * - Security validation of file paths and access permissions
      * 
      * Form data fields expected:
      * - docRootKey: Key identifying the target document root folder
      * - treeFolder: Relative path to the target folder within the document tree
-     * - insertAfterNode: Optional node name to determine insertion position
+     * - insertAfterOrdinal: Optional ordinal value to determine insertion position (insert after this ordinal)
      * - files: One or more file uploads
      * 
-     * File naming convention:
-     * Files are saved with ordinal prefixes (e.g., "0001_filename.txt") to maintain
-     * order within the document tree structure.
+     * Ordinal management:
+     * In VFS2, ordinals are stored as integer values in the database rather than as filename prefixes.
+     * Files are saved with their natural names, and the ordinal column in the database maintains
+     * the ordering within the document tree structure.
      * 
      * @param req - Express request object containing multipart form data with:
      *              - Content-Type: multipart/form-data with boundary
