@@ -132,3 +132,7 @@ Then in the 'TreeViewerPageOpos.ts' function you can also confirm that the corre
 ### Step 43
 
 Next update the 'buildFolder' method to make it handle the new way of holding ordinals. No need to update the client-side code yet, just focus on this server-side metehod. Read the method documentation for 'buildFolder' before you start, and then be sure to please update the the method documentation when done.
+
+### Step 44
+
+Now we need to make search work, by adding a search implementation to our vfs2 'functions.sql'. If you search for `vfs_search_text` in the code you can find the 'vfs' version and we need a new one named 'vfs2_search_text' for our new 'functions.sql'. Please implement this new PostgreSQL using the old one as necessary to figure out how to do the search. the VFS2 version will probably be or may actually be identical or nearly identical to the VFS version of this function. once you implement the postgres function , also go ahead and add a unit test to test the searching capability . 

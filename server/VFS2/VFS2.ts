@@ -429,7 +429,7 @@ class VFS2 implements IFS {
             console.error('VFS2.mkdirEx error:', error);
             throw error;
         }
-    }
+    } 
     
     async rename(owner_id: number, oldPath: string, newPath: string): Promise<void> {
         if (!this.validPath(newPath)) {
