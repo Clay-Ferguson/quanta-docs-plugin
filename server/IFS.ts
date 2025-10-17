@@ -40,6 +40,7 @@ export interface IFS {
 
     // Ordinal management
     setOrdinal(uuid: string, ordinal: number): Promise<void>;
+    shiftOrdinalsDown(owner_id: number, parentPath: string, insertOrdinal: number, slotsToAdd: number): Promise<Map<string, string>>;
 
     pathJoin(...parts: string[]): string;
     normalizePath(fullPath: string): string;

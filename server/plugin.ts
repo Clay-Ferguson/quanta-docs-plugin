@@ -71,7 +71,7 @@ class DocsServerPlugin implements IServerPlugin {
         
         context.app.post('/api/docs/upload', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docBinary.uploadFiles)); 
         context.app.post('/api/docs/delete', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.deleteFileOrFolder)); 
-        context.app.post('/api/docs/move-up-down', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.moveUpOrDown)); 
+        context.app.post('/api/docs/move-up-down', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.moveUpOrDown)); // vfs2 done
         context.app.post('/api/docs/set-public', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.setPublic)); 
 
         context.app.post('/api/docs/file/save', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.saveFile)); // vfs2 done
@@ -80,7 +80,7 @@ class DocsServerPlugin implements IServerPlugin {
         context.app.post('/api/docs/folder/build', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.buildFolder));
         context.app.post('/api/docs/folder/rename', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.renameFolder)); // #vfs2 done 
 
-        context.app.post('/api/docs/paste', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.pasteItems));
+        context.app.post('/api/docs/paste', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.pasteItems)); // vfs2 done
         context.app.post('/api/docs/join', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.joinFiles));
         context.app.post('/api/docs/file-system-open', httpServerUtil.verifyAdminHTTPSignature, asyncHandler(docUtil.openFileSystemItem));
         context.app.post('/api/docs/search-binaries', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.searchBinaries));

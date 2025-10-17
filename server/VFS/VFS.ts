@@ -648,6 +648,20 @@ class VFS implements IFS {
     async setOrdinal(_uuid: string, _ordinal: number): Promise<void> {
         throw new Error('setOrdinal is not supported in VFS - VFS uses filename-based ordinals');
     }
+
+    /**
+     * Shift ordinals down to make room for new items
+     * Note: VFS uses filename-based ordinals with prefixes, so this method is not applicable
+     * This is a stub implementation for interface compatibility
+     * @param _owner_id - The owner ID (unused in VFS)
+     * @param _parentPath - The parent path (unused in VFS)
+     * @param _insertOrdinal - The ordinal position to insert at (unused in VFS)
+     * @param _slotsToAdd - Number of slots to add (unused in VFS)
+     */
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async shiftOrdinalsDown(_owner_id: number, _parentPath: string, _insertOrdinal: number, _slotsToAdd: number): Promise<Map<string, string>> {
+        throw new Error('shiftOrdinalsDown is not supported in VFS - VFS uses filename-based ordinals');
+    }
 }
 
 const vfs = new VFS();

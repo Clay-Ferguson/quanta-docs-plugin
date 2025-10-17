@@ -616,13 +616,21 @@ export const onPaste = async (gs: DocsGlobalState, reRenderTree: any, targetNode
     const cutItemsArray = Array.from(gs.docsCutItems);
     const targetFolder = gs.docsFolder || '/';
 
+    console.log('onPaste called with targetNode:', targetNode);
+    console.log('targetNode ordinal:', targetNode?.ordinal);
+
     try {
+        // When targetNode is null (pasting at top), use -1 to indicate "insert at position 0"
+        // When targetNode exists, use its ordinal to insert after it
+        const targetOrdinal = targetNode?.ordinal ?? -1;
+        
         const requestBody = {
             targetFolder: targetFolder,
             pasteItems: cutItemsArray,
             docRootKey: gs.docsRootKey,
-            targetOrdinal: targetNode?.name // Include targetOrdinal for positional pasting
+            targetOrdinal: targetOrdinal // Include targetOrdinal for positional pasting (ordinal value, not filename)
         };
+        // console.log('Paste request body:', requestBody);
         await httpClientUtil.secureHttpPost('/api/docs/paste', requestBody);
             
         // Clear cutItems from global state

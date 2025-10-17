@@ -687,27 +687,27 @@ class DocMod {
      * Key Features:
      * - Positional pasting at specific ordinal locations or appending to end
      * - Cross-folder moves with automatic ordinal assignment
-     * - Same-folder reordering with conflict resolution using temporary files
+     * - Same-folder reordering by updating database ordinal values
      * - Automatic ordinal shifting to make room for new items
      * - Batch operations supporting multiple items simultaneously
-     * - Path mapping updates when folder ordinals are shifted
      * - Comprehensive error reporting for failed operations
      * 
-     * Ordinal Management:
-     * - When inserting at a specific position, existing items are shifted down
-     * - Maintains proper 4-digit zero-padded ordinal prefixes (e.g., "0001_", "0002_")
-     * - Handles ordinal conflicts during same-folder operations using temporary moves
-     * - Updates item paths when parent folders are renumbered during shifting
+     * Ordinal Management (VFS2):
+     * - Ordinals are stored as integer values in the database
+     * - When inserting at a specific position, existing items' ordinals are shifted
+     * - Same-folder operations update ordinals directly (no file moving needed)
+     * - Cross-folder operations move files and assign new ordinals
+     * - Filenames remain unchanged (ordinals not part of filename)
      * 
      * @param req - Express request object containing:
      *   - targetFolder: string - Relative path to the destination folder
      *   - pasteItems: string[] - Array of item paths to move (automatically sorted)
      *   - docRootKey: string - Key identifying the document root configuration
-     *   - targetOrdinal?: string - Optional ordinal position for insertion (items inserted after this)
+     *   - targetOrdinal?: number - Optional ordinal position for insertion (items inserted after this)
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */ 
-    pasteItems = async (req: Request<any, any, { targetFolder: string; pasteItems: string[], docRootKey: string, targetOrdinal?: string }>, res: Response): Promise<void> => {    
+    pasteItems = async (req: Request<any, any, { targetFolder: string; pasteItems: string[], docRootKey: string, targetOrdinal?: number }>, res: Response): Promise<void> => {    
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -716,7 +716,7 @@ class DocMod {
             try {
                 const { targetFolder, pasteItems, docRootKey, targetOrdinal } = req.body;
     
-                // Get the appropriate file system implementation
+                // Get the appropriate file system implementation (VFS2)
                 const ifs = docUtil.getFileSystem(docRootKey);
     
                 // sort the pasteItems string[] to ensure they are in the correct order
@@ -746,167 +746,140 @@ class DocMod {
                 const errors: string[] = [];
     
                 // Determine insert ordinal for positional pasting
-                let insertOrdinal: number | null = null;
-                if (targetOrdinal) {
-                    const underscoreIndex = targetOrdinal.indexOf('_');
-                    if (underscoreIndex > 0) {
-                        const targetOrdinalNum = parseInt(targetOrdinal.substring(0, underscoreIndex));
-                        insertOrdinal = targetOrdinalNum + 1; // Insert after the target
-                    }
-                }
+                // If targetOrdinal is provided and not -1, insert after it; otherwise insert at position 0
+                // The client sends -1 when pasting at the top (before first item)
+                const insertOrdinal = (targetOrdinal !== undefined && targetOrdinal !== -1) ? targetOrdinal + 1 : 0;
     
-                if (!insertOrdinal) {
-                    insertOrdinal = 0; // Default to inserting at the top if no ordinal is specified
-                }
-    
-                // Shift existing items down to make room for the number of items being pasted
-                // For same-folder reordering, we need to handle conflicts by temporarily moving files
-                // For cross-folder moves, we don't ignore any items since they're coming from different directories
-                let itemsToIgnore: string[] | null = null;
-                const tempMoves: { tempPath: string; originalPath: string; finalName: string }[] = [];
-            
                 // Check if any of the items being pasted are from the same target directory
-                const targetFolderNormalized = targetFolder === '/' ? '' : targetFolder;
+                // Normalize paths: both '/' and '.' represent root, normalize to ''
+                const targetFolderNormalized = (targetFolder === '/' || targetFolder === '.') ? '' : targetFolder;
                 const isSameFolderOperation = pasteItems.some(fullPath => {
                     const itemDir = path.dirname(fullPath);
-                    const itemDirNormalized = itemDir === '.' ? '' : itemDir;
+                    const itemDirNormalized = (itemDir === '/' || itemDir === '.') ? '' : itemDir;
                     return itemDirNormalized === targetFolderNormalized;
                 });
             
                 if (isSameFolderOperation) {
-                // For same-folder operations, temporarily move files out of the way first
-                // This prevents conflicts during ordinal shifting
-                    for (let i = 0; i < pasteItems.length; i++) {
-                        const itemFullPath = pasteItems[i];
-                        const itemDir = path.dirname(itemFullPath);
-                        const itemDirNormalized = itemDir === '.' ? '' : itemDir;
+                    // For same-folder operations: we're just reordering items within the same directory
+                    // Get all nodes in the directory
+                    const treeNodes = await ifs.readdirEx(owner_id, absoluteTargetPath, false);
                     
+                    // Get the UUIDs and current ordinals of items being moved
+                    const itemsToMove: { uuid: string; fullPath: string; currentOrdinal: number; name: string }[] = [];
+                    
+                    for (const itemFullPath of pasteItems) {
+                        const itemDir = path.dirname(itemFullPath);
+                        const itemDirNormalized = (itemDir === '/' || itemDir === '.') ? '' : itemDir;
+                        
                         // Only handle items from the same directory
                         if (itemDirNormalized === targetFolderNormalized) {
                             const itemName = path.basename(itemFullPath);
-                            const sourceFilePath = path.join(root, itemFullPath);
-                        
-                            if (await ifs.exists(sourceFilePath)) {
-                            // Create temporary filename
-                                const tempName = `temp_paste_${Date.now()}_${i}_${itemName}`;
-                                const tempPath = path.join(absoluteTargetPath, tempName);
+                            const node = treeNodes.find(n => n.name === itemName);
                             
-                                // Move to temporary location
-                                await ifs.rename(owner_id, sourceFilePath, tempPath);
-                            
-                                // Calculate final name with new ordinal
-                                const currentOrdinal = insertOrdinal + i;
-                                const nameWithoutPrefix = itemName.includes('_') ? 
-                                    itemName.substring(itemName.indexOf('_') + 1) : itemName;
-                                const newOrdinalPrefix = currentOrdinal.toString().padStart(4, '0');
-                                const finalName = `${newOrdinalPrefix}_${nameWithoutPrefix}`;
-                            
-                                tempMoves.push({
-                                    tempPath,
-                                    originalPath: sourceFilePath,
-                                    finalName
+                            if (node && node.uuid && node.ordinal !== undefined) {
+                                itemsToMove.push({
+                                    uuid: node.uuid,
+                                    fullPath: itemFullPath,
+                                    currentOrdinal: node.ordinal,
+                                    name: itemName
                                 });
                             }
                         }
                     }
-                
-                    // Now all same-folder items are out of the way, so don't ignore anything during shifting
-                    itemsToIgnore = null;
-                }
-            
-                const pathMapping = await docUtil.shiftOrdinalsDown(owner_id, pasteItems.length, absoluteTargetPath, insertOrdinal, root, itemsToIgnore, ifs);
-            
-                // Update pasteItems with new paths after ordinal shifting
-                for (let i = 0; i < pasteItems.length; i++) {
-                    const originalPath = pasteItems[i];
-                    // console.log('  Checking if mapped to new name:', originalPath);
-                
-                    // Normalize the path by removing leading slash for comparison
-                    const normalizedOriginalPath = originalPath.startsWith('/') ? originalPath.substring(1) : originalPath;
-                
-                    // Check if any folder in the path hierarchy was renamed
-                    let updatedPath = originalPath;
-                    let pathChanged = false;
-                
-                    // Check each mapping to see if it affects this file's path
-                    for (const [oldFolderPath, newFolderPath] of pathMapping) {
-                    // Check if the file path starts with the old folder path
-                        if (normalizedOriginalPath.startsWith(oldFolderPath + '/') || normalizedOriginalPath === oldFolderPath) {
-                        // Replace the old folder path with the new one
-                            const relativePart = normalizedOriginalPath.substring(oldFolderPath.length);
-                            const newNormalizedPath = newFolderPath + relativePart;
-                            updatedPath = originalPath.startsWith('/') ? '/' + newNormalizedPath : newNormalizedPath;
-                            pathChanged = true;
-                            // console.log(`    Updated paste item path: ${originalPath} -> ${updatedPath}`);
+                    
+                    // Sort items to move by their current ordinal
+                    itemsToMove.sort((a, b) => a.currentOrdinal - b.currentOrdinal);
+                    console.log('Items to move:', itemsToMove.map(i => `${i.name}(ord=${i.currentOrdinal})`).join(', '));
+                    
+                    // Get items that are NOT being moved
+                    const movingUuids = new Set(itemsToMove.map(item => item.uuid));
+                    const stationaryItems = treeNodes
+                        .filter(node => node.uuid && node.ordinal !== undefined && !movingUuids.has(node.uuid))
+                        .sort((a, b) => a.ordinal! - b.ordinal!);
+                    console.log('Stationary items:', stationaryItems.map(i => `${i.name}(ord=${i.ordinal})`).join(', '));
+                    
+                    // Calculate new ordinals:
+                    // 1. Items with ordinal < insertOrdinal keep their relative order
+                    // 2. Moving items are inserted at insertOrdinal
+                    // 3. Items with ordinal >= insertOrdinal are shifted down
+                    const newOrdinals = new Map<string, number>();
+                    let nextOrdinal = 0;
+                    
+                    // Process stationary items that were BEFORE the insert position
+                    console.log('Processing stationary items BEFORE insertOrdinal:', insertOrdinal);
+                    for (const item of stationaryItems) {
+                        // Compare item's ACTUAL ordinal with insertOrdinal, not nextOrdinal
+                        if (item.ordinal! >= insertOrdinal) {
+                            console.log(`    Yes, breaking`);
                             break;
                         }
+                        newOrdinals.set(item.uuid!, nextOrdinal++);
                     }
-                
-                    if (pathChanged) {
-                        pasteItems[i] = updatedPath;
-                    } else {
-                    // console.log(`    No mapping needed for: ${originalPath}`);
-                    }
-                }
-                
-                // Move each file/folder
-                for (let i = 0; i < pasteItems.length; i++) {
-                    const itemFullPath = pasteItems[i];
-                    try {
-                        const itemDir = path.dirname(itemFullPath);
-                        const itemDirNormalized = itemDir === '.' ? '' : itemDir;
-                        const isFromSameFolder = itemDirNormalized === targetFolderNormalized;
                     
-                        if (isFromSameFolder && tempMoves.length > 0) {
-                        // Handle same-folder moves using temporary files
-                            const tempMove = tempMoves.find(tm => path.basename(tm.originalPath) === path.basename(itemFullPath));
-                            if (tempMove) {
-                                const finalFilePath = path.join(absoluteTargetPath, tempMove.finalName);
-                                // Move from temp location to final location
-                                await ifs.rename(owner_id, tempMove.tempPath, finalFilePath);
-                                pastedCount++;
-                            } else {
-                                errors.push(`Temporary file not found for ${itemFullPath}`);
-                            }
-                        } else {
-                        // Handle cross-folder moves (regular logic)
+                    // Insert moving items at the target position
+                    for (const item of itemsToMove) {
+                        console.log(`  ${item.name}: ${item.currentOrdinal} -> ${nextOrdinal}`);
+                        newOrdinals.set(item.uuid, nextOrdinal++);
+                    }
+                    
+                    // Process remaining stationary items that were AT OR AFTER insert position
+                    for (const item of stationaryItems) {
+                        if (newOrdinals.has(item.uuid!)) {
+                            continue; // Already processed (was before insertOrdinal)
+                        }
+                        newOrdinals.set(item.uuid!, nextOrdinal++);
+                    }
+                    
+                    // Apply all ordinal changes
+                    for (const [uuid, newOrdinal] of newOrdinals.entries()) {
+                        const nodeName = treeNodes.find(n => n.uuid === uuid)?.name;
+                        console.log(`  ${nodeName}(${uuid}): -> ${newOrdinal}`);
+                        await ifs.setOrdinal(uuid, newOrdinal);
+                    }
+                    
+                    pastedCount += itemsToMove.length;
+                } else {
+                    // For cross-folder operations: move files and assign new ordinals
+                    // Shift existing items' ordinals down to make room
+                    await ifs.shiftOrdinalsDown(owner_id, absoluteTargetPath, insertOrdinal, pasteItems.length);
+                    
+                    // Move each file/folder and assign ordinals
+                    for (let i = 0; i < pasteItems.length; i++) {
+                        const itemFullPath = pasteItems[i];
+                        try {
                             const itemName = path.basename(itemFullPath);
                             const sourceFilePath = path.join(root, itemFullPath);
                         
                             // Check if source file exists
                             if (!await ifs.exists(sourceFilePath)) {
-                                console.error(`Source file not found: ${itemFullPath}`);
                                 errors.push(`Source file not found: ${itemFullPath}`);
                                 continue;
                             }
 
-                            let targetFileName = itemName;
-                            const currentOrdinal = insertOrdinal + i;
-                                
-                            // Extract name without ordinal prefix if it exists
-                            const nameWithoutPrefix = itemName.includes('_') ? 
-                                itemName.substring(itemName.indexOf('_') + 1) : itemName;
-                                
-                            // Create new filename with correct ordinal
-                            const newOrdinalPrefix = currentOrdinal.toString().padStart(4, '0');
-                            targetFileName = `${newOrdinalPrefix}_${nameWithoutPrefix}`;
-                            
-                            const targetFilePath = path.join(absoluteTargetPath, targetFileName);
+                            const targetFilePath = path.join(absoluteTargetPath, itemName);
 
                             // Safety check: ensure target doesn't already exist to prevent overwriting
                             if (await ifs.exists(targetFilePath)) {
-                                console.error(`Target file already exists, skipping: ${targetFilePath}`);
-                                errors.push(`Target file already exists: ${targetFileName}`);
+                                errors.push(`Target file already exists: ${itemName}`);
                                 continue;
                             }
 
                             // Move the file/folder
-                            await ifs.rename(owner_id, sourceFilePath, targetFilePath);                    
+                            await ifs.rename(owner_id, sourceFilePath, targetFilePath);
+                            
+                            // Get the UUID of the moved item and set its ordinal
+                            const treeNodes = await ifs.readdirEx(owner_id, absoluteTargetPath, false);
+                            const movedNode = treeNodes.find(n => n.name === itemName);
+                            
+                            if (movedNode && movedNode.uuid) {
+                                const newOrdinal = insertOrdinal + i;
+                                await ifs.setOrdinal(movedNode.uuid, newOrdinal);
+                            }
+                            
                             pastedCount++;
+                        } catch (error) {
+                            errors.push(`Failed to move ${itemFullPath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
                         }
-                    } catch (error) {
-                        console.error(`Error moving ${itemFullPath}:`, error);
-                        errors.push(`Failed to move ${itemFullPath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
                     }
                 }
     
@@ -922,9 +895,7 @@ class DocMod {
                 throw error;
             }
         });
-    }
-    
-    /**
+    }    /**
      * Joins multiple selected files by concatenating their content and saving to the first file
      * 
      * This method combines the content of multiple text files into a single file, preserving the ordinal
