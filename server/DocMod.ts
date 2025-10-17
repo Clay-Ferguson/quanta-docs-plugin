@@ -6,6 +6,7 @@ import { docUtil } from "./DocUtil.js";
 import { runTrans } from '../../../server/db/Transactional.js';
 import pgdb from "../../../server/db/PGDB.js";
 import { fixName } from '../../../common/CommonUtils.js';
+import { TreeNode } from '../../../common/types/CommonTypes.js';
 
 /**
  * DocMod - Document Modification Service
@@ -895,7 +896,9 @@ class DocMod {
                 throw error;
             }
         });
-    }    /**
+    }    
+    
+    /**
      * Joins multiple selected files by concatenating their content and saving to the first file
      * 
      * This method combines the content of multiple text files into a single file, preserving the ordinal
@@ -905,14 +908,14 @@ class DocMod {
      * Process:
      * 1. Validates that at least 2 files are selected for joining
      * 2. Reads content from all selected files
-     * 3. Sorts files by their ordinal prefixes to maintain proper order
+     * 3. Sorts files by their ordinal values stored in the database to maintain proper order
      * 4. Concatenates content with double newline separators ("\n\n")
      * 5. Saves the combined content to the first file (by ordinal order)
      * 6. Deletes all other files that were joined
      * 
      * Features:
      * - Requires minimum of 2 files for joining operation
-     * - Automatically sorts files by ordinal before joining
+     * - Automatically sorts files by ordinal values from database before joining
      * - Handles text files with UTF-8 encoding
      * - Graceful error handling for unreadable files
      * - Content separation with consistent double newlines
@@ -928,7 +931,7 @@ class DocMod {
      *   - treeFolder: string - Relative path to the parent directory
      *   - docRootKey: string - Key identifying the document root configuration
      * @param res - Express response object for sending results
-     * @returns void - Synchronous operation, no Promise needed
+     * @returns void - Asynchronous operation
      */
     joinFiles = async (req: Request<any, any, { filenames: string[]; treeFolder: string; docRootKey: string }>, res: Response): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
@@ -966,20 +969,27 @@ class DocMod {
                 const absoluteFolderPath = path.join(root, treeFolder);
         
                 // Read content from all files and collect metadata for sorting
-                const fileData: { filename: string; ordinal: number; content: string }[] = [];
+                const fileData: { filename: string; ordinal: number; content: string; node: TreeNode }[] = [];
                     
                 for (const filename of filenames) {
                 // Construct path and validate file access permissions
                     const absoluteFilePath = path.join(absoluteFolderPath, filename);
                         
-                    // Verify file exists before attempting to read
-                    if (!await ifs.exists(absoluteFilePath)) {
+                    // Verify file exists and get node information including ordinal
+                    const info: any = {};
+                    if (!await ifs.exists(absoluteFilePath, info)) {
                         res.status(404).json({ error: `File not found: ${filename}` });
                         return;
                     }
+                    
+                    const node = info.node as TreeNode;
+                    if (!node) {
+                        res.status(500).json({ error: `Could not get node information for: ${filename}` });
+                        return;
+                    }
         
-                    // Extract ordinal number for proper sorting
-                    const ordinal = docUtil.getOrdinalFromName(filename);
+                    // Get ordinal from the node (stored in database)
+                    const ordinal = node.ordinal || 0;
                         
                     // Read file content with error handling for unreadable files
                     let content = '';
@@ -992,7 +1002,7 @@ class DocMod {
                     }
         
                     // Store file data for sorting and joining
-                    fileData.push({ filename, ordinal, content });
+                    fileData.push({ filename, ordinal, content, node });
                 }
         
                 // Sort files by ordinal to maintain proper document order

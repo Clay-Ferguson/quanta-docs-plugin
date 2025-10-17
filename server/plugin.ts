@@ -81,7 +81,7 @@ class DocsServerPlugin implements IServerPlugin {
         context.app.post('/api/docs/folder/rename', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.renameFolder)); // #vfs2 done 
 
         context.app.post('/api/docs/paste', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.pasteItems)); // vfs2 done
-        context.app.post('/api/docs/join', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.joinFiles));
+        context.app.post('/api/docs/join', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.joinFiles)); 
         context.app.post('/api/docs/file-system-open', httpServerUtil.verifyAdminHTTPSignature, asyncHandler(docUtil.openFileSystemItem));
         context.app.post('/api/docs/search-binaries', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.searchBinaries));
         context.app.post('/api/docs/search-text', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.searchTextFiles));

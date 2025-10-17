@@ -830,7 +830,7 @@ export const onJoin = async (gs: DocsGlobalState, reRenderTree: any) => {
     }
 
     const fileCount = selectedFiles.length;
-    const confirmText = `Are you sure you want to join ${fileCount} selected files? This will concatenate their content into the first file (by ordinal) and delete the remaining files.`;
+    const confirmText = `Are you sure you want to join ${fileCount} selected files? This will concatenate their content into the first file (lowest ordinal position) and delete the remaining files.`;
     
     if (!await confirmModal(confirmText)) {
         return;
