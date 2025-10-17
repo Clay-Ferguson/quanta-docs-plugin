@@ -167,6 +167,7 @@ class DocMod {
                             let partFilePath = finalFilePath;
                             
                             if (i > 0) {
+                                // todo-0: find all locations in the code we make this kind of check and remove all non-vfs cases.
                                 if (fsType === 'vfs') {
                                     // VFS2: Generate new filename without ordinal prefix
                                     const originalBaseName = path.basename(finalFilePath);
@@ -175,19 +176,7 @@ class DocMod {
                                     const newBaseName = `${nameWithoutExt}_${i}${extension}`;
                                     partFilePath = path.join(path.dirname(finalFilePath), newBaseName);
                                 } else {
-                                    // Legacy VFS: Generate new filenames with ordinal prefixes
-                                    const originalBaseName = path.basename(finalFilePath);
-                                    
-                                    // Calculate sequential ordinal for this part
-                                    const newOrdinal = originalOrdinal + i;
-                                    const ordinalPrefix = newOrdinal.toString().padStart(4, '0');
-                                    
-                                    // Construct new filename with updated ordinal
-                                    const underscoreIndex = originalBaseName.indexOf('_');
-                                    const nameAfterUnderscore = originalBaseName.substring(underscoreIndex);
-                                    const finalBaseName = ordinalPrefix + nameAfterUnderscore;
-                                    
-                                    partFilePath = path.join(path.dirname(finalFilePath), finalBaseName);
+                                    throw new Error("Legacy VFS is no longer supported");
                                 }
                             }
                                                         
@@ -197,7 +186,7 @@ class DocMod {
                                 await (ifs as any).writeFileEx(owner_id, partFilePath, partContent, 'utf8', false, targetOrdinal);
                             } else {
                                 // Legacy VFS: Use standard writeFile
-                                await ifs.writeFile(owner_id, partFilePath, partContent, 'utf8');
+                                throw new Error("Legacy VFS is no longer supported");
                             }
                             console.log(`Split file part ${i + 1} saved successfully: ${partFilePath}`);
                         }
