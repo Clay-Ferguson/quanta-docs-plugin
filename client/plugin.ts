@@ -39,7 +39,6 @@ class DocsClientPlugin implements IClientPlugin {
         gs.docsSearchOriginFolder = '';
         gs.docsLastSearch = '';
         gs.docsSearchMode = 'MATCH_ANY';
-        gs.docsSearchTextOnly = false;
         gs.docsOrderByModTime = true;
         gs.docsHighlightedFolderName = null;
 
@@ -68,14 +67,12 @@ class DocsClientPlugin implements IClientPlugin {
         const docsEditMode: boolean = await idb.getItem(DBKeys.docsEditMode, false) === true;
         const docsMetaMode: boolean = await idb.getItem(DBKeys.docsMetaMode, false) === true;
         const docsNamesMode: boolean = await idb.getItem(DBKeys.docsNamesMode, false) === true;
-        const docsSearchTextOnly: boolean = await idb.getItem(DBKeys.docsSearchTextOnly, false) === true;
         const docsOrderByModTime: boolean = await idb.getItem(DBKeys.docsOrderByModTime, true) === true;
     
         gs.docsViewWidth = docsViewWidth;
         gs.docsEditMode = docsEditMode;
         gs.docsMetaMode = docsMetaMode;
         gs.docsNamesMode = docsNamesMode;
-        gs.docsSearchTextOnly = docsSearchTextOnly;
         gs.docsOrderByModTime = docsOrderByModTime;
     }
 

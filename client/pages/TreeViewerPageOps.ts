@@ -9,9 +9,6 @@ import { idb } from "@client/IndexedDB";
 import { util } from "@client/Util";
 import { formatDisplayName, getFilenameExtension, isTextFile, stripOrdinal } from "@common/CommonUtils";
 
-declare const ADMIN_PUBLIC_KEY: string;
-declare const DESKTOP_MODE: boolean;
-
 export const handleCancelClick = (gs: DocsGlobalState) => {
     // Clear editing state without saving
     if (gs.docsEditNode?.is_directory) {
@@ -48,22 +45,6 @@ export const handleFolderClick = (gs: DocsGlobalState, folderName: string) => {
     // Clear saved scroll position and scroll to top after navigation
     util.scrollToTopAndClearPosition('treeViewContent');
 };
-
-export const handleFileClick = async (gs: DocsGlobalState, fileName: string) => {
-    const isAdmin = ADMIN_PUBLIC_KEY === gs.keyPair?.publicKey;
-    if (!isAdmin || !DESKTOP_MODE) {
-        return;
-    }
-    // Construct the full path to the file
-    let curFolder = gs.docsFolder || '';
-    if (curFolder === '/') {
-        curFolder = ''; // If we're at root, we want to start with an empty string
-    }
-    const filePath = curFolder ? `${curFolder}/${fileName}` : fileName;
-    
-    // Open the file using the operating system's default application
-    await openItemInFileSystem(gs, "explore", filePath);
-}
 
 // Handle parent navigation (go up one level in folder tree)
 export const handleParentClick = (gs: DocsGlobalState) => { 
@@ -716,34 +697,6 @@ export const onDelete = async (gs: DocsGlobalState, treeNodes: TreeNode[], setTr
     } catch (error) {
         console.error('Error deleting items:', error);
         await alertModal("An error occurred while deleting items. Please try again.");
-    }
-};
-
-/**
- * Opens an item (file or folder) in the operating system's default application
- * @param gs - Global state containing the current tree folder and doc root key
- * @param itemPath - Optional specific item path. If not provided, opens the current folder
- */
-export const openItemInFileSystem = async (gs: DocsGlobalState, action: "edit" | "explore", itemPath?: string) => {
-    try {
-        // Use the provided item path or default to the current folder
-        const treeItem = itemPath || gs.docsFolder || '/';
-
-        const requestBody = {
-            treeItem,
-            docRootKey: gs.docsRootKey,
-            action
-        };
-
-        const response = await httpClientUtil.secureHttpPost('/api/docs/file-system-open', requestBody);
-        
-        if (!response) {
-            console.error('Error response from server:', response);
-            await alertModal("Failed to open item in file system. Please try again.");
-        }
-    } catch (error) {
-        console.error('Error opening item in file system:', error);
-        await alertModal("An error occurred while opening the item. Please try again.");
     }
 };
 

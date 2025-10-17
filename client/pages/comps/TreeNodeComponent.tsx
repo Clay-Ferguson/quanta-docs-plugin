@@ -5,14 +5,13 @@ import { DocsGlobalState } from '../../DocsTypes';
 import { isImageFile, isTextFile, stripOrdinal, formatDateTime } from '@common/CommonUtils';
 import { setFullSizeImage } from '@client/components/ImageViewerComp';
 import { signedArgs } from '@client/AppService';
-import { handleCheckboxChange, handleFolderClick, handleFileClick } from '../TreeViewerPageOps';
+import { handleCheckboxChange, handleFolderClick } from '../TreeViewerPageOps';
 import EditIcons from './EditIcons';
 import EditFolder from './EditFolder';
 import EditFile from './EditFile';
 import InsertItemsRow from './InsertItemsRow';
 import ColumnMarkdownRenderer from './ColumnMarkdownRenderer';
 
-declare const DESKTOP_MODE: boolean;
 declare const ADMIN_PUBLIC_KEY: string;
 
 interface TreeNodeComponentProps {
@@ -176,7 +175,7 @@ export default function TreeNodeComponent({
                                             />
                                         }
 
-                                        {!DESKTOP_MODE && node.is_public && node.owner_id == gs.userProfile!.userId && (
+                                        {node.is_public && node.owner_id == gs.userProfile!.userId && (
                                             <FontAwesomeIcon
                                                 icon={faShareAlt}
                                                 className="text-green-400 ml-2 h-5 w-5"
@@ -225,7 +224,6 @@ export default function TreeNodeComponent({
                         : gs.docsNamesMode ?
                             <div 
                                 className="flex items-center cursor-pointer hover:bg-gray-800/30 rounded-lg mb-4 transition-colors flex-grow"
-                                onClick={() => handleFileClick(gs, node.name)}
                             >
                                 <FontAwesomeIcon 
                                     icon={faFile} 
@@ -234,7 +232,7 @@ export default function TreeNodeComponent({
                                 <span className="text-lg font-medium">
                                     {formatDisplayName(node.name)}
                                 </span>
-                                {!DESKTOP_MODE && node.is_public && node.owner_id == gs.userProfile!.userId && (
+                                {node.is_public && node.owner_id == gs.userProfile!.userId && (
                                     <FontAwesomeIcon
                                         icon={faShareAlt}
                                         className="text-green-400 h-5 w-5 ml-2"
@@ -245,7 +243,7 @@ export default function TreeNodeComponent({
                             : 
                             <div className="mb-3 relative">
                                 <ColumnMarkdownRenderer content={node.content} docMode={true}/>
-                                {!DESKTOP_MODE && node.is_public && node.owner_id == gs.userProfile!.userId && (
+                                {node.is_public && node.owner_id == gs.userProfile!.userId && (
                                     <FontAwesomeIcon
                                         icon={faShareAlt}
                                         className="absolute top-0 right-0 text-green-400 h-5 w-5 z-10"
@@ -259,7 +257,6 @@ export default function TreeNodeComponent({
                         <div className="flex items-center justify-between">
                             <div 
                                 className="flex items-center cursor-pointer hover:bg-gray-800/30 rounded-lg transition-colors flex-grow"
-                                onClick={() => handleFileClick(gs, node.name)}
                             >
                                 <FontAwesomeIcon 
                                     icon={faFile} 

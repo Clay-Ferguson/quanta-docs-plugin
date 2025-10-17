@@ -1,16 +1,12 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFolderOpen, faSync, faSearch, faGear, faHome, faCubes, faQuestionCircle, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
+import { faSync, faSearch, faGear, faHome, faQuestionCircle } from '@fortawesome/free-solid-svg-icons';
 import { TreeNode } from '@common/types/CommonTypes';
 import { DocsGlobalState, DocsPageNames } from '../../DocsTypes';
 import { PageNames } from '@client/AppServiceTypes';
 import { isTextFile } from '@common/CommonUtils';
-import { handleEditModeToggle, handleMetaModeToggle, handleNamesModeToggle, onCut, onUndoCut, onDelete, onJoin, openItemInFileSystem } from '../TreeViewerPageOps';
+import { handleEditModeToggle, handleMetaModeToggle, handleNamesModeToggle, onCut, onUndoCut, onDelete, onJoin } from '../TreeViewerPageOps';
 import { app } from '@client/AppService';
 import { docsGoHome } from '../../DocsUtils';
-import { httpClientUtil } from '@client/HttpClientUtil';
-import { alertModal } from '@client/components/AlertModalComp';
-
-declare const DESKTOP_MODE: boolean;
 
 interface TopRightCompsProps {
     gs: DocsGlobalState;
@@ -97,23 +93,6 @@ export default function TopRightComps({ gs, rootNode, itemsAreSelected, reRender
                         </button>}
                 </div>
             }
-            
-            {DESKTOP_MODE && gs.docsRootType==='lfs' && <button 
-                onClick={() => openItemInFileSystem(gs, "explore")}
-                className="btn-icon"
-                title="Open folder in file system"
-                disabled={isLoading}
-            >
-                <FontAwesomeIcon icon={faFolderOpen} className="h-5 w-5" />
-            </button>}
-
-            {DESKTOP_MODE && gs.docsRootType==='lfs' && <button 
-                onClick={() => openItemInFileSystem(gs, "edit")}
-                className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm"
-                title="Open File system Editor"
-            >
-                <FontAwesomeIcon icon={faExternalLinkAlt} className="h-5 w-5" />
-            </button>}
 
             <button 
                 onClick={reRenderTree}
@@ -140,37 +119,36 @@ export default function TopRightComps({ gs, rootNode, itemsAreSelected, reRender
                 <FontAwesomeIcon icon={faGear} className="h-5 w-5" />
             </button>
 
-            {!DESKTOP_MODE && 
-                <button 
-                    onClick={() => docsGoHome(gs)}
-                    className="btn-icon"
-                    title="Home"
-                >
-                    <FontAwesomeIcon icon={faHome} className="h-5 w-5" />
-                </button>}
+            <button 
+                onClick={() => docsGoHome(gs)}
+                className="btn-icon"
+                title="Home"
+            >
+                <FontAwesomeIcon icon={faHome} className="h-5 w-5" />
+            </button>
 
-            {DESKTOP_MODE && gs.docsRootType==='lfs' && 
-                <button 
-                    onClick={async () => {
-                        try {
-                            const response = await httpClientUtil.secureHttpPost(`/api/docs/ssg`, { 
-                                treeFolder: gs.docsFolder,
-                                docRootKey: gs.docsRootKey 
-                            });
-                            if (!response) {
-                                throw new Error(response?.message || "SSG failed");
-                            }
-                            alertModal("Static Site Generate Complete.");
-                        } catch (error) {
-                            console.error('SSG failed:', error);
+            {/* This is removed until there's a VFS version of it. the ssg was always local files only feature. 
+            <button 
+                onClick={async () => {
+                    try {
+                        const response = await httpClientUtil.secureHttpPost(`/api/docs/ssg`, { 
+                            treeFolder: gs.docsFolder,
+                            docRootKey: gs.docsRootKey 
+                        });
+                        if (!response) {
+                            throw new Error(response?.message || "SSG failed");
                         }
-                    }}
-                    className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm"
-                    title="Generate Static Site"
-                    disabled={isLoading}
-                >
-                    <FontAwesomeIcon icon={faCubes} className="h-5 w-5" />
-                </button>}
+                        alertModal("Static Site Generate Complete.");
+                    } catch (error) {
+                        console.error('SSG failed:', error);
+                    }
+                }}
+                className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm"
+                title="Generate Static Site"
+                disabled={isLoading}
+            >
+                <FontAwesomeIcon icon={faCubes} className="h-5 w-5" />
+            </button> */}
 
             <button 
                 onClick={() => app.goToPage(DocsPageNames.docsUserGuide)}

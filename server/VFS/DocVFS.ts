@@ -30,6 +30,7 @@ class DocVFS {
      * - Modification time ordering
      * - Consistent API with existing search endpoints
      */
+    // todo-0: Most of the advanced search options are not yet enabled here yet, and need to be written as VFS versions of else removed.
     searchVFSFiles = async (req: Request<any, any, {  
         query?: string; 
         treeFolder: string; 

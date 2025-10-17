@@ -95,26 +95,11 @@ export default function SearchViewPage() {
     }, []);
     
     const handleSearch = async () => {
-        // todo-2: implement VFS binary search ? some day.
-        if (gs.docsRootType === 'vfs' && !gs.docsSearchTextOnly) {
-            await alertModal('Binary search is not supported for VFS. Please enable "Text Only" search mode.');
-            return;
-        }
-
         setIsSearching(true);
         const search = gs.docsSearch?.trim();
         try {
             const searchFolder = gs.docsFolder || '/';
-            let endpoint = null;
-            if (gs.docsRootType === 'vfs') {
-                // todo-2: do we support 'docsSearchTextOnly' for VFS?
-                endpoint = '/api/docs/search-vfs'; 
-            }
-            else {
-                endpoint = (gs.docsSearchTextOnly ? '/api/docs/search-text' : '/api/docs/search-binaries');
-            }
-
-            const response = await httpClientUtil.secureHttpPost(endpoint, {
+            const response = await httpClientUtil.secureHttpPost('/api/docs/search-vfs', {
                 query: search,
                 treeFolder: searchFolder,
                 docRootKey: gs.docsRootKey,
@@ -363,23 +348,6 @@ export default function SearchViewPage() {
                                 disabled={isSearching}
                             />
                             <span>by Mod Time</span>
-                        </label>
-                        
-                        {/* Text Only Checkbox */}
-                        <label className="flex items-center gap-2 text-gray-300 cursor-pointer ml-3">
-                            <input
-                                type="checkbox"
-                                checked={gs.docsSearchTextOnly || false}
-                                onChange={async (e) => {
-                                    const checked = e.target.checked;
-                                    gd({ type: 'setSearchTextOnly', payload: { docsSearchTextOnly: checked }});
-                                    // Persist to IndexedDB
-                                    await idb.setItem(DBKeys.docsSearchTextOnly, checked);
-                                }}
-                                className="text-blue-600 focus:ring-blue-500"
-                                disabled={isSearching}
-                            />
-                            <span>Text Only</span>
                         </label>
                         
                         <button 

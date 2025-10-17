@@ -5,8 +5,6 @@ import { DocsGlobalState, gd } from '../../DocsTypes';
 import { createClickablePathComponents } from '@common/CommonUtils';
 import { alertModal } from '@client/components/AlertModalComp';
 
-declare const DESKTOP_MODE: boolean;
-
 interface ClickableBreadcrumbProps {
     gs: DocsGlobalState;
     rootNode: TreeNode | null;
@@ -48,33 +46,33 @@ export default function ClickableBreadcrumb({ gs, rootNode }: ClickableBreadcrum
                             </button>
                         </span>
                     ))}
-                    {!DESKTOP_MODE && rootNode?.is_public && rootNode.owner_id==gs.userProfile!.userId && (
+                    {rootNode?.is_public && rootNode.owner_id==gs.userProfile!.userId && (
                         <FontAwesomeIcon
                             icon={faShareAlt}
                             className="text-green-400 h-5 w-5 ml-2"
                             title="This folder is shared publicly"
                         />)}
-                    {!DESKTOP_MODE && 
-                        <FontAwesomeIcon
-                            icon={faLink}
-                            className="text-white h-5 w-5 cursor-pointer ml-2 hover:text-gray-300 transition-colors"
-                            title="Copy URL to clipboard"
-                            onClick={() => {
-                                let folder = gs.docsFolder; 
-                                if (folder?.indexOf('/') === 0) {
-                                    folder = folder.substring(1); // Remove leading slash if present
-                                }
+                    
+                    <FontAwesomeIcon
+                        icon={faLink}
+                        className="text-white h-5 w-5 cursor-pointer ml-2 hover:text-gray-300 transition-colors"
+                        title="Copy URL to clipboard"
+                        onClick={() => {
+                            let folder = gs.docsFolder; 
+                            if (folder?.indexOf('/') === 0) {
+                                folder = folder.substring(1); // Remove leading slash if present
+                            }
 
-                                // DO NOT DELETE: This was the old URL format that used folder names (works just fine but we use UUID instead)
-                                // const currentUrl = `/doc/${gs.docsRootKey}/${folder || '/'}`;
-                                const currentUrl = `/doc/${gs.docsRootKey}/id/${rootNode!.uuid}`;
-                                navigator.clipboard.writeText(window.location.origin + currentUrl).then(() => {
-                                    alertModal(`URL copied to clipboard: ${window.location.origin + currentUrl}`);
-                                }).catch(err => {
-                                    console.error('Failed to copy URL to clipboard:', err);
-                                });
-                            }}
-                        />}
+                            // DO NOT DELETE: This was the old URL format that used folder names (works just fine but we use UUID instead)
+                            // const currentUrl = `/doc/${gs.docsRootKey}/${folder || '/'}`;
+                            const currentUrl = `/doc/${gs.docsRootKey}/id/${rootNode!.uuid}`;
+                            navigator.clipboard.writeText(window.location.origin + currentUrl).then(() => {
+                                alertModal(`URL copied to clipboard: ${window.location.origin + currentUrl}`);
+                            }).catch(err => {
+                                console.error('Failed to copy URL to clipboard:', err);
+                            });
+                        }}
+                    />
                 </div>
             </div>
         </div>

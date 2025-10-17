@@ -22,7 +22,6 @@ import InsertItemsRow from './comps/InsertItemsRow';
 import TreeNodeComponent from './comps/TreeNodeComponent';
 
 declare const PAGE: string;
-declare const DESKTOP_MODE: boolean; // todo-0: this var is completely obsolete.
 declare const ADMIN_PUBLIC_KEY: string;
 
 /**
@@ -157,28 +156,27 @@ export default function TreeViewerPage() {
         try {
             // setIsLoading(true);
             setError(null);
-            if (!DESKTOP_MODE) {
-                if (folder=== '/' || folder === '') {
-                    if (gs.userProfile && gs.userProfile.name) {
-                        const isAdmin = ADMIN_PUBLIC_KEY === gs.keyPair?.publicKey;
+            
+            if (folder=== '/' || folder === '') {
+                if (gs.userProfile && gs.userProfile.name) {
+                    const isAdmin = ADMIN_PUBLIC_KEY === gs.keyPair?.publicKey;
 
-                        // if this is not the admin user we limit them to where an attempt to access root just sends them to their own folder instead.
-                        if (!isAdmin) {
-                            console.log(`Setting docsFolder to root for user ${gs.userProfile?.name}`);
-                            folder = "/"+gs.userProfile!.name; 
-                        }
+                    // if this is not the admin user we limit them to where an attempt to access root just sends them to their own folder instead.
+                    if (!isAdmin) {
+                        console.log(`Setting docsFolder to root for user ${gs.userProfile?.name}`);
+                        folder = "/"+gs.userProfile!.name; 
                     }
-                    else {
-                        // todo-2: we need to document this behaviour where we default users to the public folder, expecting it to exist.
-                        console.log(`Setting docsFolder to public/admin. No user profile saved.`);
-                        folder = "/admin/public";
-                    }
-
-                    // console.log(`Setting docsFolder to [${folder}]`);
-                    gd({ type: 'setUserProfile', payload: { 
-                        docsFolder: folder
-                    }});
                 }
+                else {
+                    // todo-2: we need to document this behaviour where we default users to the public folder, expecting it to exist.
+                    console.log(`Setting docsFolder to public/admin. No user profile saved.`);
+                    folder = "/admin/public";
+                }
+
+                // console.log(`Setting docsFolder to [${folder}]`);
+                gd({ type: 'setUserProfile', payload: { 
+                    docsFolder: folder
+                }});
             }
 
             // console.log(`Refreshing tree for folder [${folder}] with rootKey=[${gs.docsRootKey}]`);
@@ -282,7 +280,7 @@ export default function TreeViewerPage() {
     }
 
     // show parent button if we're the admin or if the current folder is not a folder in the root.
-    const showParentButton = DESKTOP_MODE || ADMIN_PUBLIC_KEY === gs.keyPair?.publicKey || gs.docsFolder?.indexOf('/') !== -1;
+    const showParentButton = ADMIN_PUBLIC_KEY === gs.keyPair?.publicKey || gs.docsFolder?.indexOf('/') !== -1;
     
     // Check if editing is active
     const isEditing = gs.docsEditNode !== null;

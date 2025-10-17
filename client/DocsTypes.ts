@@ -27,7 +27,6 @@ export interface DocsGlobalState extends GlobalState {
     docsSearchOriginFolder?: string;
     docsLastSearch?: string;
     docsSearchMode?: 'REGEX' | 'MATCH_ANY' | 'MATCH_ALL';
-    docsSearchTextOnly?: boolean;
     docsOrderByModTime?: boolean;
     docsHighlightedFolderName?: string | null;
     docsHighlightedFileName?: string | null;

@@ -5,8 +5,6 @@ import { TreeNode } from '@common/types/CommonTypes';
 import { DocsGlobalState, gd } from '../../DocsTypes';
 import { handleRenameClick } from '../TreeViewerPageOps';
 
-declare const DESKTOP_MODE: boolean;
-
 interface EditFolderProps {
     gs: DocsGlobalState;
     treeNodes: TreeNode[];
@@ -72,13 +70,12 @@ export default function EditFolder({
                     >
                     Rename
                     </button>
-                    {!DESKTOP_MODE && 
-                        <button
-                            onClick={handleShareClick}
-                            className="btn-secondary"
-                        >
+                    <button
+                        onClick={handleShareClick}
+                        className="btn-secondary"
+                    >
                         Share
-                        </button>}
+                    </button>
                     <button
                         onClick={handleCancelClick}
                         className="btn-secondary"
