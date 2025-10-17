@@ -1042,40 +1042,41 @@ class DocMod {
     }
 
     /**
-     * Converts a file into a folder by using the first line of the file's content as the folder name
+     * Converts a file into a folder by preserving its ordinal position in the directory
      * 
-     * This method provides a unique transformation feature that converts an existing file into a folder structure.
+     * This method provides a transformation feature that converts an existing file into a folder structure.
      * It's useful for reorganizing content when a simple file needs to be expanded into a more complex
      * hierarchical structure while preserving the existing content.
      * 
      * Process:
      * 1. Validates the existing file and proposed folder name
-     * 2. Extracts and preserves the numeric ordinal prefix from the original filename
-     * 3. Deletes the original file from the filesystem
-     * 4. Creates a new folder with the same ordinal prefix and the specified name
+     * 2. Retrieves the file's ordinal value from the database
+     * 3. Deletes the original file from the virtual filesystem
+     * 4. Creates a new folder with the same ordinal value
      * 5. If remaining content exists, creates a new file inside the folder with that content
      * 
      * Features:
-     * - Preserves ordinal positioning in the document tree
-     * - Validates folder name length to prevent filesystem issues
+     * - Preserves ordinal positioning in the document tree (stored as integer in database)
+     * - Validates folder name length to prevent issues
      * - Handles optional content preservation in a new file
      * - Prevents conflicts with existing folders
      * - Maintains proper security access controls
      * - Atomic operation - either fully succeeds or fails cleanly
      * 
-     * Ordinal Preservation:
-     * - The new folder inherits the numeric prefix from the original file
-     * - This maintains the position in the sorted document tree
-     * - Example: "0003_myfile.md" becomes "0003_myfolder/"
+     * Ordinal Preservation (VFS2):
+     * - The new folder inherits the ordinal value from the original file
+     * - Ordinals are stored as integers in the database, not in filenames
+     * - This maintains the exact position in the sorted document tree
+     * - Example: File "myfile.md" with ordinal=3 becomes folder "myfolder" with ordinal=3
      * 
      * Content Handling:
-     * - If remainingContent is provided, creates "0001_file.md" inside the new folder
+     * - If remainingContent is provided, creates "file.md" inside the new folder
      * - This allows preservation of the original file's content after the conversion
-     * - The new file gets the default ordinal "0001" within the folder
+     * - The new file gets ordinal=1 within the folder (first item)
      * 
      * @param req - Express request object containing:
      *   - filename: string - Name of the existing file to convert
-     *   - folderName: string - Desired name for the new folder (without ordinal prefix)
+     *   - folderName: string - Desired name for the new folder
      *   - remainingContent: string - Optional content to save in a new file inside the folder
      *   - treeFolder: string - Relative path to the parent directory
      *   - docRootKey: string - Key identifying the document root configuration
@@ -1127,27 +1128,26 @@ class DocMod {
                     return;
                 }
 
-                // Verify the target file exists
-                if (!await ifs.exists(absoluteFilePath)) {
+                // Verify the target file exists and get its info (including ordinal)
+                const fileInfo: any = {};
+                if (!await ifs.exists(absoluteFilePath, fileInfo)) {
                     res.status(404).json({ error: 'File not found' });
                     return;
                 }
 
                 // Ensure the target is actually a file, not a directory
-                const fileStat = await ifs.stat(absoluteFilePath);
+                const fileStat = fileInfo.node;
                 if (fileStat.is_directory) {
                     res.status(400).json({ error: 'Path is not a file' });
                     return;
                 }
 
-                // Extract and preserve the numeric ordinal prefix from the original filename
-                // This maintains the position in the document tree after conversion
-                const underscoreIndex = filename.indexOf('_');
-                const numericPrefix = underscoreIndex !== -1 ? filename.substring(0, underscoreIndex + 1) : '';
+                // Retrieve the ordinal value from the file's database record
+                // This will be preserved when creating the new folder
+                const preservedOrdinal = fileStat.ordinal;
             
-                // Construct the new folder name with preserved ordinal prefix
-                const newFolderName = numericPrefix + folderName;
-                const absoluteNewFolderPath = path.join(absoluteFolderPath, newFolderName);
+                // Construct the new folder path (no ordinal prefix in filename)
+                const absoluteNewFolderPath = path.join(absoluteFolderPath, folderName);
 
                 // Prevent naming conflicts with existing folders
                 if (await ifs.exists(absoluteNewFolderPath)) {
@@ -1160,25 +1160,27 @@ class DocMod {
                 await ifs.unlink(owner_id, absoluteFilePath);
                 console.log(`File deleted: ${absoluteFilePath}`);
 
-                // Step 2: Create the new folder structure
-                await ifs.mkdir(owner_id, absoluteNewFolderPath, { recursive: true });
-                console.log(`Folder created: ${absoluteNewFolderPath}`);
+                // Step 2: Create the new folder structure with the preserved ordinal
+                // Use mkdirEx to specify the ordinal value
+                await ifs.mkdirEx(owner_id, absoluteNewFolderPath, { recursive: true }, fileStat.is_public, preservedOrdinal);
+                console.log(`Folder created: ${absoluteNewFolderPath} with ordinal: ${preservedOrdinal}`);
 
                 // Step 3: Optionally preserve content in a new file inside the folder
                 if (remainingContent && remainingContent.trim().length > 0) {
-                // Create a default file with ordinal "0001" to store the remaining content
-                    const newFileName = '0001_file.md';
+                    // Create a default file with ordinal=1 to store the remaining content
+                    const newFileName = 'file.md';
                     const newFilePath = path.join(absoluteNewFolderPath, newFileName);
                 
-                    // Write the preserved content with security validation
-                    await ifs.writeFile(owner_id, newFilePath, remainingContent, 'utf8');
+                    // Write the preserved content with security validation and ordinal=1
+                    // Use writeFileEx to specify the ordinal value
+                    await ifs.writeFileEx(owner_id, newFilePath, remainingContent, 'utf8', fileStat.is_public, 1);
                     console.log(`New file created with remaining content: ${newFilePath}`);
                 }
 
                 // Return success response with conversion details
                 res.json({ 
-                    message: `File "${filename}" converted to folder "${newFolderName}" successfully${remainingContent && remainingContent.trim().length > 0 ? ' with remaining content saved as 0001_file.md' : ''}`,
-                    folderName: newFolderName
+                    message: `File "${filename}" converted to folder "${folderName}" successfully${remainingContent && remainingContent.trim().length > 0 ? ' with remaining content saved as file.md' : ''}`,
+                    folderName: folderName
                 });
             } catch (error) {
                 handleError(error, res, 'Failed to convert file to folder');

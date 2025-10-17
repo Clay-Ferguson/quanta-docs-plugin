@@ -128,3 +128,7 @@ Next update the 'upload' endpoint on the server side so that it's now compatible
 context.app.post('/api/docs/upload', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docBinary.uploadFiles));
 ```
 Then in the 'TreeViewerPageOpos.ts' function you can also confirm that the correct information is being sent to the server if you needed to change anytying abou thow the server works. Remember our upload doe upload to a specific ordinal location point so it will need to shift ordinals down to make space unless the upload is appending to the end.
+
+### Step 43
+
+Next update the 'buildFolder' method to make it handle the new way of holding ordinals. No need to update the client-side code yet, just focus on this server-side metehod. Read the method documentation for 'buildFolder' before you start, and then be sure to please update the the method documentation when done.
