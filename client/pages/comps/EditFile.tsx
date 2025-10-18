@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faClock, faMicrophone, faStop, faTags, faVolumeUp } from '@fortawesome/free-solid-svg-icons';
 import { TreeNode } from '@common/types/CommonTypes';
 import { DocsGlobalState, gd } from '../../DocsTypes';
-import { stripOrdinal, stripFileExtension } from '@common/CommonUtils';
+import { stripFileExtension } from '@common/CommonUtils';
 import { handleSaveClick, handleSplitInline, handleMakeFolder } from '../TreeViewerPageOps';
 import { alertModal } from '@client/components/AlertModalComp';
 import { idb } from '@client/IndexedDB';
@@ -54,7 +54,7 @@ export default function EditFile({
      */
     const prepareFilenameForEditing = useCallback((filename: string): string => {
         // First strip the ordinal prefix
-        const nameWithoutOrdinal = stripOrdinal(filename);
+        const nameWithoutOrdinal = filename;
         // Then strip the extension
         return stripFileExtension(nameWithoutOrdinal);
     }, []);

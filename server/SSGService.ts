@@ -162,7 +162,7 @@ class SSGService {
             // Handle image files
             if (this.isImageFile(fileName)) {
                 const relativePath = this.getRelativePath(filePath, generationFolderPath);
-                const displayName = this.formatDisplayName(fileName);
+                const displayName = fileName;
                 content += `![${displayName}](${relativePath})\n`;
                 console.log(`    Added image: ${displayName} -> ${relativePath}`);
             } else {
@@ -230,20 +230,7 @@ class SSGService {
     private removeNumberPrefix = (fileName: string): string => {
         const underscoreIndex = fileName.indexOf('_');
         return underscoreIndex !== -1 ? fileName.substring(underscoreIndex + 1) : fileName;
-    };
-
-    /**
-     * Formats a display name by converting dashes and underscores to spaces
-     * and capitalizing the first letter of each word
-     * 
-     * @param name - Raw name to format
-     * @returns Formatted display name with proper capitalization and spacing
-     */
-    private formatDisplayName = (name: string): string => {
-        return this.removeNumberPrefix(name)
-            .replace(/[-_]/g, ' ')
-            .replace(/\b\w/g, char => char.toUpperCase());
-    };
+    }
 }
 
 export const ssg = new SSGService();

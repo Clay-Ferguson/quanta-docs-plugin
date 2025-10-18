@@ -2,7 +2,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFolder, faFile, faExclamationTriangle, faShareAlt } from '@fortawesome/free-solid-svg-icons';
 import { TreeNode } from '@common/types/CommonTypes';
 import { DocsGlobalState } from '../../DocsTypes';
-import { isImageFile, isTextFile, stripOrdinal, formatDateTime } from '@common/CommonUtils';
+import { isImageFile, isTextFile, formatDateTime } from '@common/CommonUtils';
 import { setFullSizeImage } from '@client/components/ImageViewerComp';
 import { signedArgs } from '@client/AppService';
 import { handleCheckboxChange, handleFolderClick } from '../TreeViewerPageOps';
@@ -25,7 +25,6 @@ interface TreeNodeComponentProps {
     isNodeSelected: (node: TreeNode) => boolean;
     handleCancelClick: () => void;
     handleFolderNameChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    formatDisplayName: (name: string) => string;
     contentTextareaRef: React.RefObject<HTMLTextAreaElement | null>;
     reRenderTree: () => Promise<TreeNode[]>;
 }
@@ -44,7 +43,6 @@ export default function TreeNodeComponent({
     isNodeSelected, 
     handleCancelClick, 
     handleFolderNameChange, 
-    formatDisplayName,
     contentTextareaRef,
     reRenderTree
 }: TreeNodeComponentProps) {
@@ -67,7 +65,7 @@ export default function TreeNodeComponent({
     // Check if this is the highlighted folder that we came up from
     // Compare the stripped names (without ordinal prefix) for exact match
     const isHighlightedFolder = isFolder && gs.docsHighlightedFolderName && 
-        stripOrdinal(node.name) === gs.docsHighlightedFolderName;
+        node.name === gs.docsHighlightedFolderName;
     
     // Check if this is the highlighted file that we jumped to from search
     // Compare the stripped names (without ordinal prefix) for exact match
@@ -164,7 +162,7 @@ export default function TreeNodeComponent({
                                             className="text-blue-400 text-lg mr-3 h-5 w-5" 
                                         />
                                         <span className="text-blue-300 text-lg font-medium hover:text-blue-200">
-                                            {formatDisplayName(node.name)}
+                                            {node.name}
                                         </span>
 
                                         {!node.fsChildren && 
@@ -230,7 +228,7 @@ export default function TreeNodeComponent({
                                     className="text-lg mr-3 h-5 w-5" 
                                 />
                                 <span className="text-lg font-medium">
-                                    {formatDisplayName(node.name)}
+                                    {node.name}
                                 </span>
                                 {node.is_public && node.owner_id == gs.userProfile!.userId && (
                                     <FontAwesomeIcon
@@ -263,7 +261,7 @@ export default function TreeNodeComponent({
                                     className="text-lg mr-3 h-5 w-5" 
                                 />
                                 <span className="text-lg font-medium">
-                                    {formatDisplayName(node.name)}
+                                    {node.name}
                                 </span>
                             </div>
                             {gs.docsEditMode && canMod &&

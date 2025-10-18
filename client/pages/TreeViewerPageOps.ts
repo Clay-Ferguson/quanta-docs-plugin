@@ -7,7 +7,7 @@ import { httpClientUtil } from "@client/HttpClientUtil";
 import { DBKeys } from "@client/AppServiceTypes";
 import { idb } from "@client/IndexedDB";
 import { util } from "@client/Util";
-import { formatDisplayName, getFilenameExtension, isTextFile, stripOrdinal } from "@common/CommonUtils";
+import { getFilenameExtension, isTextFile } from "@common/CommonUtils";
 
 export const handleCancelClick = (gs: DocsGlobalState) => {
     // Clear editing state without saving
@@ -64,7 +64,7 @@ export const handleParentClick = (gs: DocsGlobalState) => {
         gd({ type: 'setTreeFolder', payload: { 
             docsFolder: parentFolder,
             docsSelItems: new Set<TreeNode>(),
-            docsHighlightedFolderName: stripOrdinal(folderToScrollTo),
+            docsHighlightedFolderName: folderToScrollTo,
             docsHighlightedFileName: null
         }});
     } else {
@@ -82,7 +82,7 @@ export const handleParentClick = (gs: DocsGlobalState) => {
         gd({ type: 'setTreeFolder', payload: { 
             docsFolder: '/',
             docsSelItems: new Set<TreeNode>(),
-            docsHighlightedFolderName: stripOrdinal(folderToScrollTo),
+            docsHighlightedFolderName: folderToScrollTo,
             docsHighlightedFileName: null
         }});
     }
@@ -200,7 +200,7 @@ export const getMasterCheckboxState = (gs: DocsGlobalState, treeNodes: TreeNode[
 export const handleEditClick = (node: TreeNode) => {     
     // For folders, we're doing rename functionality
     // Format the edit field as a friendly name, so user sees no ordinals and sees spaces instead of underscores
-    const nameWithoutPrefix = formatDisplayName(node.name);
+    const nameWithoutPrefix = node.name;
        
     if (node.is_directory) {
         gd({ type: 'setFolderEditingState', payload: { 
@@ -232,8 +232,8 @@ const deleteFileOrFolderOnServer = async (gs: DocsGlobalState, fileOrFolderName:
 export const handleDeleteClick = async (gs: DocsGlobalState, treeNodes: TreeNode[], setTreeNodes: any, node: TreeNode, index: number) => {        
     // Show confirmation dialog
     const confirmText = node.is_directory
-        ? `Delete the folder "${stripOrdinal(node.name)}"?`
-        : `Delete the file "${stripOrdinal(node.name)}"?`;
+        ? `Delete the folder "${node.name}"?`
+        : `Delete the file "${node.name}"?`;
             
     if (!await confirmModal(confirmText)) {
         return;
@@ -342,7 +342,6 @@ export const insertFile = async (gs: DocsGlobalState, reRenderTree: any, node: T
                     //     alertModal(`Multiple files found ending with "${findStr}". This is not recommended.`);
                     // }
 
-                    // const fileNameWithoutPrefix = stripOrdinal(newFileNode.name);
                     gd({ type: 'setFileEditingState', payload: { 
                         docsEditNode: newFileNode,
                         // nameWithoutPrefix (default to blank works just fine to keep same name and makes it easier to edit a new name when wanted.
@@ -442,7 +441,7 @@ export const handleSaveClick = (gs: DocsGlobalState, treeNodes: TreeNode[], setT
     if (gs.docsEditNode) {
         // Get the original filename and new filename
         const originalName = gs.docsEditNode.name;
-        let newFileName = fileName || gs.docsNewFileName || stripOrdinal(originalName);
+        let newFileName = fileName || gs.docsNewFileName || originalName;
         
         const originalExtension  = getFilenameExtension(originalName);
         
@@ -694,7 +693,7 @@ export const handleSplitInline = (gs: DocsGlobalState, treeNodes: TreeNode[], se
     if (gs.docsEditNode) {
         // Get the original filename and new filename
         const originalName = gs.docsEditNode.name;
-        const newFileName = gs.docsNewFileName || stripOrdinal(originalName);
+        const newFileName = gs.docsNewFileName || originalName;
             
         // Extract the numeric prefix from the original file name
         const underscoreIdx = originalName.indexOf('_');
@@ -924,7 +923,7 @@ export const handleMakeFolder = async (gs: DocsGlobalState, _treeNodes: TreeNode
         const remainingContent = lines.slice(1).join('\n').trim();
 
         // Confirm the operation
-        const confirmText = `Convert file "${stripOrdinal(gs.docsEditNode.name)}" into a folder named "${folderName}"? The file will be deleted and replaced with a folder${remainingContent ? ', and the remaining content will be saved as a new file in the folder' : ''}.`;
+        const confirmText = `Convert file "${gs.docsEditNode.name}" into a folder named "${folderName}"? The file will be deleted and replaced with a folder${remainingContent ? ', and the remaining content will be saved as a new file in the folder' : ''}.`;
         if (!await confirmModal(confirmText)) {
             return;
         }

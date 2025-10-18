@@ -6,7 +6,6 @@ import { httpClientUtil } from '@client/HttpClientUtil';
 import { alertModal } from '@client/components/AlertModalComp';
 import { useGlobalState, gd, DocsPageNames } from '../DocsTypes';
 import { app } from '@client/AppService';
-import { formatFullPath } from '@common/CommonUtils';
 import { idb } from '@client/IndexedDB';
 import { DBKeys } from '@client/AppServiceTypes';
 import TagSelector from './comps/TagSelector';
@@ -40,7 +39,7 @@ function SearchResultItem({ filePath, fileResults, onFileClick }: SearchResultIt
             onClick={() => onFileClick(filePath, isFolder)}
         >
             <div className={`font-medium flex items-center gap-2 ${isFolder ? 'text-blue-400' : 'text-gray-200'}`}>
-                {isFolder ? `📁 ${formatFullPath(filePath)}` : `📄 ${formatFullPath(filePath)}`}
+                {isFolder ? `📁 ${filePath}` : `📄 ${filePath}`}
             </div>
             
             {/* Show file content results only for non-folder results */}
@@ -261,7 +260,7 @@ export default function SearchViewPage() {
     return (
         <div className="page-container pt-safe">
             <header className="app-header">
-                <LogoBlockComp subText={`Search in ${formatFullPath(gs.docsFolder!)}`}/>
+                <LogoBlockComp subText={`Search in ${gs.docsFolder!}`}/>
                 <div className="flex items-center space-x-4">
                     <BackButtonComp/>
                 </div>

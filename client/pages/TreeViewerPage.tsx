@@ -11,7 +11,6 @@ import { faLevelUpAlt } from '@fortawesome/free-solid-svg-icons';
 import ImageViewerComp from '@client/components/ImageViewerComp';
 import { handleCancelClick, createValidId, handleParentClick } from './TreeViewerPageOps';
 import { useGlobalState, gd, DocsGlobalState, DocsPageNames } from '../DocsTypes';
-import { formatDisplayName } from '@common/CommonUtils';
 import SharingDialog from '../SharingDialog';
 import { idb } from '@client/IndexedDB';
 import { DBKeys } from '@client/AppServiceTypes';
@@ -38,7 +37,6 @@ function renderTreeNodes(
     isNodeSelected: (node: TreeNode) => boolean, 
     handleCancelClick: () => void, 
     handleFolderNameChange: (event: React.ChangeEvent<HTMLInputElement>) => void, 
-    formatDisplayName: (name: string) => string, 
     contentTextareaRef: React.RefObject<HTMLTextAreaElement | null>, 
     reRenderTree: () => Promise<TreeNode[]>,
     baseIndex: number = 0
@@ -59,7 +57,6 @@ function renderTreeNodes(
                 isNodeSelected, 
                 handleCancelClick, 
                 handleFolderNameChange, 
-                formatDisplayName, 
                 contentTextareaRef, 
                 reRenderTree,
                 currentIndex
@@ -83,7 +80,6 @@ function renderTreeNodes(
                     isNodeSelected={isNodeSelected}
                     handleCancelClick={handleCancelClick}
                     handleFolderNameChange={handleFolderNameChange}
-                    formatDisplayName={formatDisplayName}
                     contentTextareaRef={contentTextareaRef}
                     reRenderTree={reRenderTree}
                 />
@@ -268,10 +264,6 @@ export default function TreeViewerPage() {
         const fullPath = `${normalizedFolder}/${node.name}`;
         return !gs.docsCutItems?.has(fullPath);
     });
-    let lastPathPart = gs.docsFolder ? gs.docsFolder.split('/').filter(Boolean).pop() || null : null;
-    if (lastPathPart) {
-        lastPathPart = formatDisplayName(lastPathPart);
-    }
 
     // show parent button if we're the admin or if the current folder is not a folder in the root.
     const showParentButton = ADMIN_PUBLIC_KEY === gs.keyPair?.publicKey || gs.docsFolder?.indexOf('/') !== -1;
@@ -339,7 +331,7 @@ export default function TreeViewerPage() {
                             )}
                             {renderTreeNodes(filteredTreeNodes, gs, treeNodes, setTreeNodes, isNodeSelected, 
                                 () => handleCancelClick(gs), handleFolderNameChange, 
-                                formatDisplayName, contentTextareaRef, reRenderTree)}
+                                contentTextareaRef, reRenderTree)}
                         </div>
                     )}
                     <div className="h-20"></div> {/* Empty div for bottom spacing */}
