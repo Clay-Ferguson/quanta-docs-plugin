@@ -13,7 +13,60 @@ const rootKey = "usr"; // Default root key for VFS2, can be changed based on con
  * Virtual File System 2 (VFS2) for handling file operations in a server environment, by using PostgreSQL as a backend for storage of files and folders.
  */
 class VFS2 implements IFS {
-    
+        /* Ensures that this user has a folder in the VFS root directory, and that it's named after their username. */
+    async createUserFolder(userProfile: UserProfileCompact) {
+        console.log(`Creating user folder for: ${userProfile.name} (ID: ${userProfile.id})`);
+        const rootKey = "usr";
+
+        // Throw an error if 'userProfile.name' is not a valid filename.
+        if (!/^[a-zA-Z0-9_]+$/.test(userProfile.name!)) {
+            throw new Error(`Invalid user name: ${userProfile.name}. Only alphanumeric characters and underscores are allowed.`);
+        }
+
+        if (!userProfile.id) {
+            throw new Error(`User profile must have an ID to create a folder. User: ${JSON.stringify(userProfile)}`);
+        }
+        const existingNodes = await this.readdirEx(userProfile.id, "", false);
+        if (existingNodes && existingNodes.length > 0) {
+            const node = existingNodes[0];
+            const ordinalPrefix = node.name.split('_')[0]; // Get the ordinal prefix from the first node
+            // Get the substring to the right of the "_" in node.name
+            const nameSuffix = node.name.split('_').slice(1).join('_'); // Join the rest of the name after the ordinal prefix
+            if (nameSuffix === userProfile.name) {
+                console.log(`User folder already exists with the correct name: ${node.name}`);
+                return; // User folder already exists with the correct name
+            }
+
+            const newFolderName = `${ordinalPrefix}_${userProfile.name}`;
+            console.log(`Renaming existing user folder to: ${newFolderName}`);
+            await this.rename(userProfile.id, existingNodes[0].name, newFolderName);
+            return;
+        }
+
+        // Check for already existing user folder
+        // const docPath = await docSvc.resolveNonOrdinalPath(0, rootKey, userProfile.name, this);
+        // if (docPath) {
+        //     console.log(`Resolved docPath: ${docPath}`);
+        //     if (await this.exists(docPath)) {
+        //         console.log(`User folder already exists: ${docPath}`);
+        //         return; 
+        //     }
+        // }
+
+        // Get the next available ordinal (max + 1) for the root directory
+        const maxOrdinalResult = await pgdb.query(
+            'SELECT COALESCE(MAX(ordinal), -1) + 1 as next_ordinal FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2',
+            rootKey, ""
+        );
+        const maxOrdinal = maxOrdinalResult.rows[0].next_ordinal;
+        const maxOrdinalStr = maxOrdinal.toString().padStart(4, '0');
+
+        await pgdb.query(
+            'SELECT vfs2_mkdir($1, $2, $3, $4, $5, $6, $7)',
+            userProfile.id, "", `${maxOrdinalStr}_${userProfile.name}`, rootKey, maxOrdinal, false, false
+        );
+    }
+
     /**
      * Parse a full path to extract parent path and filename
      * @param fullPath - The full absolute path 

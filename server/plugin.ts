@@ -1,6 +1,5 @@
 import { config } from "../../../server/Config.js";
 import { Request } from 'express';
-// import { runTests as runVfsTests } from './VFS/test/vfs.test.js';
 import { runTests as runVfs2Tests } from './VFS2/test/vfs2.test.js';
 import { runTests as runVfs2SvcTests } from './VFS2/test/vfs2-svc.test.js';
 import { httpServerUtil } from "../../../server/HttpServerUtil.js";
@@ -13,9 +12,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import pgdb from "../../../server/db/PGDB.js";
-import docVFS from './VFS/DocVFS.js';
 import { UserProfileCompact } from "../../../common/types/CommonTypes.js";
-import vfs from './VFS/VFS.js';
+import vfs2 from "./VFS2/VFS2.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,13 +31,12 @@ class DocsServerPlugin implements IServerPlugin {
             this.pgMode = true;
         
             // Initialize database schema
-            await this.initializeDatabase('VFS/SQL');
             await this.initializeDatabase('VFS2/SQL');
 
             if (!pgdb.adminProfile) {
                 throw new Error('Admin profile not loaded. Please ensure the database is initialized and the admin user is created.');
             }
-            await vfs.createUserFolder(pgdb.adminProfile);
+            await vfs2.createUserFolder(pgdb.adminProfile);
         }
         else {
             throw new Error('POSTGRES_HOST environment variable is not set.');
@@ -49,7 +46,7 @@ class DocsServerPlugin implements IServerPlugin {
     onCreateNewUser = async (userProfile: UserProfileCompact): Promise<UserProfileCompact> => {
         if (process.env.POSTGRES_HOST) {
             console.log('Docs onCreateNewUser: ', userProfile);
-            await vfs.createUserFolder(userProfile);
+            await vfs2.createUserFolder(userProfile);
         }
         return userProfile;
     }
@@ -81,7 +78,7 @@ class DocsServerPlugin implements IServerPlugin {
 
         context.app.post('/api/docs/paste', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.pasteItems)); // vfs2 done
         context.app.post('/api/docs/join', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.joinFiles)); // vfs2 done
-        context.app.post('/api/docs/search-vfs', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docVFS.searchVFSFiles)); // vfs2 done
+        context.app.post('/api/docs/search-vfs', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.searchVFSFiles)); // vfs2 done
         context.app.post('/api/docs/tags/:docRootKey', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.extractTags));
         context.app.post('/api/docs/tags/scan/:docRootKey', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.scanAndUpdateTags));
         
@@ -184,7 +181,6 @@ class DocsServerPlugin implements IServerPlugin {
     async runAllTests(): Promise<void> {
         console.log("Running embedded tests...");
         if (process.env.POSTGRES_HOST) { // todo-0: This is how we were doing a lot of checking to see if we're running docker or not and it no longer applies. 
-            // await runVfsTests(); // todo-0: put this back soon.
             await runVfs2Tests();
             await runVfs2SvcTests();
 

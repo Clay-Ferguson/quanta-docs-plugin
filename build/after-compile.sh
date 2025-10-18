@@ -9,13 +9,6 @@ error_and_pause() {
 }
 
 # Copy docs plugin SQL files
-mkdir -p dist/plugins/docs/server/VFS/SQL 
-
-if ! cp plugins/docs/server/VFS/SQL/*.sql dist/plugins/docs/server/VFS/SQL/ 2>/dev/null; then
-    error_and_pause "Failed to copy plugins/docs/server/VFS/SQL/*.sql to dist/plugins/docs/server/VFS/SQL/"
-fi
-
-# Copy docs plugin SQL files
 mkdir -p dist/plugins/docs/server/VFS2/SQL 
 
 if ! cp plugins/docs/server/VFS2/SQL/*.sql dist/plugins/docs/server/VFS2/SQL/ 2>/dev/null; then
