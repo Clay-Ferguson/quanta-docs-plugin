@@ -1,6 +1,5 @@
 /* eslint-disable */
 // @ts-nocheck
-import { IFS, IFSStats } from '../../../../plugins/docs/server/IFS.js'
 import pgdb from '../../../../server/db/PGDB.js';
 import { config } from '../../../../server/Config.js';
 import { TreeNode, UserProfileCompact } from '../../../../common/types/CommonTypes.js';
@@ -9,10 +8,18 @@ import { getFilenameExtension } from '../../../../common/CommonUtils.js';
 
 const rootKey = "usr"; // Default root key for VFS2, can be changed based on configuration
 
+export interface VFS2Stats {
+    is_public?: boolean;
+    is_directory: boolean;
+    birthtime: Date;
+    mtime: Date;
+    size: number;
+}
+
 /**
  * Virtual File System 2 (VFS2) for handling file operations in a server environment, by using PostgreSQL as a backend for storage of files and folders.
  */
-class VFS2 implements IFS {
+class VFS2 {
         /* Ensures that this user has a folder in the VFS root directory, and that it's named after their username. */
     async createUserFolder(userProfile: UserProfileCompact) {
         console.log(`Creating user folder for: ${userProfile.name} (ID: ${userProfile.id})`);
@@ -196,7 +203,7 @@ class VFS2 implements IFS {
         }
     }
     
-    async stat(fullPath: string): Promise<IFSStats> { 
+    async stat(fullPath: string): Promise<VFS2Stats> { 
         try {
             const relativePath = this.normalizePath(fullPath);
             
@@ -210,7 +217,7 @@ class VFS2 implements IFS {
                     birthtime: new Date(),
                     mtime: new Date(),
                     size: 0
-                } as IFSStats;
+                } as VFS2Stats;
             }
             
             const { parentPath, filename } = this.parsePath(relativePath);
@@ -230,7 +237,7 @@ class VFS2 implements IFS {
                 birthtime: new Date(row.created_time),
                 mtime: new Date(row.modified_time),
                 size: row.size_bytes || 0
-            } as IFSStats;
+            } as VFS2Stats;
         } catch (error) {
             console.error('VFS2.stat error:', error);
             throw error;
@@ -515,7 +522,7 @@ class VFS2 implements IFS {
             const { parentPath, filename } = this.parsePath(relativePath);
             
             // Check if the file exists and get its info
-            let stats: IFSStats;
+            let stats: VFS2Stats;
             try {
                 stats = await this.stat(fullPath);
             } catch (error) {
@@ -554,7 +561,7 @@ class VFS2 implements IFS {
             const { parentPath, filename } = this.parsePath(relativePath);
             
             // Check if the file/directory exists and get its info
-            let stats: IFSStats;
+            let stats: VFS2Stats;
             try {
                 stats = await this.stat(fullPath);
             } catch (error) {

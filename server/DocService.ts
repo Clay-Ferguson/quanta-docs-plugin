@@ -4,11 +4,10 @@ import {  TreeRender_Response } from "../../../common/types/EndpointTypes.js";
 import { AuthenticatedRequest, handleError, svrUtil, throwError } from "../../../server/ServerUtil.js";
 import { config } from "../../../server/Config.js";
 import { docUtil } from "./DocUtil.js";
-import { IFS } from "./IFS.js";
 import { runTrans } from "../../../server/db/Transactional.js";
 import pgdb from "../../../server/db/PGDB.js";
 import { fixName, getFilenameExtension, isImageExt } from '../../../common/CommonUtils.js';
-
+import vfs2 from "./VFS2/VFS2.js";
 /**
  * Service class for handling document management operations in the docs plugin.
  * 
@@ -52,114 +51,6 @@ import { fixName, getFilenameExtension, isImageExt } from '../../../common/Commo
  * files and folders, enabling precise ordering and insertion capabilities.
  */
 class DocService {
-    /**
-     * Resolves a non-ordinal path to its corresponding ordinal-based path in the file system.
-     * 
-     * The file system uses folders with 4-digit ordinal prefixes (e.g., "1234_FolderName/5678_SubFolderName").
-     * This method allows resolution of user-friendly paths like "FolderName/SubFolderName" to their
-     * actual ordinal-based paths by performing directory lookups and name matching.
-     * 
-     * Algorithm:
-     * 1. Decode and validate the input path
-     * 2. Split path into individual folder components
-     * 3. For each component, scan the current directory for matching ordinal folders
-     * 4. Match folder names case-insensitively (ignoring ordinal prefix)
-     * 5. Build the resolved ordinal path incrementally
-     * 
-     * Security: All paths are validated against the document root to prevent directory traversal
-     *
-     * @param docRootKey - Key identifier for the document root (resolved via config.getPublicFolderByKey)
-     * @param treeFolder - Non-ordinal path to resolve (e.g., "FolderName/SubFolderName")
-     * @returns The resolved path with ordinals (e.g., "/1234_FolderName/5678_SubFolderName"), or null if no path found
-     */
-    // todo-0: this method will be going away soon, since we are moving away from VFS to VFS2
-    resolveNonOrdinalPath = async (owner_id: number, docRootKey: string, treeFolder: string, ifs: IFS): Promise<string | null> => {       
-        treeFolder = ifs.normalizePath(treeFolder);
-        // Resolve the document root path using the provided key
-        const root = config.getPublicFolderByKey(docRootKey).path;
-        if (!root) {
-            throw new Error('Invalid document root key');
-        }
-
-        // Decode URL encoding and sanitize the tree folder path
-        const decodedTreeFolder = decodeURIComponent(treeFolder);
-        
-        // Handle root directory case - return immediately
-        if (decodedTreeFolder === '') {
-            return '';
-        }
-        
-        // Split the path into individual folder components, filtering out empty strings
-        const folderComponents = decodedTreeFolder.split('/').filter(component => component.length > 0);
-        
-        // Initialize path resolution variables
-        let currentPath = root;  // Current absolute path being examined
-        let resolvedPath = '';   // Accumulated resolved path with ordinals
-        
-        // Process each folder component in the path
-        for (let i = 0; i < folderComponents.length; i++) {
-            const folderName = folderComponents[i];
-            // console.log(`Resolving folder component: [${folderName}] at index ${i}`);
-            
-            // Verify current directory exists before attempting to read it
-            if (!await ifs.exists(currentPath)) {
-                // console.error(`Directory does not exist: ${currentPath}`);
-                return null;
-            }
-            
-            // Read directory contents to find matching folders
-            const entries = await ifs.readdir(owner_id, currentPath);
-            
-            // Search for folder that matches the non-ordinal name
-            let matchedFolder: string | null = null;
-            
-            for (const entry of entries) {
-                // Skip hidden files (starting with .) and system files (starting with _)
-                if (entry.startsWith('.') || entry.startsWith('_')) {
-                    continue;
-                }
-                
-                // Check if entry is a directory and follows ordinal naming convention
-                const entryPath = ifs.pathJoin(currentPath, entry);
-                const stat = await ifs.stat(entryPath);
-                
-                if (stat.is_directory && /^\d+_/.test(entry)) {
-                    // Extract the folder name without the ordinal prefix
-                    const nameWithoutOrdinal = entry.substring(entry.indexOf('_') + 1);
-                    
-                    // Perform case-insensitive comparison with target folder name
-                    if (nameWithoutOrdinal.toLowerCase() === folderName.toLowerCase()) {
-                        //console.log(`    Matched folder: "${entry}" -> "${nameWithoutOrdinal}"`);
-                        matchedFolder = entry;
-                        break;
-                    }
-                } else {
-                    // Log non-matching entries for debugging purposes
-                    console.log(`    Entry "${entry}" is ${!stat.is_directory ? 'not a directory' : 'directory without ordinal prefix'}`);
-                }
-            }
-            
-            // Handle case where no matching folder was found
-            if (!matchedFolder) {
-                // Log available options for debugging
-                for (const entry of entries) {
-                    const entryPath = ifs.pathJoin(currentPath, entry);
-                    const stat = await ifs.stat(entryPath);
-                    if (stat.is_directory && /^\d+_/.test(entry)) {
-                        const nameWithoutOrdinal = entry.substring(entry.indexOf('_') + 1);
-                        console.log(`  - "${entry}" -> "${nameWithoutOrdinal}"`);
-                    }
-                }
-                return null;
-            }
-            
-            // Update paths for next iteration
-            currentPath = ifs.pathJoin(currentPath, matchedFolder);
-            resolvedPath += '/' + matchedFolder;
-        }
-        // console.log(`Resolved final path: [${resolvedPath}]`);
-        return resolvedPath;
-    }
 
     /**
      * HTTP endpoint handler for rendering directory tree structure as TreeNode objects.
@@ -198,10 +89,8 @@ class DocService {
             
             // Extract the pullup parameter from query string
             const pullup = req.query.pullup as string; 
-            
-            // Get the appropriate file system implementation
-            const ifs = docUtil.getFileSystem(req.params.docRootKey);
-            treeFolder = ifs.normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
+
+            treeFolder = vfs2.normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
             // console.log(`Normalized treeFolder: [${treeFolder}]`);
 
             if (process.env.POSTGRES_HOST) {
@@ -225,11 +114,11 @@ class DocService {
             // Use regex to check if treeFolder starts with pattern "NNNN_" where 4 is a numeric digit
         
             // Construct the absolute path to the target directory
-            const absolutePath = ifs.pathJoin(root, treeFolder);
+            const absolutePath = vfs2.pathJoin(root, treeFolder);
 
             const info: any = {};
             // Verify the target directory exists
-            if (!await ifs.exists(absolutePath, info)) { 
+            if (!await vfs2.exists(absolutePath, info)) {
                 console.warn(`Directory does not exist: ${absolutePath}`);
                 res.status(404).json({ error: `Directory not found: ${absolutePath}` });
                 return;
@@ -249,7 +138,7 @@ class DocService {
             }
 
             // Generate the tree structure
-            const treeNodes: TreeNode[] = await this.getTreeNodes(user_id, absolutePath, pullup==="true", root, ifs);
+            const treeNodes: TreeNode[] = await this.getTreeNodes(user_id, absolutePath, pullup==="true", root);
             // Send the tree data as JSON response
             const response: TreeRender_Response = { 
                 user_id: user_id == ANON_USER_ID ? null : user_id,
@@ -298,9 +187,9 @@ class DocService {
      * @param root - The document root path for security validation
      * @returns Array of TreeNode objects representing directory contents, sorted alphabetically
      */
-    getTreeNodes = async (owner_id: number, absolutePath: string, pullup: boolean, root: string, ifs: IFS): Promise<TreeNode[]> => { 
+    getTreeNodes = async (owner_id: number, absolutePath: string, pullup: boolean, root: string): Promise<TreeNode[]> => { 
         // Read the directory contents
-        let fileNodes = await ifs.readdirEx(owner_id, absolutePath, true);
+        let fileNodes = await vfs2.readdirEx(owner_id, absolutePath, true);
 
         // This filters out hidden files and system files
         fileNodes = fileNodes.filter(file => !file.name.startsWith('.'));
@@ -308,14 +197,14 @@ class DocService {
         // Process each file/folder in the directory
         for (const file of fileNodes) {    
             // Get file information
-            const filePath = ifs.pathJoin(absolutePath, file.name);
+            const filePath = vfs2.pathJoin(absolutePath, file.name);
 
             // DIRECTORY
             if (file.is_directory) {
                 // Handle pullup folders: folders ending with '_' get their contents inlined
                 if (pullup && file.name.endsWith('_')) {
                     // Recursively get tree nodes for this pullup folder
-                    file.children = await this.getTreeNodes(owner_id, filePath, true, root, ifs);
+                    file.children = await this.getTreeNodes(owner_id, filePath, true, root);
                     
                     // Set children to null if empty (cleaner JSON output)
                     if (file.children.length === 0) {
@@ -324,7 +213,7 @@ class DocService {
                 }
                 
                 // Check if folder has any children in the filesystem
-                file.fsChildren = await ifs.childrenExist(owner_id, filePath);
+                file.fsChildren = await vfs2.childrenExist(owner_id, filePath);
             } 
             // FILE
             else {
@@ -385,10 +274,7 @@ class DocService {
                 let {treeFolder} = req.body;
                 let {fileName} = req.body;
                 fileName = fixName(fileName); // Ensure valid file name
-            
-                // Get the appropriate file system implementation
-                const ifs = docUtil.getFileSystem(docRootKey);
-                treeFolder = ifs.normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
+                treeFolder = vfs2.normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
             
                 // Resolve and validate document root
                 const root = config.getPublicFolderByKey(docRootKey).path;
@@ -404,11 +290,11 @@ class DocService {
                 }
 
                 // Construct absolute path to parent directory
-                const absoluteParentPath = ifs.pathJoin(root, treeFolder);
+                const absoluteParentPath = vfs2.pathJoin(root, treeFolder);
 
                 // Verify parent directory exists and is accessible
                 const info: any = {};
-                if (!await ifs.exists(absoluteParentPath, info)) {
+                if (!await vfs2.exists(absoluteParentPath, info)) {
                     res.status(404).json({ error: `Parent directory not found [${absoluteParentPath}]` });
                     return;
                 }
@@ -420,29 +306,20 @@ class DocService {
                 
                     // For VFS2: insertAfterNode is just the filename, we need to get its ordinal from the database
                     // For legacy VFS: insertAfterNode has ordinal prefix, extract it
-                    const fsType = docUtil.getFileSystemType(docRootKey);
-                    if (fsType === 'vfs') {
-                        // VFS2: Get ordinal from database
-                        const afterNodePath = ifs.pathJoin(absoluteParentPath, insertAfterNode);
-                        const afterNodeInfo: any = {};
-                        if (await ifs.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
-                            insertOrdinal = afterNodeInfo.node.ordinal + 1;
-                        }
-                    } else {
-                        // Legacy VFS: Extract ordinal from filename prefix
-                        const underscoreIndex = insertAfterNode.indexOf('_');
-                        if (underscoreIndex !== -1) {
-                            const afterNodeOrdinal = parseInt(insertAfterNode.substring(0, underscoreIndex));
-                            insertOrdinal = afterNodeOrdinal + 1; // Insert after the reference node
-                        }
+                    // VFS2: Get ordinal from database
+                    const afterNodePath = vfs2.pathJoin(absoluteParentPath, insertAfterNode);
+                    const afterNodeInfo: any = {};
+                    if (await vfs2.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
+                        insertOrdinal = afterNodeInfo.node.ordinal + 1;
                     }
+                    
                 } else {
                     console.log(`Create new top file "${fileName}"`);
                 }
 
                 // Shift existing files down to make room for the new file
                 // This ensures proper ordinal sequence is maintained
-                await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root, null, ifs);
+                await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root);
                 
                 // Auto-add .md extension if no extension is provided
                 let finalFileName = fileName;
@@ -451,25 +328,16 @@ class DocService {
                 }
 
                 // Determine the file system type to handle filename creation differently
-                const fsType = docUtil.getFileSystemType(docRootKey);
                 let newFilePath: string;
                 let fileNameToReturn: string;
                 
-                if (fsType === 'vfs') {
-                    // VFS2: No ordinal prefix in filename, ordinal is stored in database
-                    newFilePath = ifs.pathJoin(absoluteParentPath, finalFileName);
-                    fileNameToReturn = finalFileName;
-                } else {
-                    // Legacy VFS: Create filename with ordinal prefix
-                    const ordinalPrefix = insertOrdinal.toString().padStart(4, '0'); // 4-digit zero-padded
-                    const newFileNameWithOrdinal = `${ordinalPrefix}_${finalFileName}`;
-                    newFilePath = ifs.pathJoin(absoluteParentPath, newFileNameWithOrdinal);
-                    fileNameToReturn = newFileNameWithOrdinal;
-                }
-
+                // VFS2: No ordinal prefix in filename, ordinal is stored in database
+                newFilePath = vfs2.pathJoin(absoluteParentPath, finalFileName);
+                fileNameToReturn = finalFileName;
+            
                 // Safety check: prevent overwriting existing files
                 // If file already exists, try different random suffixes until we find a unique name
-                while (await ifs.exists(newFilePath)) {
+                while (await vfs2.exists(newFilePath)) {
                     const randomSuffix = Math.floor(Math.random() * 100000);
                     const baseFileName = finalFileName.includes('.') 
                         ? finalFileName.substring(0, finalFileName.lastIndexOf('.'))
@@ -479,28 +347,15 @@ class DocService {
                         : '';
                     
                     const uniqueFileName = `${baseFileName}_${randomSuffix}${extension}`;
-                    
-                    if (fsType === 'vfs') {
-                        // VFS2: No ordinal prefix in filename
-                        newFilePath = ifs.pathJoin(absoluteParentPath, uniqueFileName);
-                        fileNameToReturn = uniqueFileName;
-                    } else {
-                        // Legacy VFS: Create filename with ordinal prefix
-                        const ordinalPrefix = insertOrdinal.toString().padStart(4, '0');
-                        const newFileNameWithOrdinal = `${ordinalPrefix}_${uniqueFileName}`;
-                        newFilePath = ifs.pathJoin(absoluteParentPath, newFileNameWithOrdinal);
-                        fileNameToReturn = newFileNameWithOrdinal;
-                    }
+                                        
+                    // VFS2: No ordinal prefix in filename
+                    newFilePath = vfs2.pathJoin(absoluteParentPath, uniqueFileName);
+                    fileNameToReturn = uniqueFileName;
                 }
-
-                // Create the new file with empty content
-                if (fsType === 'vfs' && 'writeFileEx' in ifs && ifs.writeFileEx.length >= 6) {
-                    // VFS2: Pass ordinal as parameter to writeFileEx
-                    await (ifs as any).writeFileEx(owner_id, newFilePath, '', 'utf8', info.node.is_public, insertOrdinal);
-                } else {
-                    // Legacy VFS: Use standard writeFileEx (ordinal is in filename)
-                    await ifs.writeFileEx(owner_id, newFilePath, '', 'utf8', info.node.is_public);
-                }
+                
+                // VFS2: Pass ordinal as parameter to writeFileEx
+                await vfs2.writeFileEx(owner_id, newFilePath, '', 'utf8', info.node.is_public, insertOrdinal);
+                
                 //console.log(`File created successfully: ${newFilePath}`);
             
                 // Send success response with the created filename
@@ -557,9 +412,6 @@ class DocService {
                 let {folderName} = req.body;
                 folderName = fixName(folderName); // Ensure valid folder name
             
-                // Get the appropriate file system implementation
-                const ifs = docUtil.getFileSystem(docRootKey);
-            
                 // Resolve and validate document root
                 const root = config.getPublicFolderByKey(docRootKey).path;
                 if (!root) {
@@ -574,11 +426,11 @@ class DocService {
                 }
 
                 // Construct absolute path to parent directory
-                const absoluteParentPath = ifs.pathJoin(root, treeFolder);
+                const absoluteParentPath = vfs2.pathJoin(root, treeFolder);
 
                 // Verify parent directory exists and is accessible
                 const parentInfo: any = {};
-                if (!await ifs.exists(absoluteParentPath, parentInfo)) {
+                if (!await vfs2.exists(absoluteParentPath, parentInfo)) {
                     res.status(404).json({ error: 'Parent directory not found' });
                     return;
                 }
@@ -594,9 +446,9 @@ class DocService {
                     const fsType = docUtil.getFileSystemType(docRootKey);
                     if (fsType === 'vfs') {
                         // VFS2: Get ordinal from database
-                        const afterNodePath = ifs.pathJoin(absoluteParentPath, insertAfterNode);
+                        const afterNodePath = vfs2.pathJoin(absoluteParentPath, insertAfterNode);
                         const afterNodeInfo: any = {};
-                        if (await ifs.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
+                        if (await vfs2.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
                             insertOrdinal = afterNodeInfo.node.ordinal + 1;
                         }
                     } else {
@@ -613,7 +465,7 @@ class DocService {
 
                 // Shift existing files/folders down to make room for the new folder
                 // This ensures proper ordinal sequence is maintained
-                await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root, null, ifs);
+                await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root);
 
                 // Determine the file system type to handle folder name creation differently
                 const fsType = docUtil.getFileSystemType(docRootKey);
@@ -622,26 +474,19 @@ class DocService {
                 
                 if (fsType === 'vfs') {
                     // VFS2: No ordinal prefix in folder name, ordinal is stored in database
-                    newFolderPath = ifs.pathJoin(absoluteParentPath, folderName);
+                    newFolderPath = vfs2.pathJoin(absoluteParentPath, folderName);
                     folderNameToReturn = folderName;
                 } else {
                     // Legacy VFS: Create folder name with ordinal prefix
                     const ordinalPrefix = insertOrdinal.toString().padStart(4, '0'); // 4-digit zero-padded
                     const newFolderNameWithOrdinal = `${ordinalPrefix}_${folderName}`;
-                    newFolderPath = ifs.pathJoin(absoluteParentPath, newFolderNameWithOrdinal);
+                    newFolderPath = vfs2.pathJoin(absoluteParentPath, newFolderNameWithOrdinal);
                     folderNameToReturn = newFolderNameWithOrdinal;
                 }
 
                 // Create the directory (recursive option ensures parent directories exist, and we inherit `is_public` from parent.
-                if (fsType === 'vfs' && 'mkdirEx' in ifs && ifs.mkdirEx.length >= 5) {
-                    // VFS2: Pass ordinal as parameter to mkdirEx
-                    await (ifs as any).mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public, insertOrdinal);
-                } else {
-                    // Legacy VFS: Use standard mkdirEx (ordinal is in folder name)
-                    // await ifs.mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public);
-                    throw new Error('mkdirEx with recursive not supported in legacy VFS');
-                }
-
+                // VFS2: Pass ordinal as parameter to mkdirEx
+                vfs2.mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public, insertOrdinal);
                 console.log(`Folder created successfully: ${newFolderPath}`);
             
                 // Send success response with the created folder name
@@ -670,7 +515,6 @@ class DocService {
     extractTags = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
         try {
             const docRootKey = req.params.docRootKey;
-            const ifs = docUtil.getFileSystem(docRootKey);
             const owner_id = svrUtil.getOwnerId(req, res);
             if (owner_id == null) {
                 return;
@@ -689,8 +533,8 @@ class DocService {
 
             try {
                 // Try to read .TAGS.md from the root directory
-                const tagsFilePath = ifs.pathJoin(root.path, '.TAGS.md');
-                const fileContent = await ifs.readFile(owner_id, tagsFilePath, 'utf8') as string;
+                const tagsFilePath = vfs2.pathJoin(root.path, '.TAGS.md');
+                const fileContent = await vfs2.readFile(owner_id, tagsFilePath, 'utf8') as string;
                 console.log('Read .TAGS.md file content:', fileContent); // Debug logging
                 
                 // Parse tags with categories
@@ -738,7 +582,6 @@ class DocService {
     scanAndUpdateTags = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
         try {
             const docRootKey = req.params.docRootKey;
-            const ifs = docUtil.getFileSystem(docRootKey);
             const owner_id = svrUtil.getOwnerId(req, res);
             if (owner_id == null) {
                 return;
@@ -760,12 +603,12 @@ class DocService {
             console.log(`Starting tag scan for document root: ${root.path}`);
 
             // Phase 1: Load existing tags from .TAGS.md
-            const tagsFilePath = ifs.pathJoin(root.path, '.TAGS.md');
+            const tagsFilePath = vfs2.pathJoin(root.path, '.TAGS.md');
             const existingTagsMap = new Map<string, boolean>();
             let existingContent = '';
             
             try {
-                existingContent = await ifs.readFile(owner_id, tagsFilePath, 'utf8') as string;
+                existingContent = await vfs2.readFile(owner_id, tagsFilePath, 'utf8') as string;
                 const existingTags = this.extractHashtagsFromText(existingContent);
                 
                 existingTags.forEach(tag => {
@@ -779,7 +622,7 @@ class DocService {
 
             // Phase 2: Scan all markdown files for hashtags
             const newTagsMap = new Map<string, boolean>();
-            await this.scanDirectoryForTags(owner_id, root.path, root.path, ifs, existingTagsMap, newTagsMap);
+            await this.scanDirectoryForTags(owner_id, root.path, root.path, existingTagsMap, newTagsMap);
 
             const newTagsArray = Array.from(newTagsMap.keys()).sort();
             console.log(`Found ${newTagsArray.length} new tags during scan`);
@@ -802,7 +645,7 @@ class DocService {
                 updatedContent += newTagsArray.join(' ') + '\n';
                 
                 try {
-                    await ifs.writeFile(owner_id, tagsFilePath, updatedContent, 'utf8');
+                    await vfs2.writeFile(owner_id, tagsFilePath, updatedContent, 'utf8');
                     console.log(`Updated .TAGS.md with ${newTagsArray.length} new tags under "Discovered Tags" section`);
                 } catch (error) {
                     console.error('Failed to write updated .TAGS.md:', error);
@@ -849,12 +692,11 @@ class DocService {
         owner_id: number,
         currentPath: string,
         rootPath: string,
-        ifs: IFS,
         existingTags: Map<string, boolean>,
         newTags: Map<string, boolean>
     ): Promise<void> {
         try {
-            const items = await ifs.readdirEx(owner_id, currentPath, true);
+            const items = await vfs2.readdirEx(owner_id, currentPath, true);
             
             for (const item of items) {
                 // Skip hidden files and system files
@@ -862,15 +704,15 @@ class DocService {
                     continue;
                 }
                 
-                const itemPath = ifs.pathJoin(currentPath, item.name);
+                const itemPath = vfs2.pathJoin(currentPath, item.name);
                 
                 if (item.is_directory) {
                     // Recursively scan subdirectories
-                    await this.scanDirectoryForTags(owner_id, itemPath, rootPath, ifs, existingTags, newTags);
+                    await this.scanDirectoryForTags(owner_id, itemPath, rootPath, existingTags, newTags);
                 } else if (item.name.toLowerCase().endsWith('.md') || item.name.toLowerCase().endsWith('.txt')) {
                     // Process markdown and text files
                     try {
-                        const fileContent = await ifs.readFile(owner_id, itemPath, 'utf8') as string;
+                        const fileContent = await vfs2.readFile(owner_id, itemPath, 'utf8') as string;
                         const fileTags = this.extractHashtagsFromText(fileContent);
                         
                         // Add any new tags to the newTags map

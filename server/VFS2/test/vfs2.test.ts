@@ -19,6 +19,24 @@ import { checkAuthTest } from './checkAuthTest.test.js';
 import { getNodeByUuidTest } from './getNodeByUuidTest.test.js';
 import { searchTextTest } from './searchTextTest.test.js';
 
+import { normalizePathTest } from './normalizePathTest.js';
+import { joinPathTest } from './joinPathTest.js';
+import { existsTest2 } from './existsTest2.js';
+import { readdirExTest } from './readdirExTest.js';
+import { childrenExistTest2 } from './childrenExistTest2.js';
+import { renameTest } from './renameTest.js';
+import { statTest2 } from './statTest2.js';
+import { shiftOrdinalsDownTest } from './shiftOrdinalsDownTest.js';
+import { writeFileExTest } from './writeFileExTest.js';
+import { writeFileAndReadFileTest } from './writeFileAndReadFileTest.js';
+import { rmTest } from './rmTest.js';
+import { unlinkTest2 } from './unlinkTest2.js';
+import { readdirTest2 } from './readdirTest2.js';
+import { getItemByIDTest } from './getItemByIDTest.js';
+import { setOrdinalTest } from './setOrdinalTest.js';
+import { moveUpOrDownTest } from './moveUpOrDownTest.js';
+
+
 export async function runTests() {
     console.log("🚀 Starting VFS2 embedded tests...");
     
@@ -88,6 +106,54 @@ export async function runTests() {
         // Run the search_text test using the test runner
         await testRunner.run("searchTextTest", () => searchTextTest(owner_id), true);
         
+        // Test the normalizePath method
+        await testRunner.run("normalizePathTest", () => normalizePathTest(), true);
+        
+        // Test the joinPath method
+        await testRunner.run("joinPathTest", () => joinPathTest(), true);
+        
+        // Test the exists method
+        await testRunner.run("existsTest", () => existsTest2(), true);
+                
+        // Test the readdirEx method
+        await testRunner.run("readdirExTest", () => readdirExTest(owner_id), true);
+        
+        // Test the childrenExist method
+        await testRunner.run("childrenExistTest", () => childrenExistTest2(owner_id), true);
+        
+        // Test the rename method
+        await testRunner.run("renameTest", () => renameTest(owner_id), true);
+        
+        // Test the stat method
+        await testRunner.run("statTest2", () => statTest2(), true);
+        
+        // Test the shiftOrdinalsDown method
+        await testRunner.run("shiftOrdinalsDownTest", () => shiftOrdinalsDownTest(owner_id), true);
+        
+        // Test the writeFileEx method with ordinals
+        await testRunner.run("writeFileExTest", () => writeFileExTest(owner_id), true);
+        
+        // Test the writeFile and readFile methods
+        await testRunner.run("writeFileAndReadFileTest", () => writeFileAndReadFileTest(owner_id), true);
+        
+        // Test the rm method
+        await testRunner.run("rmTest", () => rmTest(owner_id), true);
+        
+        // Test the unlink method
+        await testRunner.run("unlinkTest", () => unlinkTest2(owner_id), true);
+        
+        // Test the readdir method
+        await testRunner.run("readdirTest", () => readdirTest2(owner_id), true);
+        
+        // Test the getItemByID method
+        await testRunner.run("getItemByIDTest", () => getItemByIDTest(owner_id), true);
+        
+        // Test the setOrdinal method
+        await testRunner.run("setOrdinalTest", () => setOrdinalTest(owner_id), true);
+        
+        // Test the moveUpOrDown functionality (ordinal swapping)
+        await testRunner.run("moveUpOrDownTest", () => moveUpOrDownTest(owner_id), true);
+
         console.log("✅ VFS2 test suite passed");
     } catch {
         console.error("❌ VFS2 test suite failed");

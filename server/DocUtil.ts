@@ -1,6 +1,5 @@
 import path from 'path';
 import { config } from "../../../server/Config.js";
-import { IFS } from './IFS.js';
 import vfs2 from './VFS2/VFS2.js';
 
 /**
@@ -17,9 +16,8 @@ import vfs2 from './VFS2/VFS2.js';
  * operations are restricted to allowed root directories.
  */
 class DocUtil {
-    getPathByUUID = async (uuid: string, docRootKey: string): Promise<string | null> => {        
-        const ifs = docUtil.getFileSystem(docRootKey!);
-        const result = await ifs.getItemByID(uuid, docRootKey);
+    getPathByUUID = async (uuid: string, docRootKey: string): Promise<string | null> => {       
+        const result = await vfs2.getItemByID(uuid, docRootKey);
         if (result.node) {
             // console.log(`Found VFS item by UUID: ${uuid} -> docPath: ${result.docPath}`);
             return result.docPath;
@@ -29,27 +27,6 @@ class DocUtil {
         }
         return null;
     }
-    /**
-     * Factory method to create the file system implementation. 
-     * todo-0: the docRootKey may be obsolete now that we only support VFS?
-     */
-    getFileSystem(docRootKey: string): IFS {
-        if (!docRootKey) {
-            throw new Error('Document root key is required to determine file system type');
-        }
-        const rootConfig = config.getPublicFolderByKey(docRootKey);
-        if (!rootConfig) {
-            throw new Error(`Invalid document root key: ${docRootKey}`);
-        }
-        
-        const rootType = rootConfig.type || 'vfs'; // Default to vfs if type not specified
-        
-        if (rootType === 'vfs') {
-            return vfs2;
-        } else {
-            throw new Error(`Unsupported file system type: ${rootType}`); // Currently only VFS is implemented
-        }
-    }
 
     getFileSystemType(docRootKey: string): string {
         const rootConfig = config.getPublicFolderByKey(docRootKey);
@@ -58,25 +35,6 @@ class DocUtil {
         }
         
         return rootConfig.type || 'vfs'; // Default to vfs if type not specified
-    }
-
-    /**
-     * Extracts the numeric ordinal from a filename with format "NNNN_filename"
-     * 
-     * This method validates that the filename follows the expected ordinal naming convention
-     * where files are prefixed with a numeric value followed by an underscore.
-     * 
-     * @param file - The filename to extract ordinal from (e.g., "0001_document.md")
-     * @returns The numeric ordinal value (e.g., 1 from "0001_document.md")
-     */
-    getOrdinalFromName = (file: string): number => {
-        // Use regex to ensure the ordinal is a number followed by an underscore
-        if (!/^\d+_/.test(file)) {
-            throw new Error(`Invalid file name format: ${file}. Expected format is "NNNN_" where N is a digit.`);
-        }
-        const prefix = file.substring(0, file.indexOf('_'));
-        const ordinal = parseInt(prefix);
-        return ordinal;
     }
     
     /**
@@ -105,259 +63,17 @@ class DocUtil {
      * @param itemsToIgnore - Array of filenames to skip during shifting (optional, useful for newly created items)
      * @returns Map of old relative paths to new relative paths for renamed items
      */
-    shiftOrdinalsDown = async (owner_id: number, slotsToAdd: number, absoluteParentPath: string, insertOrdinal: number, root: string, 
-        itemsToIgnore: string[] | null, ifs: IFS): Promise<Map<string, string>> => {
+    shiftOrdinalsDown = async (owner_id: number, slotsToAdd: number, absoluteParentPath: string, insertOrdinal: number, root: string): Promise<Map<string, string>> => {
         // console.log(`Shifting ordinals down by ${slotsToAdd} slots at ${absoluteParentPath} for insert ordinal ${insertOrdinal}`);
         
-        // Check if we're using VFS2 which has efficient database-based ordinal shifting
-        if ('shiftOrdinalsDown' in ifs && typeof ifs.shiftOrdinalsDown === 'function') {
-            console.log(`Using VFS2 database-based ordinal shifting for ${slotsToAdd} slots at ${absoluteParentPath}`);
+        console.log(`Using VFS2 database-based ordinal shifting for ${slotsToAdd} slots at ${absoluteParentPath}`);
             
-            // Calculate the relative path from root for VFS2
-            const relativePath = path.relative(root, absoluteParentPath);
+        // Calculate the relative path from root for VFS2
+        const relativePath = path.relative(root, absoluteParentPath);
             
-            // Use VFS2's efficient database-based shifting
-            return await (ifs as any).shiftOrdinalsDown(owner_id, relativePath, insertOrdinal, slotsToAdd);
-        }
-        
-        // Legacy VFS implementation using filename prefixes
-        console.log(`Using legacy VFS filename-based ordinal shifting for ${slotsToAdd} slots at ${absoluteParentPath}`);
-        
-        // Map to track old relative paths to new relative paths for external reference updates
-        const pathMapping = new Map<string, string>();
-        
-        // Calculate the relative folder path from root for path mapping
-        const relativeFolderPath = path.relative(root, absoluteParentPath);
-        
-        // Read directory contents and filter for files/folders with numeric prefixes
-        // console.log(`Reading directory contents to prepare for shifting down: ${absoluteParentPath}`);
-        const allFiles = await ifs.readdir(owner_id, absoluteParentPath);
-        const numberedFiles = allFiles.filter(file => /^\d+_/.test(file));
-        
-        // Sort files by name (which will sort by numeric prefix for proper ordering)
-        numberedFiles.sort((a, b) => a.localeCompare(b));
-
-        // Find files that need to be shifted (ordinal >= insertOrdinal)
-        const filesToShift = numberedFiles.filter(file => {
-            const ordinal = this.getOrdinalFromName(file);
-            return ordinal >= insertOrdinal;
-        });
-
-        // Sort in reverse order to avoid conflicts during renaming
-        // (rename highest ordinals first to prevent overwriting)
-        filesToShift.sort((a, b) => b.localeCompare(a));
-
-        // Shift each file down by incrementing its ordinal prefix
-        for (const file of filesToShift) {
-            // console.log(`Shifting file: ${file}`);
-            
-            // Skip files that should be ignored (e.g., newly created items)
-            if (itemsToIgnore && itemsToIgnore.includes(file)) {
-                // console.log(`    Skipping file: ${file} (in itemsToIgnore)`);
-                continue;
-            }
-            
-            // Parse current filename components
-            const prefix = file.substring(0, file.indexOf('_'));
-            const nameWithoutPrefix = file.substring(file.indexOf('_') + 1);
-            const currentOrdinal = parseInt(prefix);
-            const newOrdinal = currentOrdinal + slotsToAdd; // Increment ordinal by slotsToAdd
-            
-            // Create new filename with incremented ordinal (padded with leading zeros)
-            const newPrefix = newOrdinal.toString().padStart(prefix.length, '0');
-            const newFileName = `${newPrefix}_${nameWithoutPrefix}`;
-            
-            const oldPath = path.join(absoluteParentPath, file);
-            const newPath = path.join(absoluteParentPath, newFileName);
-            
-            // Safety check: ensure target doesn't already exist to prevent overwriting
-            if (await ifs.exists(newPath)) {
-                console.error(`Target file already exists during ordinal shift, skipping: ${newPath}`);
-                console.error(`This indicates a problem with ordinal sequencing that needs to be resolved.`);
-                continue;
-            }
-            
-            // console.log(`Shifting file: ${file} -> ${newFileName}`);            
-            await ifs.rename(owner_id, oldPath, newPath);
-            
-            // Track the path mapping for relative paths (used by external systems)
-            const oldRelativePath = relativeFolderPath ? path.join(relativeFolderPath, file) : file;
-            const newRelativePath = relativeFolderPath ? path.join(relativeFolderPath, newFileName) : newFileName;
-            pathMapping.set(oldRelativePath, newRelativePath);
-        }
-        
-        return pathMapping;
-    };
-
-    /**
-     * Ensures a file/folder has a 4-digit ordinal prefix (i.e. "NNNN_"), renaming it if necessary
-     * 
-     * This method standardizes ordinal prefixes to a consistent 4-digit format for proper
-     * sorting and display. It handles both padding short ordinals with leading zeros and
-     * truncating long ordinals from legacy systems.
-     * 
-     * The method supports:
-     * - Padding short ordinals: "1_file.md" becomes "0001_file.md"
-     * - Truncating legacy 5+ digit ordinals that start with zero: "00001_file.md" becomes "0001_file.md"
-     * - Preserving already correctly formatted 4-digit ordinals
-     * 
-     * @param absolutePath - The absolute path to the directory containing the file
-     * @param fileName - The original filename with existing ordinal prefix
-     * @param root - The root directory for security validation
-     * @returns The filename (either original or renamed) to use for further processing
-     */
-    ensureFourDigitOrdinal = async (owner_id: number, absolutePath: string, fileName: string, root: string, ifs: IFS): Promise<string> => {
-        // Find the first underscore to extract the ordinal prefix
-        const underscoreIndex = fileName.indexOf('_');
-        const ordinalPrefix = fileName.substring(0, underscoreIndex);
-        const restOfName = fileName.substring(underscoreIndex);
-        
-        // Check if we need to pad with leading zeroes (ensure 4-digit ordinal)
-        if (ordinalPrefix.length < 4) {
-            const paddedOrdinal = ordinalPrefix.padStart(4, '0');
-            const newFileName = paddedOrdinal + restOfName;
-            const oldFilePath = path.join(absolutePath, fileName);
-            const newFilePath = path.join(absolutePath, newFileName);
-            
-            try {
-                // Safety check: ensure target doesn't already exist to prevent overwriting
-                if (await ifs.exists(newFilePath)) {
-                    console.warn(`Target file already exists, skipping rename: ${newFileName}`);
-                    return fileName; // Return original name if target exists
-                }
-                
-                await ifs.rename(owner_id, oldFilePath, newFilePath);
-                console.log(`Renamed ${fileName} to ${newFileName} for 4-digit ordinal prefix(a)`);
-                
-                // Return the new filename for further processing
-                return newFileName;
-            } catch (error) {
-                console.warn(`Failed to rename ${fileName} to ${newFileName}:`, error);
-                // Return original name if rename fails
-                return fileName;
-            }
-        }
-        // Legacy support: Handle ordinals with more than 4 digits from legacy Quanta CMS exports
-        // TODO: This is a temporary hack for importing legacy files with 5+ digit ordinals
-        // Remove this block when legacy file support is no longer needed
-        else if (ordinalPrefix.length > 4) {
-            // Only truncate if the ordinal starts with zero (safety check for legacy files)
-            if (ordinalPrefix.startsWith('0')) {
-                // Take the last 4 digits to create a 4-digit ordinal
-                const newOrdinal = ordinalPrefix.substring(ordinalPrefix.length - 4);
-                const newFileName = newOrdinal + restOfName;
-                const oldFilePath = path.join(absolutePath, fileName);
-                const newFilePath = path.join(absolutePath, newFileName);
-                
-                try {
-                    // Safety check: ensure target doesn't already exist to prevent overwriting
-                    if (await ifs.exists(newFilePath)) {
-                        console.warn(`Target file already exists, skipping rename: ${newFileName}`);
-                        return fileName; // Return original name if target exists
-                    }
-                    
-                    await ifs.rename(owner_id, oldFilePath, newFilePath);
-                    console.log(`Renamed ${fileName} to ${newFileName} for 4-digit ordinal prefix(b)`);
-                    
-                    // Return the new filename for further processing
-                    return newFileName;
-                } catch (error) {
-                    console.warn(`Failed to rename ${fileName} to ${newFileName}:`, error);
-                    // Return original name if rename fails
-                    return fileName;
-                }
-            } else {
-                // Ordinal is too long and doesn't start with zero - this is an error condition
-                throw new Error(`Invalid ordinal prefix in filename: ${fileName}`);
-            }
-        }
-        
-        // No rename needed, return original filename (already 4 digits)
-        return fileName;
-    };
-
-    /**
-     * Gets the maximum ordinal value from all numbered files/folders in a directory
-     * 
-     * This method scans a directory for files with ordinal prefixes and returns the
-     * highest ordinal value found. It's useful for determining where to place new
-     * files when appending to the end of a sequence.
-     * 
-     * @param absolutePath - The absolute path to the directory to scan
-     * @param root - The root directory for security validation
-     * @returns The maximum ordinal value found, or 0 if no numbered files exist
-     */
-    getMaxOrdinal = async (owner_id: number, absolutePath: string, root: string, ifs: IFS): Promise<number> => {
-                
-        // Read directory contents and filter for files/folders with numeric prefixes
-        const allFiles = await ifs.readdir(owner_id, absolutePath);
-        const numberedFiles = allFiles.filter(file => /^\d+_/.test(file));
-                
-        // Return 0 if no numbered files exist
-        if (numberedFiles.length === 0) {
-            return 0;
-        }
-                
-        // Extract ordinals and find the maximum value
-        let maxOrdinal = 0;
-        for (const file of numberedFiles) {
-            const ordinal = this.getOrdinalFromName(file);
-            if (ordinal > maxOrdinal) {
-                maxOrdinal = ordinal;
-            }
-        }
-    
-        return maxOrdinal;
-    };
-    
-    /**
-     * Adds a 4-digit ordinal prefix to a filename that doesn't already have one
-     * 
-     * This method takes a filename without an ordinal prefix and adds one with the
-     * specified ordinal value. It's commonly used when importing files or creating
-     * new files that need to be integrated into the ordinal naming system.
-     * 
-     * The method includes special handling for "content.md" files which are given
-     * ordinal 0 as a convention in the system.
-     * 
-     * @param absolutePath - The absolute path to the directory containing the file
-     * @param fileName - The original filename without ordinal prefix (e.g., "document.md")
-     * @param ordinal - The ordinal number to use as prefix
-     * @param root - The root directory for security validation
-     * @returns The filename (either original if rename failed, or the new renamed filename)
-     */
-    ensureOrdinalPrefix = async (owner_id: number, absolutePath: string, fileName: string, ordinal: number, root: string, ifs: IFS): Promise<string> => {
-    
-        // Special case: content.md files are always given ordinal 0 by convention
-        // TODO: This is a temporary hack for better Quanta export ingestion and will be removed later
-        if (fileName === "content.md") {
-            ordinal = 0;
-        }
-    
-        // Create new filename with 4-digit ordinal prefix
-        const ordinalPrefix = ordinal.toString().padStart(4, '0');
-        const newFileName = `${ordinalPrefix}_${fileName}`;
-        const oldFilePath = path.join(absolutePath, fileName);
-        const newFilePath = path.join(absolutePath, newFileName);
-            
-        try {
-            // Safety check: ensure target doesn't already exist to prevent overwriting
-            if (await ifs.exists(newFilePath)) {
-                console.warn(`Target file already exists, skipping rename: ${newFileName}`);
-                return fileName; // Return original name if target exists
-            }
-            
-            await ifs.rename(owner_id, oldFilePath, newFilePath);
-            console.log(`Renamed ${fileName} to ${newFileName} for 4-digit ordinal prefix (b)`);
-                
-            // Return the new filename
-            return newFileName;
-        } catch (error) {
-            console.warn(`Failed to rename ${fileName} to ${newFileName}:`, error);
-            // Return original filename if rename fails
-            return fileName;
-        }
-    };
+        // Use VFS2's efficient database-based shifting
+        return await vfs2.shiftOrdinalsDown(owner_id, relativePath, insertOrdinal, slotsToAdd);
+    } 
     
     /**
      * Parses a search query string into individual search terms, handling quoted phrases and unquoted words.

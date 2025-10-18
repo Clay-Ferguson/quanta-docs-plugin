@@ -10,10 +10,6 @@ The application uses a Virtual File System (VFS) that provides a multi-user webs
 
 To control which files are accessible through the app, we have a section in the `config-*.yaml` files named `public-folders` where the admin can define file system roots.
 
-## IFS Interface - Technical Note
-
-Note to software developers only: The application uses an `IFS` interface which provides an abstraction layer for file system operations. This interface encapsulates all the VFS functionality and provides a clean API for the application code to interact with the Virtual File System.   
-
 # File/Folder Ordinals
 
 The reason `Quanta` is able to use File Systems (i.e. files/folders) as the fundamental building blocks to hold Document Cell content in individual files (as in Jupyter-like Cells), is because Quanta uses the one ingredient what was always required to make this happen: Ordinals. The reason no one (afaik) has ever used a folder structure as the primary storage system for arbitrary documents, in this fine-grained way, is simple: Files/Folders don't have any inherent ordering. 

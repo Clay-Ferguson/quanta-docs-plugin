@@ -1,7 +1,6 @@
 import { config } from "../../../server/Config.js";
 import { Request } from 'express';
 import { runTests as runVfs2Tests } from './VFS2/test/vfs2.test.js';
-import { runTests as runVfs2SvcTests } from './VFS2/test/vfs2-svc.test.js';
 import { httpServerUtil } from "../../../server/HttpServerUtil.js";
 import { docSvc } from "./DocService.js";
 import { IAppContext, IServerPlugin, asyncHandler } from "../../../server/ServerUtil.js";
@@ -182,7 +181,6 @@ class DocsServerPlugin implements IServerPlugin {
         console.log("Running embedded tests...");
         if (process.env.POSTGRES_HOST) { // todo-0: This is how we were doing a lot of checking to see if we're running docker or not and it no longer applies. 
             await runVfs2Tests();
-            await runVfs2SvcTests();
 
             // need to wipe database table here.
             console.log('Clearing vfs2_nodes table...');

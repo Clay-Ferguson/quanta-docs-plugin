@@ -6,6 +6,7 @@ import { docUtil } from "./DocUtil.js";
 import { runTrans } from '../../../server/db/Transactional.js';
 import { fixName, getImageContentType, isImageExt } from '../../../common/CommonUtils.js';
 import { ANON_USER_ID } from '../../../common/types/CommonTypes.js';
+import vfs2 from './VFS2/VFS2.js';
 
 /**
  * DocBinary class handles binary file operations for the docs plugin
@@ -56,10 +57,7 @@ class DocBinary {
             // console.log("Raw Image Path:", rawImagePath);
             const imagePath = decodeURIComponent(rawImagePath);
             // console.log("Decoded Image Path:", imagePath);
-            
-            // Get the appropriate file system implementation
-            const ifs = docUtil.getFileSystem(req.params.docRootKey);
-            
+                        
             // Resolve the document root path using the provided key
             const root = config.getPublicFolderByKey(req.params.docRootKey).path;
             if (!root) {
@@ -74,18 +72,18 @@ class DocBinary {
             }
 
             // Construct the absolute path to the image file
-            const absoluteImagePath = ifs.pathJoin(root, imagePath);
+            const absoluteImagePath = vfs2.pathJoin(root, imagePath);
 
             // Perform security check to ensure file is within allowed directory
             // and verify file exists
-            if (!await ifs.exists(absoluteImagePath)) {
+            if (!await vfs2.exists(absoluteImagePath)) {
                 console.error(`Image file not found at absolute path: ${absoluteImagePath}`);
                 res.status(404).json({ error: 'Image file not found' });
                 return;
             }
 
             // Verify the path points to a file, not a directory
-            const stat = await ifs.stat(absoluteImagePath);
+            const stat = await vfs2.stat(absoluteImagePath);
             if (stat.is_directory) {
                 res.status(400).json({ error: 'Path is not a file' });
                 return;
@@ -105,7 +103,7 @@ class DocBinary {
             res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
             
             // Read the image file and send it as the response
-            const imageBuffer = await ifs.readFile(owner_id, absoluteImagePath);
+            const imageBuffer = await vfs2.readFile(owner_id, absoluteImagePath);
             res.send(imageBuffer);
             
         } catch (error) {
@@ -189,14 +187,11 @@ class DocBinary {
                     return;
                 }
 
-                // Get the appropriate file system implementation
-                const ifs = docUtil.getFileSystem(docRootKey);
-    
                 // Construct target folder path and validate permissions
                 const absoluteFolderPath = path.join(root, treeFolder);
             
                 const parentInfo: any = {};
-                if (!await ifs.exists(absoluteFolderPath, parentInfo)) {
+                if (!await vfs2.exists(absoluteFolderPath, parentInfo)) {
                     res.status(404).json({ error: 'Parent directory not found' });
                     return;
                 }
@@ -210,7 +205,7 @@ class DocBinary {
     
                 // Shift existing files down to make room for new uploads
                 // This maintains the ordinal sequence without gaps
-                await docUtil.shiftOrdinalsDown(owner_id, files.length, absoluteFolderPath, insertOrdinal, root, null, ifs);
+                await docUtil.shiftOrdinalsDown(owner_id, files.length, absoluteFolderPath, insertOrdinal, root);
     
                 // Save each uploaded file with proper ordinal value in database
                 let savedCount = 0;
@@ -226,13 +221,13 @@ class DocBinary {
                     try {    
                         // Prevent overwriting existing files
                         const info: any = {};
-                        const exists = await ifs.exists(finalFilePath, info);
+                        const exists = await vfs2.exists(finalFilePath, info);
                         if (exists) {
                             console.error(`Target file already exists, skipping upload: ${finalFilePath}`);
                             continue;
                         }
                         // Write the file data to disk with ordinal stored in database
-                        await ifs.writeFileEx(owner_id, finalFilePath, file.data, 'utf8', parentInfo.node.is_public, ordinal);
+                        await vfs2.writeFileEx(owner_id, finalFilePath, file.data, 'utf8', parentInfo.node.is_public, ordinal);
                         savedCount++;
                         console.log(`Uploaded file saved: ${finalFilePath} with ordinal ${ordinal}`);
                     } 
