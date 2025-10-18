@@ -690,9 +690,7 @@ class DocService {
             try {
                 // Try to read .TAGS.md from the root directory
                 const tagsFilePath = ifs.pathJoin(root.path, '.TAGS.md');
-                
                 const fileContent = await ifs.readFile(owner_id, tagsFilePath, 'utf8') as string;
-                
                 console.log('Read .TAGS.md file content:', fileContent); // Debug logging
                 
                 // Parse tags with categories
