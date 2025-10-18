@@ -24,21 +24,20 @@ interface SearchResult {
 interface SearchResultItemProps {
     filePath: string;
     fileResults: SearchResult[];
-    onFileClick: (filePath: string, vfsType: string, isFolder: boolean) => void;
-    vfsType: string;
+    onFileClick: (filePath: string, isFolder: boolean) => void;
 }
 
 /**
  * SearchResultItem component for displaying individual search result items
  */
-function SearchResultItem({ filePath, fileResults, onFileClick, vfsType }: SearchResultItemProps) {
+function SearchResultItem({ filePath, fileResults, onFileClick }: SearchResultItemProps) {
     // Check if this is a folder result
     const isFolder = fileResults.length > 0 && fileResults[0].folder !== undefined;
     
     return (
         <div 
             className="bg-gray-700 rounded-lg p-3 hover:bg-gray-600 cursor-pointer transition-colors"
-            onClick={() => onFileClick(filePath, vfsType, isFolder)}
+            onClick={() => onFileClick(filePath, isFolder)}
         >
             <div className={`font-medium flex items-center gap-2 ${isFolder ? 'text-blue-400' : 'text-gray-200'}`}>
                 {isFolder ? `📁 ${formatFullPath(filePath)}` : `📄 ${formatFullPath(filePath)}`}
@@ -102,7 +101,6 @@ export default function SearchViewPage() {
             const response = await httpClientUtil.secureHttpPost('/api/docs/search-vfs', {
                 query: search,
                 treeFolder: searchFolder,
-                docRootKey: gs.docsRootKey,
                 searchMode: gs.docsSearchMode || 'MATCH_ANY',
                 searchOrder: gs.docsOrderByModTime ? 'MOD_TIME' : 'DATE'
             }) as any;
@@ -162,14 +160,14 @@ export default function SearchViewPage() {
         setShowTagSelector(false);
     };
     
-    const fileClicked = (filePath: string, vfsType: string, isFolder: boolean) => { 
+    const fileClicked = (filePath: string, isFolder: boolean) => { 
         if (isFolder) {
             // filePath is a folder path relative to the search origin
             let searchRootFolder = gs.docsSearchOriginFolder || '/';
             if (searchRootFolder === '/') {
                 searchRootFolder = '';
             }
-            const targetFolderPath = vfsType === 'vfs' ? filePath : (searchRootFolder ? `${searchRootFolder}/${filePath}` : filePath);
+            const targetFolderPath = filePath;
 
             gd({ type: 'setTreeFolder', payload: { 
                 docsFolder: targetFolderPath,
@@ -198,7 +196,7 @@ export default function SearchViewPage() {
             if (searchRootFolder === '/') {
                 searchRootFolder = ''; // Convert root to empty string for proper joining
             }
-            const targetFolderPath = vfsType=="vfs" ? relativeFolderPath  : `${searchRootFolder}/${relativeFolderPath}`;
+            const targetFolderPath = relativeFolderPath;
                         
             // Set the tree folder in global state and clear selections
             gd({ type: 'setTreeFolder', payload: { 
@@ -402,7 +400,6 @@ export default function SearchViewPage() {
                                         filePath={filePath}
                                         fileResults={groupedResults[filePath]}
                                         onFileClick={fileClicked}
-                                        vfsType={gs.docsRootType!}
                                     />
                                 ))}
                             </div>

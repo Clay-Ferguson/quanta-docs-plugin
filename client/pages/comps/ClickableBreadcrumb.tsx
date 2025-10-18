@@ -64,8 +64,7 @@ export default function ClickableBreadcrumb({ gs, rootNode }: ClickableBreadcrum
                             }
 
                             // DO NOT DELETE: This was the old URL format that used folder names (works just fine but we use UUID instead)
-                            // const currentUrl = `/doc/${gs.docsRootKey}/${folder || '/'}`;
-                            const currentUrl = `/doc/${gs.docsRootKey}/id/${rootNode!.uuid}`;
+                            const currentUrl = `/doc/id/${rootNode!.uuid}`;
                             navigator.clipboard.writeText(window.location.origin + currentUrl).then(() => {
                                 alertModal(`URL copied to clipboard: ${window.location.origin + currentUrl}`);
                             }).catch(err => {

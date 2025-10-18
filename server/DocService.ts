@@ -2,7 +2,6 @@ import { ANON_USER_ID, TreeNode } from "../../../common/types/CommonTypes.js";
 import { Request, Response } from 'express';
 import {  TreeRender_Response } from "../../../common/types/EndpointTypes.js";
 import { AuthenticatedRequest, handleError, svrUtil, throwError } from "../../../server/ServerUtil.js";
-import { config } from "../../../server/Config.js";
 import { docUtil } from "./DocUtil.js";
 import { runTrans } from "../../../server/db/Transactional.js";
 import pgdb from "../../../server/db/PGDB.js";
@@ -71,11 +70,11 @@ class DocService {
      * meaning their contents are included inline rather than as separate expandable nodes.
      * This provides a flattened view for organizational folders.
      * 
-     * @param req - Express request object with params: {docRootKey}, query: {pullup?}
+     * @param req - Express request object with params: query: {pullup?}
      * @param res - Express response object for JSON tree data
      * @returns Promise<void> - Sends TreeRender_Response as JSON or error response
      */
-    treeRender = async (req: Request<{ docRootKey: string; 0: string }, any, any, { pullup?: string }>, res: Response): Promise<void> => {
+    treeRender = async (req: Request<{ 0: string }, any, any, { pullup?: string }>, res: Response): Promise<void> => {
         let user_id = (req as any).userProfile ? (req as AuthenticatedRequest).userProfile?.id : 0; 
         if (!user_id) {
             user_id = ANON_USER_ID;
@@ -83,7 +82,6 @@ class DocService {
        
         try {
             // Extract the folder path from the wildcard part of the URL
-            // The wildcard (*) in the route captures everything after docRootKey and stores it in req.params[0]
             const rawTreeFolder = req.params[0] || "/";
             let treeFolder = decodeURIComponent(rawTreeFolder);
             
@@ -104,11 +102,7 @@ class DocService {
             }
             
             // Resolve the document root path from the provided key
-            const root = config.getPublicFolderByKey(req.params.docRootKey).path;
-            if (!root) {
-                res.status(500).json({ error: 'bad root' });
-                return;
-            }
+            const root = "/";
 
             // const slashFreeTreeFolder = treeFolder.replace(/^\//, ''); // Remove leading slashes
             // Use regex to check if treeFolder starts with pattern "NNNN_" where 4 is a numeric digit
@@ -257,11 +251,11 @@ class DocService {
      * - Format: "NNNN_filename.ext" where NNNN is 4-digit zero-padded ordinal
      * - Default extension: .md (added if no extension provided)
      * 
-     * @param req - Express request with body: {fileName, treeFolder, insertAfterNode, docRootKey}
+     * @param req - Express request with body: {fileName, treeFolder, insertAfterNode}
      * @param res - Express response object
      * @returns Promise<void> - Sends success response with created filename or error
      */
-    createFile = async (req: Request<any, any, { fileName: string; treeFolder: string; insertAfterNode: string, docRootKey: string }>, res: Response): Promise<void> => {
+    createFile = async (req: Request<any, any, { fileName: string; treeFolder: string; insertAfterNode: string }>, res: Response): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -270,18 +264,14 @@ class DocService {
             // console.log(`Create File Request: ${JSON.stringify(req.body, null, 2)}`);
             try {
                 // Extract parameters from request body
-                const { insertAfterNode, docRootKey } = req.body;
+                const { insertAfterNode } = req.body;
                 let {treeFolder} = req.body;
                 let {fileName} = req.body;
                 fileName = fixName(fileName); // Ensure valid file name
                 treeFolder = vfs2.normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
             
                 // Resolve and validate document root
-                const root = config.getPublicFolderByKey(docRootKey).path;
-                if (!root) {
-                    res.status(500).json({ error: 'bad root' });
-                    return;
-                }
+                const root = "/";
 
                 // Validate required parameters
                 if (!fileName) {
@@ -394,11 +384,11 @@ class DocService {
      * - Format: "NNNN_foldername" where NNNN is 4-digit zero-padded ordinal
      * - No file extension (folders don't have extensions)
      * 
-     * @param req - Express request with body: {folderName, treeFolder, insertAfterNode, docRootKey}
+     * @param req - Express request with body: {folderName, treeFolder, insertAfterNode}
      * @param res - Express response object
      * @returns Promise<void> - Sends success response with created folder name or error
      */
-    createFolder = async (req: Request<any, any, { folderName: string; treeFolder: string; insertAfterNode: string, docRootKey: string }>, res: Response): Promise<void> => {
+    createFolder = async (req: Request<any, any, { folderName: string; treeFolder: string; insertAfterNode: string }>, res: Response): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (!owner_id) {
             throw new Error('Invalid owner_id: ' + owner_id);
@@ -408,16 +398,12 @@ class DocService {
             console.log("Create Folder Request");
             try {
                 // Extract parameters from request body
-                const { treeFolder, insertAfterNode, docRootKey } = req.body;
+                const { treeFolder, insertAfterNode } = req.body;
                 let {folderName} = req.body;
                 folderName = fixName(folderName); // Ensure valid folder name
             
                 // Resolve and validate document root
-                const root = config.getPublicFolderByKey(docRootKey).path;
-                if (!root) {
-                    res.status(500).json({ error: 'bad key' });
-                    return;
-                }
+                const root = "/";
 
                 // Validate required parameters
                 if (!folderName || !treeFolder) {
@@ -441,24 +427,13 @@ class DocService {
                 if (insertAfterNode && insertAfterNode.trim() !== '') {
                     console.log(`Create folder "${folderName}" below node: ${insertAfterNode}`);
                 
-                    // For VFS2: insertAfterNode is just the filename, we need to get its ordinal from the database
-                    // For legacy VFS: insertAfterNode has ordinal prefix, extract it
-                    const fsType = docUtil.getFileSystemType(docRootKey);
-                    if (fsType === 'vfs') {
-                        // VFS2: Get ordinal from database
-                        const afterNodePath = vfs2.pathJoin(absoluteParentPath, insertAfterNode);
-                        const afterNodeInfo: any = {};
-                        if (await vfs2.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
-                            insertOrdinal = afterNodeInfo.node.ordinal + 1;
-                        }
-                    } else {
-                        // Legacy VFS: Extract ordinal from filename prefix
-                        const underscoreIndex = insertAfterNode.indexOf('_');
-                        if (underscoreIndex !== -1) {
-                            const afterNodeOrdinal = parseInt(insertAfterNode.substring(0, underscoreIndex));
-                            insertOrdinal = afterNodeOrdinal + 1; // Insert after the reference node
-                        }
+                    // VFS2: Get ordinal from database
+                    const afterNodePath = vfs2.pathJoin(absoluteParentPath, insertAfterNode);
+                    const afterNodeInfo: any = {};
+                    if (await vfs2.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
+                        insertOrdinal = afterNodeInfo.node.ordinal + 1;
                     }
+                   
                 } else {
                     console.log(`Create new top folder "${folderName}"`);
                 }
@@ -466,23 +441,11 @@ class DocService {
                 // Shift existing files/folders down to make room for the new folder
                 // This ensures proper ordinal sequence is maintained
                 await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root);
-
-                // Determine the file system type to handle folder name creation differently
-                const fsType = docUtil.getFileSystemType(docRootKey);
-                let newFolderPath: string;
-                let folderNameToReturn: string;
-                
-                if (fsType === 'vfs') {
-                    // VFS2: No ordinal prefix in folder name, ordinal is stored in database
-                    newFolderPath = vfs2.pathJoin(absoluteParentPath, folderName);
-                    folderNameToReturn = folderName;
-                } else {
-                    // Legacy VFS: Create folder name with ordinal prefix
-                    const ordinalPrefix = insertOrdinal.toString().padStart(4, '0'); // 4-digit zero-padded
-                    const newFolderNameWithOrdinal = `${ordinalPrefix}_${folderName}`;
-                    newFolderPath = vfs2.pathJoin(absoluteParentPath, newFolderNameWithOrdinal);
-                    folderNameToReturn = newFolderNameWithOrdinal;
-                }
+                 
+                // VFS2: No ordinal prefix in folder name, ordinal is stored in database
+                const newFolderPath = vfs2.pathJoin(absoluteParentPath, folderName);
+                const folderNameToReturn = folderName;
+               
 
                 // Create the directory (recursive option ensures parent directories exist, and we inherit `is_public` from parent.
                 // VFS2: Pass ordinal as parameter to mkdirEx
@@ -509,31 +472,18 @@ class DocService {
      * and extracts all hashtags from it using regex pattern matching. The tags are returned as a
      * sorted array of unique tag strings.
      * 
-     * @param req - Express request with docRootKey parameter
      * @param res - Express response to send the extracted tags
      */
     extractTags = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
         try {
-            const docRootKey = req.params.docRootKey;
             const owner_id = svrUtil.getOwnerId(req, res);
             if (owner_id == null) {
-                return;
-            }
-            
-            // Get the root path for the document root
-            const root = config.getPublicFolderByKey(docRootKey);
-            if (!root) {
-                res.json({
-                    success: false,
-                    message: 'Invalid document root key',
-                    tags: []
-                });
                 return;
             }
 
             try {
                 // Try to read .TAGS.md from the root directory
-                const tagsFilePath = vfs2.pathJoin(root.path, '.TAGS.md');
+                const tagsFilePath = vfs2.pathJoin("/", '.TAGS.md');
                 const fileContent = await vfs2.readFile(owner_id, tagsFilePath, 'utf8') as string;
                 console.log('Read .TAGS.md file content:', fileContent); // Debug logging
                 
@@ -576,34 +526,17 @@ class DocService {
      * 2. Phase 2: Scan all markdown files in the document root for hashtags
      * 3. Compare and append any new tags to .TAGS.md if new ones are found
      * 
-     * @param req - Express request with docRootKey parameter
      * @param res - Express response with scan results
      */
     scanAndUpdateTags = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
         try {
-            const docRootKey = req.params.docRootKey;
             const owner_id = svrUtil.getOwnerId(req, res);
             if (owner_id == null) {
                 return;
             }
-            
-            // Get the root path for the document root
-            const root = config.getPublicFolderByKey(docRootKey);
-            if (!root) {
-                res.json({
-                    success: false,
-                    message: 'Invalid document root key',
-                    existingTags: 0,
-                    newTags: 0,
-                    totalTags: 0
-                });
-                return;
-            }
-
-            console.log(`Starting tag scan for document root: ${root.path}`);
 
             // Phase 1: Load existing tags from .TAGS.md
-            const tagsFilePath = vfs2.pathJoin(root.path, '.TAGS.md');
+            const tagsFilePath = vfs2.pathJoin("/", '.TAGS.md');
             const existingTagsMap = new Map<string, boolean>();
             let existingContent = '';
             
@@ -622,7 +555,7 @@ class DocService {
 
             // Phase 2: Scan all markdown files for hashtags
             const newTagsMap = new Map<string, boolean>();
-            await this.scanDirectoryForTags(owner_id, root.path, root.path, existingTagsMap, newTagsMap);
+            await this.scanDirectoryForTags(owner_id, "/", "/", existingTagsMap, newTagsMap);
 
             const newTagsArray = Array.from(newTagsMap.keys()).sort();
             console.log(`Found ${newTagsArray.length} new tags during scan`);

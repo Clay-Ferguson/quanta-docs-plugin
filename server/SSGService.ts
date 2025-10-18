@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
-import { config } from '../../../server/Config.js';
 
 export interface GenerateDocOptions {
 	includeFileNames: boolean;
@@ -15,39 +14,28 @@ export interface GenerateDocOptions {
  * Scans ordered files/folders (by numeric prefix) and generates a consolidated markdown file
  * containing all content with proper relative image paths.
  * 
- * todo-0: this only works with actual file system. Need to make it work with VFS too.
+ * todo-0: This will need to be completely rewritten for VFS. 
  */
 class SSGService {
     /**
      * Generates static site by creating _index.md files containing
      * concatenated markdown content from ordered files in the folder structure
      * 
-     * @param req - Express request object containing treeFolder and docRootKey in body
      * @param res - Express response object for sending back the result
      */
     generateStaticSite = async (req: Request, res: Response) => {
         try {
-            const { treeFolder, docRootKey } = req.body;
-            
-            console.log(`SSG: Generating static site for folder: ${treeFolder}, docRootKey: ${docRootKey}`);
-            
-            // Get the absolute root path using the docRootKey
-            const rootConfig = config.getPublicFolderByKey(docRootKey);
-            if (!rootConfig || !rootConfig.path) {
-                res.status(400).json({ 
-                    error: `Invalid docRootKey: ${docRootKey}` 
-                });
-                return;
-            }
+            const { treeFolder } = req.body;
+            console.log(`SSG: Generating static site for folder: ${treeFolder}`);
             
             // Construct the absolute path to the target folder
             let absolutePath: string;
             if (!treeFolder || treeFolder === '/') {
-                absolutePath = rootConfig.path;
+                absolutePath = "/";
             } else {
                 // Remove leading slash if present for path.join
                 const cleanTreeFolder = treeFolder.startsWith('/') ? treeFolder.substring(1) : treeFolder;
-                absolutePath = path.join(rootConfig.path, cleanTreeFolder);
+                absolutePath = path.join("/", cleanTreeFolder);
             }
             
             // Verify the path exists
@@ -70,7 +58,6 @@ class SSGService {
             res.json({ 
                 message: `SSG generation completed for folder: ${treeFolder}`,
                 treeFolder: treeFolder,
-                docRootKey: docRootKey,
                 absolutePath: absolutePath
             });
             

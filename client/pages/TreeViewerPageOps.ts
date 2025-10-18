@@ -221,7 +221,6 @@ const deleteFileOrFolderOnServer = async (gs: DocsGlobalState, fileOrFolderName:
         const requestBody = {
             fileOrFolderName,
             treeFolder: gs.docsFolder || '/',
-            docRootKey: gs.docsRootKey
         };
         await httpClientUtil.secureHttpPost('/api/docs/delete', requestBody);
     } catch (error) {
@@ -268,7 +267,6 @@ const moveFileOrFolder = async (gs: DocsGlobalState, treeNodes: TreeNode[], setT
             direction,
             filename: node.name,
             treeFolder: gs.docsFolder || '/',
-            docRootKey: gs.docsRootKey
         };
             
         const response = await httpClientUtil.secureHttpPost('/api/docs/move-up-down', requestBody);
@@ -321,7 +319,6 @@ export const insertFile = async (gs: DocsGlobalState, reRenderTree: any, node: T
             fileName: "file",
             treeFolder: gs.docsFolder || '/',
             insertAfterNode: node ? node.name : '',
-            docRootKey: gs.docsRootKey
         };
         const response = await httpClientUtil.secureHttpPost('/api/docs/file/create', requestBody);
         // log a prett print JSON of the response
@@ -368,7 +365,6 @@ export const insertFileWithSpeech = async (gs: DocsGlobalState, reRenderTree: an
             fileName: "file",
             treeFolder: gs.docsFolder || '/',
             insertAfterNode: node ? node.name : '',
-            docRootKey: gs.docsRootKey
         };
         const response = await httpClientUtil.secureHttpPost('/api/docs/file/create', requestBody);
         console.log('File creation response (with speech):', JSON.stringify(response, null, 2));
@@ -425,7 +421,6 @@ export const insertFolder = async (gs: DocsGlobalState, reRenderTree: any, node:
             folderName: name,
             treeFolder: gs.docsFolder || '/',
             insertAfterNode: node ? node.name : '',
-            docRootKey: gs.docsRootKey
         };
             
         const response = await httpClientUtil.secureHttpPost('/api/docs/folder/create', requestBody);
@@ -498,7 +493,6 @@ const saveToServer = async (gs: DocsGlobalState, filename: string, reRenderTree:
             content,
             treeFolder: gs.docsFolder || '/',
             newFileName: newFileName || filename,
-            docRootKey: gs.docsRootKey
         };
         console.log('Saving file to server with request body:', requestBody);
         const response = await httpClientUtil.secureHttpPost('/api/docs/file/save', requestBody);
@@ -517,7 +511,6 @@ const renameFolderOnServer = async (gs: DocsGlobalState, oldFolderName: string, 
             oldFolderName,
             newFolderName,
             treeFolder: gs.docsFolder || '/',
-            docRootKey: gs.docsRootKey
         };
         await httpClientUtil.secureHttpPost('/api/docs/folder/rename', requestBody);
     } catch (error) {
@@ -608,7 +601,6 @@ export const onPaste = async (gs: DocsGlobalState, reRenderTree: any, targetNode
         const requestBody = {
             targetFolder: targetFolder,
             pasteItems: cutItemsArray,
-            docRootKey: gs.docsRootKey,
             targetOrdinal: targetOrdinal // Include targetOrdinal for positional pasting (ordinal value, not filename)
         };
         // console.log('Paste request body:', requestBody);
@@ -641,7 +633,6 @@ export const onPasteIntoFolder = async (gs: DocsGlobalState, reRenderTree: any, 
         const requestBody = {
             targetFolder: targetFolder,
             pasteItems: cutItemsArray,
-            docRootKey: gs.docsRootKey
         };
         await httpClientUtil.secureHttpPost('/api/docs/paste', requestBody);
             
@@ -678,7 +669,6 @@ export const onDelete = async (gs: DocsGlobalState, treeNodes: TreeNode[], setTr
         const response = await httpClientUtil.secureHttpPost('/api/docs/delete', {
             fileNames: fileNames,
             treeFolder: gs.docsFolder || '/',
-            docRootKey: gs.docsRootKey
         });
             
         if (response) {
@@ -747,7 +737,6 @@ const serverSplitFile = async (gs: DocsGlobalState, filename: string, content: s
             content,
             treeFolder: gs.docsFolder || '/',
             newFileName: newFileName || filename,
-            docRootKey: gs.docsRootKey,
             split: true
         };
         const response = await httpClientUtil.secureHttpPost('/api/docs/file/save', requestBody);
@@ -797,7 +786,6 @@ export const onJoin = async (gs: DocsGlobalState, reRenderTree: any) => {
         const response = await httpClientUtil.secureHttpPost('/api/docs/join', {
             filenames: fileNames,
             treeFolder: gs.docsFolder || '/',
-            docRootKey: gs.docsRootKey
         });
             
         if (response) {
@@ -838,7 +826,6 @@ export const uploadAttachment = async (gs: DocsGlobalState, reRenderTree: any, n
         // Add metadata
         formData.append('treeFolder', gs.docsFolder || '/');
         formData.append('insertAfterOrdinal', node?.ordinal?.toString() || '');
-        formData.append('docRootKey', gs.docsRootKey || '');
 
         // Upload files to server
         const response = await httpClientUtil.secureHttpPost('/api/docs/upload', formData);
@@ -948,7 +935,6 @@ export const handleMakeFolder = async (gs: DocsGlobalState, _treeNodes: TreeNode
                 folderName: folderName,
                 remainingContent: remainingContent,
                 treeFolder: gs.docsFolder || '/',
-                docRootKey: gs.docsRootKey
             };
             
             const response = await httpClientUtil.secureHttpPost('/api/docs/folder/build', requestBody);

@@ -1,5 +1,4 @@
 import path from 'path';
-import { config } from "../../../server/Config.js";
 import vfs2 from './VFS2/VFS2.js';
 
 /**
@@ -16,8 +15,8 @@ import vfs2 from './VFS2/VFS2.js';
  * operations are restricted to allowed root directories.
  */
 class DocUtil {
-    getPathByUUID = async (uuid: string, docRootKey: string): Promise<string | null> => {       
-        const result = await vfs2.getItemByID(uuid, docRootKey);
+    getPathByUUID = async (uuid: string): Promise<string | null> => {       
+        const result = await vfs2.getItemByID(uuid, ""); // todo-0: replaced doc RootKey with "" for now
         if (result.node) {
             // console.log(`Found VFS item by UUID: ${uuid} -> docPath: ${result.docPath}`);
             return result.docPath;
@@ -26,15 +25,6 @@ class DocUtil {
             console.log(`VFS item not found for UUID: ${uuid}`);
         }
         return null;
-    }
-
-    getFileSystemType(docRootKey: string): string {
-        const rootConfig = config.getPublicFolderByKey(docRootKey);
-        if (!rootConfig) {
-            throw new Error(`Invalid document root key: ${docRootKey}`);
-        }
-        
-        return rootConfig.type || 'vfs'; // Default to vfs if type not specified
     }
     
     /**

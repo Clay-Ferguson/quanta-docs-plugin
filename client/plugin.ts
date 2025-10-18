@@ -9,10 +9,6 @@ import { idb } from '@client/IndexedDB';
 import { app } from '@client/AppService';
 import DocViewerPage from '@client/pages/DocViewerPage';
 
-declare const DOC_PATH: string;
-declare const DOC_ROOT_KEY: string | undefined;
-declare const DOC_ROOT_TYPE: 'vfs' | 'lfs' | undefined;
-
 class DocsClientPlugin implements IClientPlugin {
 
     getKey(): string {
@@ -22,7 +18,7 @@ class DocsClientPlugin implements IClientPlugin {
     async init(context: any) {
         console.log('Initializing Quanta Docs plugin...');
         const gs: DocsGlobalState = context.initGs;
-        gs.docsFolder = DOC_PATH ? ('/'+DOC_PATH) : '/'; 
+        gs.docsFolder = '/'; 
         gs.docsEditMode = false;
         gs.docsMetaMode = false;
         gs.docsNamesMode = false;
@@ -31,8 +27,6 @@ class DocsClientPlugin implements IClientPlugin {
         gs.docsNewFileName = null;
         gs.docsSelItems = new Set<TreeNode>();
         gs.docsCutItems = new Set<string>();
-        gs.docsRootKey = DOC_ROOT_KEY;
-        gs.docsRootType = DOC_ROOT_TYPE;
         gs.docsViewWidth = 'medium';
         gs.docsSearch = '';
         gs.docsSearchResults = [];
@@ -41,14 +35,6 @@ class DocsClientPlugin implements IClientPlugin {
         gs.docsSearchMode = 'MATCH_ANY';
         gs.docsOrderByModTime = true;
         gs.docsHighlightedFolderName = null;
-
-        if (!DOC_ROOT_KEY) {
-            console.error('DOC_ROOT_KEY is not defined in HTML rendered template.');
-        }
-
-        if (!DOC_ROOT_TYPE) {
-            console.error('DOC_ROOT_TYPE is not defined in HTML rendered template.');
-        }
     }
 
     async notify(): Promise<void> {

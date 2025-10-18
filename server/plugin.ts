@@ -59,10 +59,10 @@ class DocsServerPlugin implements IServerPlugin {
     }
 
     private initRoutes(context: IAppContext) { 
-        context.app.get('/api/docs/images/:docRootKey/*',httpServerUtil.verifyReqHTTPQuerySig, asyncHandler(docBinary.serveDocImage)); // vfs2 done
+        context.app.get('/api/docs/images/*',httpServerUtil.verifyReqHTTPQuerySig, asyncHandler(docBinary.serveDocImage)); // vfs2 done
 
         // For now we only allow admin to access the docs API
-        context.app.post('/api/docs/render/:docRootKey/*', httpServerUtil.verifyReqHTTPSignatureAllowAnon, asyncHandler(docSvc.treeRender)); // vfs2 done
+        context.app.post('/api/docs/render/*', httpServerUtil.verifyReqHTTPSignatureAllowAnon, asyncHandler(docSvc.treeRender)); // vfs2 done
         
         context.app.post('/api/docs/upload', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docBinary.uploadFiles)); // vfs2 done
         context.app.post('/api/docs/delete', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.deleteFileOrFolder));  // vfs2 done
@@ -78,15 +78,15 @@ class DocsServerPlugin implements IServerPlugin {
         context.app.post('/api/docs/paste', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.pasteItems)); // vfs2 done
         context.app.post('/api/docs/join', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.joinFiles)); // vfs2 done
         context.app.post('/api/docs/search-vfs', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.searchVFSFiles)); // vfs2 done
-        context.app.post('/api/docs/tags/:docRootKey', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.extractTags));
-        context.app.post('/api/docs/tags/scan/:docRootKey', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.scanAndUpdateTags));
+        context.app.post('/api/docs/tags', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.extractTags));
+        context.app.post('/api/docs/tags/scan', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.scanAndUpdateTags));
         
         // Removed until there's a docker+Postres version of this
         // context.app.post('/api/docs/ssg', httpServerUtil.verifyReqHTTPSignature, asyncHandler(ssg.generateStaticSite));
 
-        context.app.get('/doc/:docRootKey', context.serveIndexHtml("TreeViewerPage"));
-        context.app.get('/doc/:docRootKey/id/:uuid', context.serveIndexHtml("TreeViewerPage"));
-        context.app.get('/doc/:docRootKey/*', context.serveIndexHtml("TreeViewerPage"));
+        context.app.get('/doc', context.serveIndexHtml("TreeViewerPage"));
+        context.app.get('/doc/id/:uuid', context.serveIndexHtml("TreeViewerPage"));
+        context.app.get('/doc/*', context.serveIndexHtml("TreeViewerPage"));
 
         if (defaultPlugin === "docs") {
             // console.log('Docs plugin is the default plugin, serving index.html at root path(/).');
@@ -147,48 +147,32 @@ class DocsServerPlugin implements IServerPlugin {
     }
 
     public async preProcessHtml(html: string, req: Request): Promise<string> {
-        const docRootKey = req.params?.docRootKey || 'usr';
-
-        // Get the file system type first if we have a docRootKey
-        let docRootType = "";
-        if (docRootKey) {
-            docRootType = await docUtil.getFileSystemType(docRootKey);
-        }
 
         let docPath = '';
         if (req.params.uuid) {
-            docPath = await docUtil.getPathByUUID(req.params.uuid, docRootKey) || '';
+            docPath = await docUtil.getPathByUUID(req.params.uuid) || '';
         }
         else {
-            if (docRootKey && req.params[0]) {
+            if (req.params[0]) {
                 // Example Url handled here:
                 //   http://localhost:8000/doc/usr/Quanta_User_Guide
-                //   From handler: context.app.get('/doc/:docRootKey/*', context.serveIndexHtml("TreeViewerPage"));
-                //   Where usr is the `:docRootKey` and Quanta_User_Guide is the wildcard `*` part of the URL.
                 docPath = req.params[0];
                 // console.log(`Using docPath from request params: [${docPath}]`);
             }
         }
 
-        html = html
-            .replace('{{DOC_ROOT_KEY}}', docRootKey)
-            .replace('{{DOC_ROOT_TYPE}}', docRootType)
-            .replace('{{DOC_PATH}}', docPath);
+        html = html.replace('{{DOC_PATH}}', docPath);
         return html;
     }
 
     async runAllTests(): Promise<void> {
         console.log("Running embedded tests...");
-        if (process.env.POSTGRES_HOST) { // todo-0: This is how we were doing a lot of checking to see if we're running docker or not and it no longer applies. 
-            await runVfs2Tests();
+        await runVfs2Tests();
 
-            // need to wipe database table here.
-            console.log('Clearing vfs2_nodes table...');
-            await pgdb.query('DELETE FROM vfs2_nodes;');
-        }
-        else {
-            throw new Error('PostgreSQL host not configured. Cannot run VFS tests.');
-        }
+        // need to wipe database table here.
+        console.log('Clearing vfs2_nodes table...');
+        await pgdb.query('DELETE FROM vfs2_nodes;');
+        
         return Promise.resolve();
     }    
 }

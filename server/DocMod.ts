@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import path from 'path';
 import { AuthenticatedRequest, handleError, svrUtil } from "../../../server/ServerUtil.js";
-import { config } from "../../../server/Config.js";
 import { docUtil } from "./DocUtil.js";
 import { runTrans } from '../../../server/db/Transactional.js';
 import pgdb from "../../../server/db/PGDB.js";
@@ -51,12 +50,11 @@ class DocMod {
      *   - content: string - File content to save
      *   - treeFolder: string - Relative path to the target folder
      *   - newFileName?: string - Optional new name for the file (triggers rename)
-     *   - docRootKey?: string - Key identifying the document root configuration
      *   - split?: boolean - Whether to split content on '\n~\n' delimiter
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */
-    saveFile = async (req: Request<any, any, { filename: string; content: string; treeFolder: string; newFileName?: string, docRootKey?: string, split?: boolean }>, 
+    saveFile = async (req: Request<any, any, { filename: string; content: string; treeFolder: string; newFileName?: string, split?: boolean }>, 
         res: Response): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
@@ -65,7 +63,7 @@ class DocMod {
         await runTrans(async () => {
             try {
                 // Extract request parameters
-                const { filename, content, treeFolder, docRootKey, split } = req.body;
+                const { filename, content, treeFolder, split } = req.body;
                 let { newFileName } = req.body;
 
                 if (!svrUtil.validName(filename)) {
@@ -79,11 +77,7 @@ class DocMod {
                 }
     
                 // Validate document root configuration
-                const root = config.getPublicFolderByKey(docRootKey!).path;
-                if (!root) {
-                    res.status(500).json({ error: 'bad root' });
-                    return;
-                }
+                const root = "/";
     
                 // Validate required parameters
                 if (!filename || content === undefined || !treeFolder) {
@@ -137,20 +131,14 @@ class DocMod {
                     
                     if (parts.length > 1) {
                         // Determine the file system type to handle ordinal extraction differently
-                        const fsType = docUtil.getFileSystemType(docRootKey!);
                         let originalOrdinal: number;
                         
-                        if (fsType === 'vfs') {
-                            // VFS2: Get ordinal from database
-                            const fileInfo: any = {};
-                            if (await vfs2.exists(finalFilePath, fileInfo) && fileInfo.node) {
-                                originalOrdinal = fileInfo.node.ordinal;
-                            } else {
-                                originalOrdinal = 0; // Default if file doesn't exist yet
-                            }
+                        // VFS2: Get ordinal from database
+                        const fileInfo: any = {};
+                        if (await vfs2.exists(finalFilePath, fileInfo) && fileInfo.node) {
+                            originalOrdinal = fileInfo.node.ordinal;
                         } else {
-                            // Legacy VFS: Extract ordinal from filename prefix
-                            throw new Error("Legacy VFS is no longer supported");
+                            originalOrdinal = 0; // Default if file doesn't exist yet
                         }
                         
                         // Make room for new files by shifting existing ordinals down
@@ -165,17 +153,12 @@ class DocMod {
                             let partFilePath = finalFilePath;
                             
                             if (i > 0) {
-                                // todo-0: find all locations in the code we make this kind of check and remove all non-vfs cases.
-                                if (fsType === 'vfs') {
-                                    // VFS2: Generate new filename without ordinal prefix
-                                    const originalBaseName = path.basename(finalFilePath);
-                                    const nameWithoutExt = path.parse(originalBaseName).name;
-                                    const extension = path.parse(originalBaseName).ext;
-                                    const newBaseName = `${nameWithoutExt}_${i}${extension}`;
-                                    partFilePath = path.join(path.dirname(finalFilePath), newBaseName);
-                                } else {
-                                    throw new Error("Legacy VFS is no longer supported");
-                                }
+                                // VFS2: Generate new filename without ordinal prefix
+                                const originalBaseName = path.basename(finalFilePath);
+                                const nameWithoutExt = path.parse(originalBaseName).name;
+                                const extension = path.parse(originalBaseName).ext;
+                                const newBaseName = `${nameWithoutExt}_${i}${extension}`;
+                                partFilePath = path.join(path.dirname(finalFilePath), newBaseName);
                             }
                                                         
                             // VFS2: Use writeFileEx with explicit ordinal
@@ -226,11 +209,10 @@ class DocMod {
      *   - oldFolderName: string - Current name of the folder to rename
      *   - newFolderName: string - Desired new name for the folder
      *   - treeFolder: string - Relative path to the parent directory
-     *   - docRootKey: string - Key identifying the document root configuration
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */
-    renameFolder = async (req: Request<any, any, { oldFolderName: string; newFolderName: string; treeFolder: string, docRootKey: string }>, res: Response): Promise<void> => {
+    renameFolder = async (req: Request<any, any, { oldFolderName: string; newFolderName: string; treeFolder: string }>, res: Response): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -239,16 +221,12 @@ class DocMod {
             console.log("Rename Folder Request");
             try {
                 // Extract request parameters
-                const { oldFolderName, treeFolder, docRootKey } = req.body;
+                const { oldFolderName, treeFolder } = req.body;
                 let {newFolderName} = req.body;
                 newFolderName = fixName(newFolderName); // Ensure valid folder name
             
                 // Validate document root configuration
-                const root = config.getPublicFolderByKey(docRootKey).path;
-                if (!root) {
-                    res.status(500).json({ error: 'bad root' });
-                    return;
-                }
+                const root = "/";
 
                 // Validate required parameters
                 if (!oldFolderName || !newFolderName || !treeFolder) {
@@ -322,11 +300,10 @@ class DocMod {
      *   - fileOrFolderName?: string - Single item to delete (legacy parameter)
      *   - fileNames?: string[] - Array of items to delete (batch mode)
      *   - treeFolder: string - Relative path to the parent directory
-     *   - docRootKey: string - Key identifying the document root configuration
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */
-    deleteFileOrFolder = async (req: Request<any, any, { fileOrFolderName?: string; fileNames?: string[]; treeFolder: string, docRootKey: string }>, res: Response): 
+    deleteFileOrFolder = async (req: Request<any, any, { fileOrFolderName?: string; fileNames?: string[]; treeFolder: string }>, res: Response): 
     Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
@@ -336,14 +313,10 @@ class DocMod {
             // console.log("Delete File or Folder Request");
             try {
             // Extract request parameters
-                const { fileOrFolderName, fileNames, treeFolder, docRootKey } = req.body;
+                const { fileOrFolderName, fileNames, treeFolder } = req.body;
             
                 // Validate document root configuration
-                const root = config.getPublicFolderByKey(docRootKey).path;
-                if (!root) {
-                    res.status(500).json({ error: 'bad root' });
-                    return;
-                }
+                const root = "/";
 
                 // Determine operation mode and build items list
                 let itemsToDelete: string[] = [];
@@ -455,7 +428,6 @@ class DocMod {
      *   - direction: string - Movement direction, must be "up" or "down"
      *   - filename: string - Name of the file or folder to move
      *   - treeFolder: string - Relative path to the parent directory
-     *   - docRootKey: string - Key identifying the document root configuration
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */
@@ -483,11 +455,10 @@ class DocMod {
      *   - direction: string - "up" or "down" to specify move direction
      *   - filename: string - Name of the file/folder to move
      *   - treeFolder: string - Relative path to the parent directory
-     *   - docRootKey: string - Key identifying the document root configuration
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */
-    moveUpOrDown = async (req: Request<any, any, { direction: string; filename: string; treeFolder: string, docRootKey: string }>, res: Response): Promise<void> => {
+    moveUpOrDown = async (req: Request<any, any, { direction: string; filename: string; treeFolder: string }>, res: Response): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -498,14 +469,10 @@ class DocMod {
         
             try {
                 // Extract request parameters
-                const { direction, filename, treeFolder, docRootKey } = req.body;
+                const { direction, filename, treeFolder } = req.body;
             
                 // Validate document root configuration
-                const root = config.getPublicFolderByKey(docRootKey).path;
-                if (!root) {
-                    res.status(500).json({ error: 'bad root' });
-                    return;
-                }
+                const root = "/";
 
                 // Validate required parameters and direction values
                 if (!direction || !filename || !treeFolder || (direction !== 'up' && direction !== 'down')) {
@@ -586,7 +553,7 @@ class DocMod {
         });
     }
 
-    setPublic = async (req: Request<any, any, { is_public: boolean; filename: string; treeFolder: string; docRootKey: string; recursive?: boolean }>, res: Response): Promise<void> => {
+    setPublic = async (req: Request<any, any, { is_public: boolean; filename: string; treeFolder: string; recursive?: boolean }>, res: Response): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -594,17 +561,13 @@ class DocMod {
         await runTrans(async () => {
             try {
                 // Extract request parameters
-                const { is_public, filename, docRootKey } = req.body;
+                const { is_public, filename } = req.body;
                 let {treeFolder} = req.body;
                 treeFolder = vfs2.normalizePath(treeFolder); // Ensure treeFolder is normalized
                 const recursive = req.body.recursive === true; // Default to false if not provided
                 
                 // Validate document root configuration
-                const root = config.getPublicFolderByKey(docRootKey).path;
-                if (!root) {
-                    res.status(500).json({ error: 'bad root' });
-                    return;
-                }
+                const root = "/";
 
                 // Validate required parameters
                 if (is_public === undefined || !filename || !treeFolder) {
@@ -622,28 +585,26 @@ class DocMod {
                     return;
                 }
 
-                // For PostgreSQL VFS mode, make direct database call
-                // todo-0: this check should now be unnecessary since only VFS is supported
-                if (vfs2.constructor.name === 'VFS') {
-                    // Call the PostgreSQL function
-                    const result = await pgdb.query(
-                        'SELECT * FROM vfs_set_public($1, $2, $3, $4, $5, $6)',
-                        owner_id, treeFolder, filename, is_public, recursive, docRootKey
-                    );
+                
+                // Call the PostgreSQL function
+                const result = await pgdb.query(
+                    'SELECT * FROM vfs_set_public($1, $2, $3, $4, $5, $6)',
+                    owner_id, treeFolder, filename, is_public, recursive, "" // doc RootKey todo-0: fix this. doc RootKey is deprecated here
+                );
                     
-                    const success = result.rows[0].success;
-                    const diagnostic = result.rows[0].diagnostic;
+                const success = result.rows[0].success;
+                const diagnostic = result.rows[0].diagnostic;
                     
-                    if (success) {
-                        console.log(`Successfully set visibility to ${is_public ? 'public' : 'private'}: ${diagnostic}`);
-                        res.json({ 
-                            message: diagnostic 
-                        });
-                    } else {
-                        console.error(`Failed to set visibility: ${diagnostic}`);
-                        res.status(500).json({ error: diagnostic });
-                    }
-                } 
+                if (success) {
+                    console.log(`Successfully set visibility to ${is_public ? 'public' : 'private'}: ${diagnostic}`);
+                    res.json({ 
+                        message: diagnostic 
+                    });
+                } else {
+                    console.error(`Failed to set visibility: ${diagnostic}`);
+                    res.status(500).json({ error: diagnostic });
+                }
+                
             } catch (error) {
                 handleError(error, res, 'Failed to set public status');
                 throw error;
@@ -676,28 +637,23 @@ class DocMod {
      * @param req - Express request object containing:
      *   - targetFolder: string - Relative path to the destination folder
      *   - pasteItems: string[] - Array of item paths to move (automatically sorted)
-     *   - docRootKey: string - Key identifying the document root configuration
      *   - targetOrdinal?: number - Optional ordinal position for insertion (items inserted after this)
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */ 
-    pasteItems = async (req: Request<any, any, { targetFolder: string; pasteItems: string[], docRootKey: string, targetOrdinal?: number }>, res: Response): Promise<void> => {    
+    pasteItems = async (req: Request<any, any, { targetFolder: string; pasteItems: string[], targetOrdinal?: number }>, res: Response): Promise<void> => {    
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
         }
         await runTrans(async () => {
             try {
-                const { targetFolder, pasteItems, docRootKey, targetOrdinal } = req.body;
+                const { targetFolder, pasteItems, targetOrdinal } = req.body;
     
                 // sort the pasteItems string[] to ensure they are in the correct order
                 pasteItems.sort((a, b) => a.localeCompare(b));
     
-                const root = config.getPublicFolderByKey(docRootKey).path;
-                if (!root) {
-                    res.status(500).json({ error: 'bad key' });
-                    return;
-                }
+                const root = "/"
     
                 if (!targetFolder || !pasteItems || !Array.isArray(pasteItems) || pasteItems.length === 0) {
                     res.status(400).json({ error: 'targetFolder and pasteItems array are required' });
@@ -899,11 +855,10 @@ class DocMod {
      * @param req - Express request object containing:
      *   - filenames: string[] - Array of filenames to join (minimum 2 required)
      *   - treeFolder: string - Relative path to the parent directory
-     *   - docRootKey: string - Key identifying the document root configuration
      * @param res - Express response object for sending results
      * @returns void - Asynchronous operation
      */
-    joinFiles = async (req: Request<any, any, { filenames: string[]; treeFolder: string; docRootKey: string }>, res: Response): Promise<void> => {
+    joinFiles = async (req: Request<any, any, { filenames: string[]; treeFolder: string }>, res: Response): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -911,14 +866,10 @@ class DocMod {
         await runTrans(async () => {
             try {
             // Extract request parameters
-                const { filenames, treeFolder, docRootKey } = req.body;
+                const { filenames, treeFolder } = req.body;
             
                 // Validate document root configuration
-                const root = config.getPublicFolderByKey(docRootKey).path;
-                if (!root) {
-                    res.status(500).json({ error: 'bad root' });
-                    return;
-                }
+                const root = "/";
         
                 // Validate that we have enough files to perform a join operation
                 if (!filenames || !Array.isArray(filenames) || filenames.length < 2) {
@@ -1057,11 +1008,10 @@ class DocMod {
      *   - folderName: string - Desired name for the new folder
      *   - remainingContent: string - Optional content to save in a new file inside the folder
      *   - treeFolder: string - Relative path to the parent directory
-     *   - docRootKey: string - Key identifying the document root configuration
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */
-    buildFolder = async (req: Request<any, any, { filename: string; folderName: string; remainingContent: string; treeFolder: string; docRootKey: string }>, res: Response): Promise<void> => {
+    buildFolder = async (req: Request<any, any, { filename: string; folderName: string; remainingContent: string; treeFolder: string }>, res: Response): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -1070,16 +1020,12 @@ class DocMod {
             console.log("Make Folder Request");
             try {
                 // Extract request parameters
-                const { filename, remainingContent, treeFolder, docRootKey } = req.body;
+                const { filename, remainingContent, treeFolder } = req.body;
                 let { folderName } = req.body;
                 folderName = fixName(folderName); // Ensure no leading/trailing whitespace
             
                 // Validate document root configuration
-                const root = config.getPublicFolderByKey(docRootKey).path;
-                if (!root) {
-                    res.status(500).json({ error: 'bad root' });
-                    return;
-                }
+                const root = "/";
 
                 // Validate required parameters
                 if (!filename || !folderName || !treeFolder) {
@@ -1193,7 +1139,6 @@ class DocMod {
     searchVFSFiles = async (req: Request<any, any, {  
         query?: string; 
         treeFolder: string; 
-        docRootKey: string; 
         searchMode?: string,
         searchOrder?: string }>, res: Response): Promise<void> => {
         console.log("VFS Document Search Request");
@@ -1204,7 +1149,7 @@ class DocMod {
             } 
 
             // Extract and validate parameters
-            const { treeFolder, docRootKey, searchOrder = 'MOD_TIME' } = req.body;
+            const { treeFolder, searchOrder = 'MOD_TIME' } = req.body;
             let { query, searchMode = 'MATCH_ANY' } = req.body;
             
             // Handle empty, null, or undefined query as "match everything"
@@ -1220,31 +1165,13 @@ class DocMod {
                 res.status(400).json({ error: 'Tree folder is required' });
                 return;
             }
-            
-            if (!docRootKey || typeof docRootKey !== 'string') {
-                res.status(400).json({ error: 'Document root key is required' });
-                return;
-            }
-            
-            // Validate document root configuration
-            const rootConfig = config.getPublicFolderByKey(docRootKey);
-            if (!rootConfig) {
-                res.status(500).json({ error: 'Invalid document root key' });
-                return;
-            }
-            
-            // Ensure this is a VFS root (PostgreSQL-based)
-            if (rootConfig.type !== 'vfs') {
-                res.status(400).json({ error: 'This endpoint is only for VFS (PostgreSQL) document roots' });
-                return;
-            }
 
             console.log(`VFS search query: "${query}" with mode: "${searchMode}" in folder: "${treeFolder}"`);
             
             // Call the PostgreSQL search function
             const searchResult = await pgdb.query(
                 'SELECT * FROM vfs2_search_text($1, $2, $3, $4, $5, $6)',
-                user_id, query, treeFolder, docRootKey, searchMode, searchOrder
+                user_id, query, treeFolder, "", searchMode, searchOrder // todo-0: fix doc RootKey ""
             );
             
             // Transform results to match the expected format (file-level results without line numbers)

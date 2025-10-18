@@ -397,6 +397,7 @@ class VFS2 {
      */
     async getItemByID(uuid: string, rootKey: string = "usr"): Promise<{ node: TreeNode | null; docPath: string }> {
         try {
+            // todo-0: does vfs2_nodes have 'rootKey' column? If so it's deprecated. Remove it.
             const result = await pgdb.query(
                 'SELECT * FROM vfs2_nodes WHERE uuid = $1 AND doc_root_key = $2',
                 uuid, rootKey

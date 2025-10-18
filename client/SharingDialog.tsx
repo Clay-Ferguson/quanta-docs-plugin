@@ -23,7 +23,6 @@ export default function SharingDialog({
             is_public,
             treeFolder: gs.docsFolder || '/',
             filename: gs.docsEditNode?.name,
-            docRootKey: gs.docsRootKey,
             recursive
         }; 
 

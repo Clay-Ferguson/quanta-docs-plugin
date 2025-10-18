@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { httpClientUtil } from '@client/HttpClientUtil';
 import { ExtractTags_Response, ScanTags_Response, TagCategory } from '@common/types/EndpointTypes';
-import { useGlobalState } from '../../DocsTypes';
 import { alertModal } from '@client/components/AlertModalComp';
 
 // Module-level cache for categories to persist across component instances
@@ -17,7 +16,6 @@ interface TagSelectorProps {
  * Component for selecting hashtags using checkboxes and inserting them into text content
  */
 export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton = false }: TagSelectorProps) {
-    const gs = useGlobalState();
     
     // Local state for available categories and loading
     const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
@@ -34,25 +32,9 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
                 return;
             }
 
-            if (!gs.docsRootKey) {
-                console.warn('No docsRootKey available for loading tags');
-                // Fall back to hard-coded categories if no root key
-                const fallbackCategories: TagCategory[] = [{
-                    heading: 'General',
-                    tags: [
-                        '#business', '#development', '#education', '#health', '#important',
-                        '#javascript', '#meeting', '#personal', '#project', '#react',
-                        '#research', '#todo', '#typescript', '#urgent', '#work'
-                    ].sort()
-                }];
-                setTagCategories(fallbackCategories);
-                cachedCategories = fallbackCategories;
-                return;
-            }
-
             setIsLoading(true);
             try {
-                const url = `/api/docs/tags/${gs.docsRootKey}`;
+                const url = `/api/docs/tags`;
                 const response: ExtractTags_Response | null = await httpClientUtil.secureHttpPost(url, {});
                 
                 console.log('Tags API Response:', response); // Debug logging
@@ -105,7 +87,7 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
         };
 
         loadTags();
-    }, [gs.docsRootKey]);
+    }, []);
 
     const handleTagToggle = (tag: string) => {
         const newSelectedTags = new Set(selectedTags);
@@ -125,14 +107,9 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
     };
 
     const handleScanClick = async () => { 
-        if (!gs.docsRootKey) {
-            await alertModal('No document root available for scanning.');
-            return;
-        }
-
         setIsScanning(true);
         try {
-            const url = `/api/docs/tags/scan/${gs.docsRootKey}`;
+            const url = `/api/docs/tags/scan`;
             const response: ScanTags_Response | null = await httpClientUtil.secureHttpPost(url, {});
             
             if (response && response.success) {
@@ -140,7 +117,7 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
                 cachedCategories = null;
                 
                 // Reload categories to get the updated list
-                const tagsUrl = `/api/docs/tags/${gs.docsRootKey}`;
+                const tagsUrl = `/api/docs/tags`;
                 const tagsResponse: ExtractTags_Response | null = await httpClientUtil.secureHttpPost(tagsUrl, {});
                 
                 if (tagsResponse && tagsResponse.success) {

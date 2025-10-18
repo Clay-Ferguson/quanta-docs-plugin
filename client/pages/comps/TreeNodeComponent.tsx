@@ -52,7 +52,7 @@ export default function TreeNodeComponent({
     const isImage = isImageFile(node.name);
     let imgSrc: string | null = null;
     if (isImage) {
-        imgSrc =`/api/docs/images/${gs.docsRootKey}/${node.url}`;
+        imgSrc =`/api/docs/images/${node.url}`;
         // remove any double slashes
         imgSrc = imgSrc.replace(/\/\//g, '/');
         if (signedArgs) {

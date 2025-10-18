@@ -142,17 +142,11 @@ export default function TreeViewerPage() {
     // We have to wrap this in a useCallback in order to be able to use it in
     // the useEffect below
     const reRenderTree = useCallback(async () => {
-        // if 'gs.docsRootKey' is not set, then we cannot render the tree
-        if (!gs.docsRootKey) {
-            setError('No root key set for document tree.');
-            setTreeNodes([]);
-            return [];
-        }
         let folder = gs.docsFolder || '';
         if (!folder.startsWith('/')) {
             folder = `/${folder}`;
         }
-        // console.log(`Re-rendering tree for folder: ${folder} with rootKey: ${gs.docsRootKey}`);
+        // console.log(`Re-rendering tree for folder: ${folder}`);
         try {
             // setIsLoading(true);
             setError(null);
@@ -179,8 +173,8 @@ export default function TreeViewerPage() {
                 }});
             }
 
-            // console.log(`Refreshing tree for folder [${folder}] with rootKey=[${gs.docsRootKey}]`);
-            const url = `/api/docs/render/${gs.docsRootKey}${folder}${!gs.docsEditMode ? '?pullup=true' : ''}`;
+            // console.log(`Refreshing tree for folder [${folder}]]`);
+            const url = `/api/docs/render/${folder}${!gs.docsEditMode ? '?pullup=true' : ''}`;
             const treeResponse: TreeRender_Response | null = await httpClientUtil.secureHttpPost(url, {});
             // console.log(`DocsFolder server response:`, JSON.stringify(treeResponse?.treeNodes, null, 2));
             
@@ -192,7 +186,7 @@ export default function TreeViewerPage() {
                 // is a very long URL in most cases. Instead of showing it always I'll just add a "link" icon to the breadcrumbs that
                 // will allow it to be copied to the clipboard.
                 // if (treeResponse.treeFolder) {
-                //     const newUrl = `/doc/${gs.docsRootKey}${folder}`;
+                //     const newUrl = `/doc/${gs.docsR ootKey}${folder}`;
                 //     console.log(`Updating browser URL to: ${newUrl}`);
                 //     if (window.location.pathname !== newUrl) {
                 //         window.history.replaceState({}, '', newUrl);
@@ -235,14 +229,14 @@ export default function TreeViewerPage() {
                 return [];
             }
         } catch (fetchError) {
-            setError(`Sorry, we encountered an error refreshing the tree for "${folder}" with rootKey="${gs.docsRootKey}".`);
+            setError(`Sorry, we encountered an error refreshing the tree for "${folder}" with".`);
             console.error('Error refreshing tree after file creation:', fetchError);
             return [];
         }
         finally {
             // setIsLoading(false);
         }
-    }, [gs.docsEditMode, gs.docsFolder, gs.docsRootKey, gs.userProfile, gs.keyPair?.publicKey]);
+    }, [gs.docsEditMode, gs.docsFolder, gs.userProfile, gs.keyPair?.publicKey]);
 
     useEffect(() => {
         const fetchTree = async () => {

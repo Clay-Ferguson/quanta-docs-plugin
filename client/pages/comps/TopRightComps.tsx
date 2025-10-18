@@ -133,7 +133,7 @@ export default function TopRightComps({ gs, rootNode, itemsAreSelected, reRender
                     try {
                         const response = await httpClientUtil.secureHttpPost(`/api/docs/ssg`, { 
                             treeFolder: gs.docsFolder,
-                            docRootKey: gs.docsRootKey 
+                            doc RootKey: gs.docsRootKey 
                         });
                         if (!response) {
                             throw new Error(response?.message || "SSG failed");

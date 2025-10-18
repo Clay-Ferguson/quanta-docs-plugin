@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import path from 'path';
 import { handleError, svrUtil } from "../../../server/ServerUtil.js";
-import { config } from "../../../server/Config.js";
 import { docUtil } from "./DocUtil.js";
 import { runTrans } from '../../../server/db/Transactional.js';
 import { fixName, getImageContentType, isImageExt } from '../../../common/CommonUtils.js';
@@ -28,7 +27,6 @@ class DocBinary {
      * and serves the image with appropriate caching headers for optimal performance.
      * 
      * Security features:
-     * - Validates docRootKey against configured public folders
      * - Validates file extensions to ensure only supported image formats are served
      * - Prevents directory traversal attacks through path validation
      * 
@@ -36,7 +34,6 @@ class DocBinary {
      * 
      * @param req - Express request object containing:
      *              - req.path: The request path containing the image path
-     *              - req.params.docRootKey: Key identifying the document root folder
      * @param res - Express response object for sending the image data
      * @returns Promise<void> - Resolves when the image is served or an error response is sent
      */
@@ -52,18 +49,13 @@ class DocBinary {
         // console.log(`>>>>>>> Serve Doc Image Request: [${req.path}] to userId ${owner_id}`);
         try {
             // Extract the relative image path from the request URL
-            // Remove the API prefix and docRootKey to get the actual file path
-            const rawImagePath = req.path.replace(`/api/docs/images/${req.params.docRootKey}`, '');
+            const rawImagePath = req.path.replace(`/api/docs/images`, '');
             // console.log("Raw Image Path:", rawImagePath);
             const imagePath = decodeURIComponent(rawImagePath);
             // console.log("Decoded Image Path:", imagePath);
                         
             // Resolve the document root path using the provided key
-            const root = config.getPublicFolderByKey(req.params.docRootKey).path;
-            if (!root) {
-                res.status(500).json({ error: `bad root key: ` });
-                return;
-            }
+            const root = "/";
 
             // Validate that an image path was provided
             if (!imagePath) {
@@ -123,7 +115,6 @@ class DocBinary {
                 const parts = this.parseMultipartData(buffer, boundaryBuffer);
                         
                 // Initialize variables to store extracted form data
-                let docRootKey = '';
                 let treeFolder = '';
                 let insertAfterOrdinal: number | null = null;
                 const files: { name: string; data: Buffer; type: string }[] = [];
@@ -161,9 +152,6 @@ class DocBinary {
                                 
                         // Store form field values based on field name
                         switch (fieldName) {
-                        case 'docRootKey':
-                            docRootKey = value;
-                            break;
                         case 'treeFolder':
                             treeFolder = value;
                             break;
@@ -175,17 +163,13 @@ class DocBinary {
                 }
     
                 // Validate that all required fields are present
-                if (!docRootKey || !treeFolder || files.length === 0) {
-                    res.status(400).json({ error: 'Missing required fields: docRootKey, treeFolder, or files' });
+                if (!treeFolder || files.length === 0) {
+                    res.status(400).json({ error: 'Missing required fields: treeFolder, or files' });
                     return;
                 }
     
                 // Resolve the document root path and validate access
-                const root = config.getPublicFolderByKey(docRootKey).path;
-                if (!root) {
-                    res.status(500).json({ error: 'Invalid docRootKey' });
-                    return;
-                }
+                const root = "/";
 
                 // Construct target folder path and validate permissions
                 const absoluteFolderPath = path.join(root, treeFolder);
@@ -265,7 +249,6 @@ class DocBinary {
      * - Security validation of file paths and access permissions
      * 
      * Form data fields expected:
-     * - docRootKey: Key identifying the target document root folder
      * - treeFolder: Relative path to the target folder within the document tree
      * - insertAfterOrdinal: Optional ordinal value to determine insertion position (insert after this ordinal)
      * - files: One or more file uploads
