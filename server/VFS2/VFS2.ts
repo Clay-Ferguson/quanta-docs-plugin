@@ -193,7 +193,7 @@ class VFS2 {
             }
             const result = await pgdb.query(
                 'SELECT vfs2_children_exist($1, $2, $3)',
-                pgdb.authId(owner_id), relativePath, rootKey
+                owner_id, relativePath, rootKey
             );
             
             return result.rows[0].vfs2_children_exist;
@@ -250,7 +250,7 @@ class VFS2 {
             
             const result = await pgdb.query(
                 'SELECT vfs2_read_file($1, $2, $3, $4)',
-                pgdb.authId(owner_id), parentPath, filename, rootKey
+                owner_id, parentPath, filename, rootKey
             );
             
             if (result.rows.length === 0) {
@@ -367,7 +367,7 @@ class VFS2 {
                 
                 await pgdb.query(
                     'SELECT vfs2_write_binary_file($1, $2, $3, $4, $5, $6, $7, $8)',
-                    pgdb.authId(owner_id), parentPath, filename, content, rootKey, finalOrdinal, contentType, is_public
+                    owner_id, parentPath, filename, content, rootKey, finalOrdinal, contentType, is_public
                 );
             } else {
                 // Handle text files
@@ -380,7 +380,7 @@ class VFS2 {
                 
                 await pgdb.query(
                     'SELECT vfs2_write_text_file($1, $2, $3, $4, $5, $6, $7, $8)',
-                    pgdb.authId(owner_id), parentPath, filename, textContent, rootKey, finalOrdinal, contentType, is_public
+                    owner_id, parentPath, filename, textContent, rootKey, finalOrdinal, contentType, is_public
                 );
             }
         } catch (error) {
@@ -397,7 +397,6 @@ class VFS2 {
      */
     async getItemByID(uuid: string, rootKey: string = "usr"): Promise<{ node: TreeNode | null; docPath: string }> {
         try {
-            // todo-0: does vfs2_nodes have 'rootKey' column? If so it's deprecated. Remove it.
             const result = await pgdb.query(
                 'SELECT * FROM vfs2_nodes WHERE uuid = $1 AND doc_root_key = $2',
                 uuid, rootKey
@@ -433,7 +432,7 @@ class VFS2 {
             
             const result = await pgdb.query(
                 'SELECT * FROM vfs2_readdir($1, $2, $3, $4)',
-                pgdb.authId(owner_id), relativePath, rootKey, false
+                owner_id, relativePath, rootKey, false
             );
             
             // Extract just the filenames from the result
@@ -450,7 +449,7 @@ class VFS2 {
             
             const rootContents = await pgdb.query(
                 'SELECT * FROM vfs2_readdir($1, $2, $3, $4)',
-                pgdb.authId(owner_id), relativePath, rootKey, loadContent
+                owner_id, relativePath, rootKey, loadContent
             );
             
             const treeNodes = rootContents.rows.map((row: any) => {
@@ -484,7 +483,7 @@ class VFS2 {
             
             await pgdb.query(
                 'SELECT vfs2_mkdir($1, $2, $3, $4, $5, $6, $7)',
-                pgdb.authId(owner_id), parentPath, filename, rootKey, finalOrdinal, options?.recursive || false, is_public || false
+                owner_id, parentPath, filename, rootKey, finalOrdinal, options?.recursive || false, is_public || false
             );
         } catch (error) {
             console.error('VFS2.mkdirEx error:', error);
@@ -502,7 +501,7 @@ class VFS2 {
             
         const result = await pgdb.query(
             'SELECT * FROM vfs2_rename($1, $2, $3, $4, $5, $6)',
-            pgdb.authId(owner_id), oldParentPath, oldFilename, newParentPath, newFilename, rootKey
+            owner_id, oldParentPath, oldFilename, newParentPath, newFilename, rootKey
         );
             
         // If the operation wasn't successful, throw an error with the diagnostic message
@@ -538,7 +537,7 @@ class VFS2 {
             // Delete the file using direct DELETE query
             const result = await pgdb.query(
                 'DELETE FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3 AND is_directory = false AND (owner_id = $4 OR $4 = 0) RETURNING *',
-                rootKey, parentPath, filename, pgdb.authId(owner_id)
+                rootKey, parentPath, filename, owner_id
             );
             
             if (result.rowCount === 0) {
@@ -585,7 +584,7 @@ class VFS2 {
                 // Use a direct DELETE query for now since vfs2_rmdir doesn't exist yet
                 const result = await pgdb.query(
                     'DELETE FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3 AND (owner_id = $4 OR $4 = 0) RETURNING *',
-                    rootKey, parentPath, filename, pgdb.authId(owner_id)
+                    rootKey, parentPath, filename, owner_id
                 );
                 
                 if (result.rowCount === 0) {
@@ -597,14 +596,14 @@ class VFS2 {
                     const childPath = relativePath;
                     await pgdb.query(
                         'DELETE FROM vfs2_nodes WHERE doc_root_key = $1 AND (parent_path = $2 OR parent_path LIKE $3) AND (owner_id = $4 OR $4 = 0)',
-                        rootKey, childPath, childPath + '/%', pgdb.authId(owner_id)
+                        rootKey, childPath, childPath + '/%', owner_id
                     );
                 }
             } else {
                 // For files, use direct DELETE query since vfs2_unlink doesn't exist yet
                 const result = await pgdb.query(
                     'DELETE FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3 AND (owner_id = $4 OR $4 = 0) RETURNING *',
-                    rootKey, parentPath, filename, pgdb.authId(owner_id)
+                    rootKey, parentPath, filename, owner_id
                 );
                 
                 if (result.rowCount === 0) {
@@ -639,7 +638,7 @@ class VFS2 {
             
             const result = await pgdb.query(
                 'SELECT * FROM vfs2_shift_ordinals_down($1, $2, $3, $4, $5)',
-                pgdb.authId(owner_id), relativePath, rootKey, insertOrdinal, slotsToAdd
+                owner_id, relativePath, rootKey, insertOrdinal, slotsToAdd
             );
             
             // Create path mapping for compatibility with existing code

@@ -589,7 +589,7 @@ class DocMod {
                 // Call the PostgreSQL function
                 const result = await pgdb.query(
                     'SELECT * FROM vfs_set_public($1, $2, $3, $4, $5, $6)',
-                    owner_id, treeFolder, filename, is_public, recursive, "" // doc RootKey todo-0: fix this. doc RootKey is deprecated here
+                    owner_id, treeFolder, filename, is_public, recursive, "usr" 
                 );
                     
                 const success = result.rows[0].success;
@@ -1171,7 +1171,7 @@ class DocMod {
             // Call the PostgreSQL search function
             const searchResult = await pgdb.query(
                 'SELECT * FROM vfs2_search_text($1, $2, $3, $4, $5, $6)',
-                user_id, query, treeFolder, "", searchMode, searchOrder // todo-0: fix doc RootKey ""
+                user_id, query, treeFolder, "usr", searchMode, searchOrder 
             );
             
             // Transform results to match the expected format (file-level results without line numbers)

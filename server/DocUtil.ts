@@ -16,7 +16,7 @@ import vfs2 from './VFS2/VFS2.js';
  */
 class DocUtil {
     getPathByUUID = async (uuid: string): Promise<string | null> => {       
-        const result = await vfs2.getItemByID(uuid, ""); // todo-0: replaced doc RootKey with "" for now
+        const result = await vfs2.getItemByID(uuid);
         if (result.node) {
             // console.log(`Found VFS item by UUID: ${uuid} -> docPath: ${result.docPath}`);
             return result.docPath;
