@@ -626,6 +626,7 @@ class DocMod {
      * - Automatic ordinal shifting to make room for new items
      * - Batch operations supporting multiple items simultaneously
      * - Comprehensive error reporting for failed operations
+     * - UUID-based item identification for reliable database operations
      * 
      * Ordinal Management (VFS2):
      * - Ordinals are stored as integer values in the database
@@ -633,10 +634,11 @@ class DocMod {
      * - Same-folder operations update ordinals directly (no file moving needed)
      * - Cross-folder operations move files and assign new ordinals
      * - Filenames remain unchanged (ordinals not part of filename)
+     * - Items to paste are retrieved and sorted by their current ordinal values
      * 
      * @param req - Express request object containing:
      *   - targetFolder: string - Relative path to the destination folder
-     *   - pasteItems: string[] - Array of item paths to move (automatically sorted)
+     *   - pasteItems: string[] - Array of item UUIDs to move (retrieved from database and sorted by ordinal)
      *   - targetOrdinal?: number - Optional ordinal position for insertion (items inserted after this)
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
@@ -648,14 +650,11 @@ class DocMod {
         }
         await runTrans(async () => {
             try {
-                const { targetFolder, pasteItems, targetOrdinal } = req.body;
-    
-                // sort the pasteItems string[] to ensure they are in the correct order
-                pasteItems.sort((a, b) => a.localeCompare(b));
+                const { targetFolder, pasteItems: pasteItemUuids, targetOrdinal } = req.body;
     
                 const root = "/"
     
-                if (!targetFolder || !pasteItems || !Array.isArray(pasteItems) || pasteItems.length === 0) {
+                if (!targetFolder || !pasteItemUuids || !Array.isArray(pasteItemUuids) || pasteItemUuids.length === 0) {
                     res.status(400).json({ error: 'targetFolder and pasteItems array are required' });
                     return;
                 }
@@ -668,6 +667,39 @@ class DocMod {
                     res.status(404).json({ error: 'Target directory not found' });
                     return;
                 }
+
+                // Query the database to get the full node information for each UUID
+                // This retrieves the parent_path, filename, ordinal, and other metadata
+                const nodeInfos: { uuid: string; parent_path: string; filename: string; ordinal: number; fullPath: string }[] = [];
+                
+                for (const uuid of pasteItemUuids) {
+                    const result = await pgdb.query(
+                        'SELECT uuid, parent_path, filename, ordinal FROM vfs_nodes WHERE uuid = $1 AND doc_root_key = $2',
+                        uuid, "usr"
+                    );
+                    
+                    if (result.rows.length === 0) {
+                        console.warn(`Item with UUID ${uuid} not found in database, skipping`);
+                        continue;
+                    }
+                    
+                    const row = result.rows[0];
+                    const fullPath = row.parent_path ? `${row.parent_path}/${row.filename}` : row.filename;
+                    
+                    nodeInfos.push({
+                        uuid: row.uuid,
+                        parent_path: row.parent_path,
+                        filename: row.filename,
+                        ordinal: row.ordinal,
+                        fullPath: fullPath
+                    });
+                }
+                
+                // Sort the items by their current ordinal to preserve the original ordering
+                nodeInfos.sort((a, b) => a.ordinal - b.ordinal);
+                
+                // Build the pasteItems array with full paths in the correct ordinal order
+                const pasteItems = nodeInfos.map(info => info.fullPath);
     
                 let pastedCount = 0;
                 const errors: string[] = [];
@@ -688,35 +720,31 @@ class DocMod {
             
                 if (isSameFolderOperation) {
                     // For same-folder operations: we're just reordering items within the same directory
-                    // Get all nodes in the directory
-                    const treeNodes = await vfs2.readdirEx(owner_id, absoluteTargetPath, false);
                     
                     // Get the UUIDs and current ordinals of items being moved
+                    // We can use the nodeInfos we already retrieved instead of looking them up again
                     const itemsToMove: { uuid: string; fullPath: string; currentOrdinal: number; name: string }[] = [];
                     
-                    for (const itemFullPath of pasteItems) {
-                        const itemDir = path.dirname(itemFullPath);
+                    for (const nodeInfo of nodeInfos) {
+                        const itemDir = nodeInfo.parent_path;
                         const itemDirNormalized = (itemDir === '/' || itemDir === '.') ? '' : itemDir;
                         
                         // Only handle items from the same directory
                         if (itemDirNormalized === targetFolderNormalized) {
-                            const itemName = path.basename(itemFullPath);
-                            const node = treeNodes.find(n => n.name === itemName);
-                            
-                            if (node && node.uuid && node.ordinal !== undefined) {
-                                itemsToMove.push({
-                                    uuid: node.uuid,
-                                    fullPath: itemFullPath,
-                                    currentOrdinal: node.ordinal,
-                                    name: itemName
-                                });
-                            }
+                            itemsToMove.push({
+                                uuid: nodeInfo.uuid,
+                                fullPath: nodeInfo.fullPath,
+                                currentOrdinal: nodeInfo.ordinal,
+                                name: nodeInfo.filename
+                            });
                         }
                     }
                     
-                    // Sort items to move by their current ordinal
-                    itemsToMove.sort((a, b) => a.currentOrdinal - b.currentOrdinal);
+                    // Items are already sorted by ordinal from our earlier query
                     console.log('Items to move:', itemsToMove.map(i => `${i.name}(ord=${i.currentOrdinal})`).join(', '));
+                    
+                    // Get all nodes in the directory to identify stationary items
+                    const treeNodes = await vfs2.readdirEx(owner_id, absoluteTargetPath, false);
                     
                     // Get items that are NOT being moved
                     const movingUuids = new Set(itemsToMove.map(item => item.uuid));

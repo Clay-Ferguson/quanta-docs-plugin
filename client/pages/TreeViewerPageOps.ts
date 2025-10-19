@@ -159,11 +159,8 @@ export const handleCheckboxChange = (gs: DocsGlobalState, node: TreeNode, checke
 export const handleMasterCheckboxChange = (gs: DocsGlobalState, treeNodes: TreeNode[], checked: boolean) => {
     if (checked) {
         // Select all available nodes (excluding cut items)
-        const currentFolder = gs.docsFolder || '/';
-        const normalizedFolder = currentFolder === '/' ? '' : currentFolder;
         const availableNodes = treeNodes.filter(node => {
-            const fullPath = `${normalizedFolder}/${node.name}`;
-            return !gs.docsCutItems?.has(fullPath);
+            return !gs.docsCutItems?.has(node.uuid);
         });
         gd({ type: 'setSelectedTreeItems', payload: { 
             docsSelItems: new Set<TreeNode>(availableNodes)
@@ -178,11 +175,8 @@ export const handleMasterCheckboxChange = (gs: DocsGlobalState, treeNodes: TreeN
 
 // Helper function to determine master checkbox state
 export const getMasterCheckboxState = (gs: DocsGlobalState, treeNodes: TreeNode[]): { checked: boolean, indeterminate: boolean } => {
-    const currentFolder = gs.docsFolder || '/';
-    const normalizedFolder = currentFolder === '/' ? '' : currentFolder;
     const availableNodes = treeNodes.filter(node => {
-        const fullPath = `${normalizedFolder}/${node.name}`;
-        return !gs.docsCutItems?.has(fullPath);
+        return !gs.docsCutItems?.has(node.uuid);
     });
     const selectedCount = gs.docsSelItems?.size || 0;
     const availableCount = availableNodes.length;
@@ -567,16 +561,11 @@ export const onCut = (gs: DocsGlobalState) => {
     }
 
     // Get the full paths of selected items (folder + filename)
-    const currentFolder = gs.docsFolder || '/';
-    const selectedFullPaths = Array.from(gs.docsSelItems).map(node => {
-        // Construct the full path: folder/filename
-        const normalizedFolder = currentFolder === '/' ? '' : currentFolder;
-        return `${normalizedFolder}/${node.name}`;
-    });
+    const selectedFullPaths = new Set(Array.from(gs.docsSelItems).map(node => node.uuid));
         
     // Update global state to set cutItems and clear selected items
     gd({ type: 'setCutAndClearSelections', payload: { 
-        docsCutItems: new Set<string>(selectedFullPaths),
+        docsCutItems: selectedFullPaths,
         docsSelItems: new Set<TreeNode>()
     }});        
 };

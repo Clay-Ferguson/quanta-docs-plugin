@@ -18,7 +18,7 @@ export interface DocsGlobalState extends GlobalState {
     docsNewFolderName?: string | null;
     docsNewFileName?: string | null;
     docsSelItems?: Set<TreeNode>;
-    docsCutItems?: Set<string>;
+    docsCutItems?: Set<string | undefined>; // uuids of cut items
 
     docsViewWidth?: 'narrow' | 'medium' | 'wide' | 'full';
     docsSearch?: string;

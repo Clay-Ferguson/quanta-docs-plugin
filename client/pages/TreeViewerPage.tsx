@@ -258,11 +258,8 @@ export default function TreeViewerPage() {
     const isOurRootNode = rootNode!=null && rootNode!.owner_id === gs.userProfile?.userId;
     
     // Filter out cut items by comparing full paths
-    const currentFolder = gs.docsFolder || '/';
-    const normalizedFolder = currentFolder === '/' ? '' : currentFolder;
     const filteredTreeNodes = treeNodes.filter(node => {
-        const fullPath = `${normalizedFolder}/${node.name}`;
-        return !gs.docsCutItems?.has(fullPath);
+        return !gs.docsCutItems?.has(node.uuid);
     });
 
     // show parent button if we're the admin or if the current folder is not a folder in the root.
