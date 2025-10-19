@@ -173,13 +173,27 @@ class DocMod {
                         res.json({ message: `File split into ${parts.length} parts successfully` });
                     } else {
                         // No split delimiter found - save as single file
-                        await vfs2.writeFile(owner_id, finalFilePath, content, 'utf8');
+                        // Preserve existing ordinal if file exists
+                        let existingOrdinal: number | undefined = undefined;
+                        const fileInfo: any = {};
+                        if (await vfs2.exists(finalFilePath, fileInfo) && fileInfo.node) {
+                            existingOrdinal = fileInfo.node.ordinal;
+                        }
+                        
+                        await vfs2.writeFileEx(owner_id, finalFilePath, content, 'utf8', false, existingOrdinal);
                         console.log(`File saved successfully: ${finalFilePath}`);
                         res.json({ message: 'File saved successfully (no split delimiter found)' });
                     }
                 } else {
                     // Standard save operation without content splitting
-                    await vfs2.writeFile(owner_id, finalFilePath, content, 'utf8');
+                    // Preserve existing ordinal if file exists
+                    let existingOrdinal: number | undefined = undefined;
+                    const fileInfo: any = {};
+                    if (await vfs2.exists(finalFilePath, fileInfo) && fileInfo.node) {
+                        existingOrdinal = fileInfo.node.ordinal;
+                    }
+                    
+                    await vfs2.writeFileEx(owner_id, finalFilePath, content, 'utf8', false, existingOrdinal);
                     console.log(`File saved successfully: ${finalFilePath}`);
                     res.json({ message: 'File saved successfully' });
                 }
