@@ -12,7 +12,7 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path LIKE $2
             `, testRootKey, testParentPath + '%');
         } catch (cleanupError) {
@@ -20,10 +20,10 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         }
         
         // Test 1: Check empty directory (should return false)
-        console.log('Testing vfs2_children_exist for empty directory...');
+        console.log('Testing vfs_children_exist for empty directory...');
         
         const emptyDirResult = await pgdb.query(`
-            SELECT vfs2_children_exist($1, $2, $3) as has_children
+            SELECT vfs_children_exist($1, $2, $3) as has_children
         `, owner_id, testParentPath, testRootKey);
         
         const emptyDirHasChildren = emptyDirResult.rows[0].has_children;
@@ -43,7 +43,7 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         console.log('Creating test file in directory...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -54,10 +54,10 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         console.log(`Created file: ${testFilename} in ${testParentPath}`);
 
         // Test that the directory now has children
-        console.log('Testing vfs2_children_exist for directory with file...');
+        console.log('Testing vfs_children_exist for directory with file...');
         
         const fileResult = await pgdb.query(`
-            SELECT vfs2_children_exist($1, $2, $3) as has_children
+            SELECT vfs_children_exist($1, $2, $3) as has_children
         `, owner_id, testParentPath, testRootKey);
         
         const fileHasChildren = fileResult.rows[0].has_children;
@@ -76,7 +76,7 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         console.log('Creating test subdirectory...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -87,10 +87,10 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         console.log(`Created subdirectory: ${testSubDirname} in ${testParentPath}`);
 
         // Test that the directory still has children (now both file and directory)
-        console.log('Testing vfs2_children_exist for directory with file and subdirectory...');
+        console.log('Testing vfs_children_exist for directory with file and subdirectory...');
         
         const mixedResult = await pgdb.query(`
-            SELECT vfs2_children_exist($1, $2, $3) as has_children
+            SELECT vfs_children_exist($1, $2, $3) as has_children
         `, owner_id, testParentPath, testRootKey);
         
         const mixedHasChildren = mixedResult.rows[0].has_children;
@@ -105,10 +105,10 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         // Test 4: Test owner access control  
         // Skip this test since we can't create fake users due to foreign key constraints
         // Instead, test that the current owner can see their files
-        console.log('Testing vfs2_children_exist owner access control...');
+        console.log('Testing vfs_children_exist owner access control...');
         
         const ownerAccessResult = await pgdb.query(`
-            SELECT vfs2_children_exist($1, $2, $3) as has_children
+            SELECT vfs_children_exist($1, $2, $3) as has_children
         `, owner_id, testParentPath, testRootKey);
         
         const ownerAccessHasChildren = ownerAccessResult.rows[0].has_children;
@@ -121,10 +121,10 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         console.log('✅ Owner access control test passed');
 
         // Test 5: Test admin access (owner_id = 0 should see all files)
-        console.log('Testing vfs2_children_exist with admin access (owner_id = 0)...');
+        console.log('Testing vfs_children_exist with admin access (owner_id = 0)...');
         
         const adminAccessResult = await pgdb.query(`
-            SELECT vfs2_children_exist($1, $2, $3) as has_children
+            SELECT vfs_children_exist($1, $2, $3) as has_children
         `, 0, testParentPath, testRootKey); // admin access
         
         const adminAccessHasChildren = adminAccessResult.rows[0].has_children;
@@ -144,7 +144,7 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         console.log('Creating public file...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -157,10 +157,10 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         // Test with a non-existent owner who should still see the public file
         // We can use a fake owner ID for reading since the function handles non-existent users
         const fakeOwnerId = 999999;
-        console.log('Testing vfs2_children_exist with non-existent owner (should see public files)...');
+        console.log('Testing vfs_children_exist with non-existent owner (should see public files)...');
         
         const publicFileAccessResult = await pgdb.query(`
-            SELECT vfs2_children_exist($1, $2, $3) as has_children
+            SELECT vfs_children_exist($1, $2, $3) as has_children
         `, fakeOwnerId, testParentPath, testRootKey);
         
         const publicFileAccessHasChildren = publicFileAccessResult.rows[0].has_children;
@@ -176,17 +176,17 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         console.log('Removing all files to test empty directory again...');
         
         await pgdb.query(`
-            DELETE FROM vfs2_nodes 
+            DELETE FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2
         `, testRootKey, testParentPath);
         
         console.log('Removed all files from test directory');
 
         // Test that the directory is now empty
-        console.log('Testing vfs2_children_exist for emptied directory...');
+        console.log('Testing vfs_children_exist for emptied directory...');
         
         const emptiedResult = await pgdb.query(`
-            SELECT vfs2_children_exist($1, $2, $3) as has_children
+            SELECT vfs_children_exist($1, $2, $3) as has_children
         `, owner_id, testParentPath, testRootKey);
         
         const emptiedHasChildren = emptiedResult.rows[0].has_children;
@@ -199,11 +199,11 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         console.log('✅ Emptied directory test passed');
 
         // Test 8: Test with different root key (should return false)
-        console.log('Testing vfs2_children_exist with different root key...');
+        console.log('Testing vfs_children_exist with different root key...');
         
         // First create a file again
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -212,7 +212,7 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         false, false, testContent, null, false, 'text/plain', Buffer.from(testContent).length);
         
         const differentRootResult = await pgdb.query(`
-            SELECT vfs2_children_exist($1, $2, $3) as has_children
+            SELECT vfs_children_exist($1, $2, $3) as has_children
         `, owner_id, testParentPath, 'different-root-key');
         
         const differentRootHasChildren = differentRootResult.rows[0].has_children;
@@ -228,7 +228,7 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         console.log('Final verification of directory contents...');
         const finalContentsResult = await pgdb.query(`
             SELECT filename, ordinal, is_directory, owner_id, is_public
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 
             ORDER BY ordinal ASC
         `, testRootKey, testParentPath);
@@ -249,7 +249,7 @@ export async function childrenExistTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path LIKE $2
             `, testRootKey, testParentPath + '%');
         } catch (cleanupError) {

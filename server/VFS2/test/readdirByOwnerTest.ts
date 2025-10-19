@@ -12,7 +12,7 @@ export async function readdirByOwnerTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {
@@ -21,7 +21,7 @@ export async function readdirByOwnerTest(owner_id: number): Promise<void> {
         
         // Create test files all owned by the same user
         // We'll test the owner filtering by creating files and then using a non-existent owner ID
-        // to verify that vfs2_readdir_by_owner properly filters by owner
+        // to verify that vfs_readdir_by_owner properly filters by owner
         
         const testFiles = [
             { filename: 'file-a.txt', ordinal: 1000, content: 'Content A' },
@@ -51,7 +51,7 @@ export async function readdirByOwnerTest(owner_id: number): Promise<void> {
             ];
             
             await pgdb.query(`
-                INSERT INTO vfs2_nodes (
+                INSERT INTO vfs_nodes (
                     owner_id, doc_root_key, parent_path, filename, ordinal,
                     is_directory, is_public, content_text, content_binary, is_binary, 
                     content_type, size_bytes
@@ -61,14 +61,14 @@ export async function readdirByOwnerTest(owner_id: number): Promise<void> {
             console.log(`Created ${testFile.isDirectory ? 'directory' : 'file'}: ${testFile.filename} (ordinal: ${testFile.ordinal}, owner: ${owner_id})`);
         }
 
-        // Test the vfs2_readdir_by_owner function for the correct owner
-        console.log(`Testing vfs2_readdir_by_owner function for correct owner ${owner_id}...`);
+        // Test the vfs_readdir_by_owner function for the correct owner
+        console.log(`Testing vfs_readdir_by_owner function for correct owner ${owner_id}...`);
         
         const readdirResult = await pgdb.query(`
-            SELECT * FROM vfs2_readdir_by_owner($1, $2, $3)
+            SELECT * FROM vfs_readdir_by_owner($1, $2, $3)
         `, owner_id, testParentPath, testRootKey);
         
-        console.log(`vfs2_readdir_by_owner returned ${readdirResult.rows.length} items for owner ${owner_id}:`);
+        console.log(`vfs_readdir_by_owner returned ${readdirResult.rows.length} items for owner ${owner_id}:`);
         
         // Verify the results contain all files owned by the specified owner
         const expectedFiles = ['file-a.txt', 'file-b.txt', 'file-c.txt', 'dir-d', 'dir-e'];
@@ -109,13 +109,13 @@ export async function readdirByOwnerTest(owner_id: number): Promise<void> {
 
         // Test for a non-existent owner (this should return empty results)
         const nonExistentOwnerId = 999999; // Use a very high ID that's unlikely to exist
-        console.log(`Testing vfs2_readdir_by_owner function for non-existent owner ${nonExistentOwnerId}...`);
+        console.log(`Testing vfs_readdir_by_owner function for non-existent owner ${nonExistentOwnerId}...`);
         
         const readdirResult2 = await pgdb.query(`
-            SELECT * FROM vfs2_readdir_by_owner($1, $2, $3)
+            SELECT * FROM vfs_readdir_by_owner($1, $2, $3)
         `, nonExistentOwnerId, testParentPath, testRootKey);
         
-        console.log(`vfs2_readdir_by_owner returned ${readdirResult2.rows.length} items for non-existent owner ${nonExistentOwnerId}:`);
+        console.log(`vfs_readdir_by_owner returned ${readdirResult2.rows.length} items for non-existent owner ${nonExistentOwnerId}:`);
         
         // Verify no files are returned for non-existent owner
         if (readdirResult2.rows.length !== 0) {
@@ -134,7 +134,7 @@ export async function readdirByOwnerTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {

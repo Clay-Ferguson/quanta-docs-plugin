@@ -1170,7 +1170,7 @@ class DocMod {
             
             // Call the PostgreSQL search function
             const searchResult = await pgdb.query(
-                'SELECT * FROM vfs2_search_text($1, $2, $3, $4, $5, $6)',
+                'SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)',
                 user_id, query, treeFolder, "usr", searchMode, searchOrder 
             );
             

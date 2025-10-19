@@ -12,7 +12,7 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {
@@ -21,10 +21,10 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         
         // Test 1: Check that non-existent UUID returns no rows
         const nonExistentUuid = '00000000-0000-4000-8000-000000000000'; // A valid UUID format that shouldn't exist
-        console.log('Testing vfs2_get_node_by_uuid for non-existent UUID...');
+        console.log('Testing vfs_get_node_by_uuid for non-existent UUID...');
         
         const nonExistentResult = await pgdb.query(`
-            SELECT * FROM vfs2_get_node_by_uuid($1, $2)
+            SELECT * FROM vfs_get_node_by_uuid($1, $2)
         `, nonExistentUuid, testRootKey);
         
         console.log(`Non-existent UUID query returned ${nonExistentResult.rows.length} rows`);
@@ -44,7 +44,7 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         console.log('Creating test text file...');
         
         const insertResult = await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -61,10 +61,10 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         console.log(`Created text file: ${textFilename} with ID: ${expectedId}, UUID: ${fileUuid}`);
 
         // Test retrieving the file by UUID
-        console.log('Testing vfs2_get_node_by_uuid for existing text file...');
+        console.log('Testing vfs_get_node_by_uuid for existing text file...');
         
         const textFileResult = await pgdb.query(`
-            SELECT * FROM vfs2_get_node_by_uuid($1, $2)
+            SELECT * FROM vfs_get_node_by_uuid($1, $2)
         `, fileUuid, testRootKey);
         
         console.log(`Text file UUID query returned ${textFileResult.rows.length} rows`);
@@ -139,7 +139,7 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         console.log('Creating test directory...');
         
         const dirInsertResult = await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -154,10 +154,10 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         console.log(`Created directory: ${dirFilename} with ID: ${expectedDirId}, UUID: ${dirUuid}`);
 
         // Test retrieving the directory by UUID
-        console.log('Testing vfs2_get_node_by_uuid for existing directory...');
+        console.log('Testing vfs_get_node_by_uuid for existing directory...');
         
         const dirResult = await pgdb.query(`
-            SELECT * FROM vfs2_get_node_by_uuid($1, $2)
+            SELECT * FROM vfs_get_node_by_uuid($1, $2)
         `, dirUuid, testRootKey);
         
         if (dirResult.rows.length !== 1) {
@@ -211,7 +211,7 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         console.log('Creating test binary file...');
         
         const binaryInsertResult = await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -226,10 +226,10 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         console.log(`Created binary file: ${binaryFilename} with ID: ${expectedBinaryId}, UUID: ${binaryUuid}`);
 
         // Test retrieving the binary file by UUID
-        console.log('Testing vfs2_get_node_by_uuid for existing binary file...');
+        console.log('Testing vfs_get_node_by_uuid for existing binary file...');
         
         const binaryFileResult = await pgdb.query(`
-            SELECT * FROM vfs2_get_node_by_uuid($1, $2)
+            SELECT * FROM vfs_get_node_by_uuid($1, $2)
         `, binaryUuid, testRootKey);
         
         if (binaryFileResult.rows.length !== 1) {
@@ -271,10 +271,10 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         console.log('✅ Binary file UUID retrieval test passed');
 
         // Test 5: Test with different root keys (should return no rows)
-        console.log('Testing vfs2_get_node_by_uuid with different root key...');
+        console.log('Testing vfs_get_node_by_uuid with different root key...');
         
         const differentRootResult = await pgdb.query(`
-            SELECT * FROM vfs2_get_node_by_uuid($1, $2)
+            SELECT * FROM vfs_get_node_by_uuid($1, $2)
         `, fileUuid, 'different-root-key');
         
         console.log(`Different root key query returned ${differentRootResult.rows.length} rows`);
@@ -290,7 +290,7 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         
         // Use the text file UUID to demonstrate how this function could be used for navigation
         const navResult = await pgdb.query(`
-            SELECT * FROM vfs2_get_node_by_uuid($1, $2)
+            SELECT * FROM vfs_get_node_by_uuid($1, $2)
         `, fileUuid, testRootKey);
         
         if (navResult.rows.length === 1) {
@@ -324,7 +324,7 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         
         for (let i = 0; i < allUuids.length; i++) {
             const result = await pgdb.query(`
-                SELECT filename, is_directory, ordinal FROM vfs2_get_node_by_uuid($1, $2)
+                SELECT filename, is_directory, ordinal FROM vfs_get_node_by_uuid($1, $2)
             `, allUuids[i], testRootKey);
             
             if (result.rows.length !== 1) {
@@ -350,7 +350,7 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         console.log('Verifying all created items in test directory...');
         const allItemsResult = await pgdb.query(`
             SELECT filename, uuid, ordinal, is_directory, content_type
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 
             ORDER BY ordinal ASC
         `, testRootKey, testParentPath);
@@ -371,7 +371,7 @@ export async function getNodeByUuidTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {

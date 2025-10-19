@@ -12,7 +12,7 @@ export async function statTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {
@@ -20,10 +20,10 @@ export async function statTest(owner_id: number): Promise<void> {
         }
         
         // Test 1: Test stat for non-existent file (should return no rows)
-        console.log('Testing vfs2_stat for non-existent file...');
+        console.log('Testing vfs_stat for non-existent file...');
         
         const nonExistentResult = await pgdb.query(`
-            SELECT * FROM vfs2_stat($1, $2, $3)
+            SELECT * FROM vfs_stat($1, $2, $3)
         `, testParentPath, 'non-existent-file.txt', testRootKey);
         
         console.log(`Non-existent file stat returned ${nonExistentResult.rows.length} rows`);
@@ -43,7 +43,7 @@ export async function statTest(owner_id: number): Promise<void> {
         console.log('Creating test text file...');
         
         const insertResult = await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -57,11 +57,11 @@ export async function statTest(owner_id: number): Promise<void> {
         
         console.log(`Created text file: ${textFilename} with ordinal: ${textOrdinal}`);
 
-        // Test vfs2_stat for the text file
-        console.log('Testing vfs2_stat for existing text file...');
+        // Test vfs_stat for the text file
+        console.log('Testing vfs_stat for existing text file...');
         
         const textFileStatResult = await pgdb.query(`
-            SELECT * FROM vfs2_stat($1, $2, $3)
+            SELECT * FROM vfs_stat($1, $2, $3)
         `, testParentPath, textFilename, testRootKey);
         
         console.log(`Text file stat returned ${textFileStatResult.rows.length} rows`);
@@ -119,7 +119,7 @@ export async function statTest(owner_id: number): Promise<void> {
         console.log('Creating test directory...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -129,11 +129,11 @@ export async function statTest(owner_id: number): Promise<void> {
         
         console.log(`Created directory: ${dirFilename} with ordinal: ${dirOrdinal}`);
 
-        // Test vfs2_stat for the directory
-        console.log('Testing vfs2_stat for existing directory...');
+        // Test vfs_stat for the directory
+        console.log('Testing vfs_stat for existing directory...');
         
         const dirStatResult = await pgdb.query(`
-            SELECT * FROM vfs2_stat($1, $2, $3)
+            SELECT * FROM vfs_stat($1, $2, $3)
         `, testParentPath, dirFilename, testRootKey);
         
         if (dirStatResult.rows.length !== 1) {
@@ -178,7 +178,7 @@ export async function statTest(owner_id: number): Promise<void> {
         console.log('Creating test binary file...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -188,11 +188,11 @@ export async function statTest(owner_id: number): Promise<void> {
         
         console.log(`Created binary file: ${binaryFilename} with ordinal: ${binaryOrdinal}`);
 
-        // Test vfs2_stat for the binary file
-        console.log('Testing vfs2_stat for existing binary file...');
+        // Test vfs_stat for the binary file
+        console.log('Testing vfs_stat for existing binary file...');
         
         const binaryStatResult = await pgdb.query(`
-            SELECT * FROM vfs2_stat($1, $2, $3)
+            SELECT * FROM vfs_stat($1, $2, $3)
         `, testParentPath, binaryFilename, testRootKey);
         
         if (binaryStatResult.rows.length !== 1) {
@@ -229,10 +229,10 @@ export async function statTest(owner_id: number): Promise<void> {
         console.log('✅ Binary file stat test passed');
 
         // Test 5: Test with different root keys (should return no rows)
-        console.log('Testing vfs2_stat with different root key...');
+        console.log('Testing vfs_stat with different root key...');
         
         const differentRootResult = await pgdb.query(`
-            SELECT * FROM vfs2_stat($1, $2, $3)
+            SELECT * FROM vfs_stat($1, $2, $3)
         `, testParentPath, textFilename, 'different-root-key');
         
         console.log(`Different root key stat returned ${differentRootResult.rows.length} rows`);
@@ -244,10 +244,10 @@ export async function statTest(owner_id: number): Promise<void> {
         console.log('✅ Different root key test passed');
 
         // Test 6: Test with different parent paths (should return no rows)
-        console.log('Testing vfs2_stat with different parent path...');
+        console.log('Testing vfs_stat with different parent path...');
         
         const differentPathResult = await pgdb.query(`
-            SELECT * FROM vfs2_stat($1, $2, $3)
+            SELECT * FROM vfs_stat($1, $2, $3)
         `, '/different-parent-path', textFilename, testRootKey);
         
         console.log(`Different parent path stat returned ${differentPathResult.rows.length} rows`);
@@ -271,7 +271,7 @@ export async function statTest(owner_id: number): Promise<void> {
         
         for (const file of allFiles) {
             const statResult = await pgdb.query(`
-                SELECT * FROM vfs2_stat($1, $2, $3)
+                SELECT * FROM vfs_stat($1, $2, $3)
             `, testParentPath, file.filename, testRootKey);
             
             if (statResult.rows.length === 1) {
@@ -314,7 +314,7 @@ export async function statTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {

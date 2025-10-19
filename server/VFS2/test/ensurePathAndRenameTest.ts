@@ -13,28 +13,28 @@ export async function ensurePathAndRenameTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path LIKE $2
             `, testRootKey, testParentPath + '%');
         } catch (cleanupError) {
             console.log('Warning: Initial cleanup failed (this is usually not a problem):', cleanupError);
         }
         
-        // Test 1: Use vfs2_ensure_path to create a random nested directory structure
+        // Test 1: Use vfs_ensure_path to create a random nested directory structure
         const randomPath = `level1-${randomSuffix}/level2-${randomSuffix}/level3-${randomSuffix}`;
         const fullRandomPath = testParentPath + '/' + randomPath;
 
-        console.log(`Testing vfs2_ensure_path for nested path: ${fullRandomPath}`);
+        console.log(`Testing vfs_ensure_path for nested path: ${fullRandomPath}`);
         
         const ensurePathResult = await pgdb.query(`
-            SELECT vfs2_ensure_path($1, $2, $3) as path_created
+            SELECT vfs_ensure_path($1, $2, $3) as path_created
         `, owner_id, fullRandomPath, testRootKey);
         
         const pathCreated = ensurePathResult.rows[0].path_created;
-        console.log(`vfs2_ensure_path returned: ${pathCreated}`);
+        console.log(`vfs_ensure_path returned: ${pathCreated}`);
         
         if (pathCreated !== true) {
-            throw new Error(`Expected true from vfs2_ensure_path, got: ${pathCreated}`);
+            throw new Error(`Expected true from vfs_ensure_path, got: ${pathCreated}`);
         }
 
         console.log('✅ Path creation test passed');
@@ -50,7 +50,7 @@ export async function ensurePathAndRenameTest(owner_id: number): Promise<void> {
         
         for (const expectedPath of expectedPaths) {
             const existsResult = await pgdb.query(`
-                SELECT vfs2_exists($1, $2, $3) as dir_exists
+                SELECT vfs_exists($1, $2, $3) as dir_exists
             `, expectedPath.parent_path, expectedPath.filename, testRootKey);
             
             const dirExists = existsResult.rows[0].dir_exists;
@@ -63,15 +63,15 @@ export async function ensurePathAndRenameTest(owner_id: number): Promise<void> {
 
         console.log('✅ All intermediate directories verification test passed');
 
-        // Test 3: Test renaming a directory using vfs2_rename
+        // Test 3: Test renaming a directory using vfs_rename
         const oldDirName = `level3-${randomSuffix}`;
         const newDirName = `level3-renamed-${randomSuffix}`;
         const oldDirParentPath = testParentPath + `/level1-${randomSuffix}/level2-${randomSuffix}`;
         
-        console.log(`Testing vfs2_rename for directory: ${oldDirParentPath}/${oldDirName} -> ${oldDirParentPath}/${newDirName}`);
+        console.log(`Testing vfs_rename for directory: ${oldDirParentPath}/${oldDirName} -> ${oldDirParentPath}/${newDirName}`);
         
         const renameResult = await pgdb.query(`
-            SELECT * FROM vfs2_rename($1, $2, $3, $4, $5, $6)
+            SELECT * FROM vfs_rename($1, $2, $3, $4, $5, $6)
         `, owner_id, oldDirParentPath, oldDirName, oldDirParentPath, newDirName, testRootKey);
         
         const renameSuccess = renameResult.rows[0].success;
@@ -89,11 +89,11 @@ export async function ensurePathAndRenameTest(owner_id: number): Promise<void> {
         console.log('Verifying rename effects...');
         
         const oldNameExists = await pgdb.query(`
-            SELECT vfs2_exists($1, $2, $3) as exists
+            SELECT vfs_exists($1, $2, $3) as exists
         `, oldDirParentPath, oldDirName, testRootKey);
         
         const newNameExists = await pgdb.query(`
-            SELECT vfs2_exists($1, $2, $3) as exists
+            SELECT vfs_exists($1, $2, $3) as exists
         `, oldDirParentPath, newDirName, testRootKey);
         
         console.log(`Old name exists: ${oldNameExists.rows[0].exists}`);
@@ -120,7 +120,7 @@ export async function ensurePathAndRenameTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path LIKE $2
             `, testRootKey, testParentPath + '%');
         } catch (cleanupError) {

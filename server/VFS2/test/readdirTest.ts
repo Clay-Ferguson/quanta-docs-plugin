@@ -11,7 +11,7 @@ export async function readdirTest(owner_id: number): Promise<void> {
         // Clean up any leftover test data from previous runs first
         console.log('Cleaning up any existing test data...');
         await pgdb.query(`
-            DELETE FROM vfs2_nodes 
+            DELETE FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2
         `, testRootKey, testParentPath);
         
@@ -42,7 +42,7 @@ export async function readdirTest(owner_id: number): Promise<void> {
             ];
             
             await pgdb.query(`
-                INSERT INTO vfs2_nodes (
+                INSERT INTO vfs_nodes (
                     owner_id, doc_root_key, parent_path, filename, ordinal,
                     is_directory, is_public, content_text, content_binary, is_binary, 
                     content_type, size_bytes
@@ -52,14 +52,14 @@ export async function readdirTest(owner_id: number): Promise<void> {
             console.log(`Created ${testFile.isDirectory ? 'directory' : 'file'}: ${testFile.filename} (ordinal: ${testFile.ordinal})`);
         }
 
-        // Now test the vfs2_readdir function
-        console.log('Testing vfs2_readdir function...');
+        // Now test the vfs_readdir function
+        console.log('Testing vfs_readdir function...');
         
         const readdirResult = await pgdb.query(`
-            SELECT * FROM vfs2_readdir($1, $2, $3, $4)
+            SELECT * FROM vfs_readdir($1, $2, $3, $4)
         `, owner_id, testParentPath, testRootKey, false);  // false = don't include content
         
-        console.log(`vfs2_readdir returned ${readdirResult.rows.length} items:`);
+        console.log(`vfs_readdir returned ${readdirResult.rows.length} items:`);
         
         // Verify the results are ordered by ordinal
         const expectedOrder = ['file-a.txt', 'file-b.txt', 'file-c.txt', 'dir-d'];
@@ -79,10 +79,10 @@ export async function readdirTest(owner_id: number): Promise<void> {
         }
 
         // Test with include_content = true
-        console.log('Testing vfs2_readdir with include_content=true...');
+        console.log('Testing vfs_readdir with include_content=true...');
         
         const readdirWithContentResult = await pgdb.query(`
-            SELECT * FROM vfs2_readdir($1, $2, $3, $4)
+            SELECT * FROM vfs_readdir($1, $2, $3, $4)
         `, owner_id, testParentPath, testRootKey, true);  // true = include content
         
         // Verify content is included for files but not directories
@@ -102,7 +102,7 @@ export async function readdirTest(owner_id: number): Promise<void> {
         // Clean up test data
         console.log('Cleaning up test data...');
         await pgdb.query(`
-            DELETE FROM vfs2_nodes 
+            DELETE FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2
         `, testRootKey, testParentPath);
 

@@ -12,7 +12,7 @@ export async function setPublicTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {
@@ -28,7 +28,7 @@ export async function setPublicTest(owner_id: number): Promise<void> {
         console.log('Creating test text file (initially private)...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -40,7 +40,7 @@ export async function setPublicTest(owner_id: number): Promise<void> {
 
         // Verify file is initially private
         const initialStatusResult = await pgdb.query(`
-            SELECT is_public FROM vfs2_nodes 
+            SELECT is_public FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, textFilename);
         
@@ -51,53 +51,53 @@ export async function setPublicTest(owner_id: number): Promise<void> {
         console.log('✅ File initially private as expected');
 
         // Test setting file to public
-        console.log('Testing vfs2_set_public to make file public...');
+        console.log('Testing vfs_set_public to make file public...');
         
         const setPublicResult = await pgdb.query(`
-            SELECT vfs2_set_public($1, $2, $3, $4, $5) as success
+            SELECT vfs_set_public($1, $2, $3, $4, $5) as success
         `, owner_id, testParentPath, textFilename, testRootKey, true);
         
         const setPublicSuccess = setPublicResult.rows[0].success;
-        console.log(`vfs2_set_public returned: ${setPublicSuccess}`);
+        console.log(`vfs_set_public returned: ${setPublicSuccess}`);
         
         if (setPublicSuccess !== true) {
-            throw new Error(`Expected vfs2_set_public to return true, got: ${setPublicSuccess}`);
+            throw new Error(`Expected vfs_set_public to return true, got: ${setPublicSuccess}`);
         }
 
         // Verify file is now public
         const publicStatusResult = await pgdb.query(`
-            SELECT is_public, modified_time FROM vfs2_nodes 
+            SELECT is_public, modified_time FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, textFilename);
         
         if (publicStatusResult.rows[0].is_public !== true) {
-            throw new Error(`Expected file to be public after vfs2_set_public, got: ${publicStatusResult.rows[0].is_public}`);
+            throw new Error(`Expected file to be public after vfs_set_public, got: ${publicStatusResult.rows[0].is_public}`);
         }
 
         console.log('✅ File successfully set to public');
 
         // Test setting file back to private
-        console.log('Testing vfs2_set_public to make file private again...');
+        console.log('Testing vfs_set_public to make file private again...');
         
         const setPrivateResult = await pgdb.query(`
-            SELECT vfs2_set_public($1, $2, $3, $4, $5) as success
+            SELECT vfs_set_public($1, $2, $3, $4, $5) as success
         `, owner_id, testParentPath, textFilename, testRootKey, false);
         
         const setPrivateSuccess = setPrivateResult.rows[0].success;
-        console.log(`vfs2_set_public(false) returned: ${setPrivateSuccess}`);
+        console.log(`vfs_set_public(false) returned: ${setPrivateSuccess}`);
         
         if (setPrivateSuccess !== true) {
-            throw new Error(`Expected vfs2_set_public(false) to return true, got: ${setPrivateSuccess}`);
+            throw new Error(`Expected vfs_set_public(false) to return true, got: ${setPrivateSuccess}`);
         }
 
         // Verify file is now private again
         const privateStatusResult = await pgdb.query(`
-            SELECT is_public FROM vfs2_nodes 
+            SELECT is_public FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, textFilename);
         
         if (privateStatusResult.rows[0].is_public !== false) {
-            throw new Error(`Expected file to be private after vfs2_set_public(false), got: ${privateStatusResult.rows[0].is_public}`);
+            throw new Error(`Expected file to be private after vfs_set_public(false), got: ${privateStatusResult.rows[0].is_public}`);
         }
 
         console.log('✅ File successfully set back to private');
@@ -109,7 +109,7 @@ export async function setPublicTest(owner_id: number): Promise<void> {
         console.log('Creating test directory (initially private)...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -120,26 +120,26 @@ export async function setPublicTest(owner_id: number): Promise<void> {
         console.log(`Created private directory: ${dirFilename}`);
 
         // Test setting directory to public
-        console.log('Testing vfs2_set_public to make directory public...');
+        console.log('Testing vfs_set_public to make directory public...');
         
         const setDirPublicResult = await pgdb.query(`
-            SELECT vfs2_set_public($1, $2, $3, $4, $5) as success
+            SELECT vfs_set_public($1, $2, $3, $4, $5) as success
         `, owner_id, testParentPath, dirFilename, testRootKey, true);
         
         const setDirPublicSuccess = setDirPublicResult.rows[0].success;
         
         if (setDirPublicSuccess !== true) {
-            throw new Error(`Expected vfs2_set_public for directory to return true, got: ${setDirPublicSuccess}`);
+            throw new Error(`Expected vfs_set_public for directory to return true, got: ${setDirPublicSuccess}`);
         }
 
         // Verify directory is now public
         const dirPublicStatusResult = await pgdb.query(`
-            SELECT is_public FROM vfs2_nodes 
+            SELECT is_public FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, dirFilename);
         
         if (dirPublicStatusResult.rows[0].is_public !== true) {
-            throw new Error(`Expected directory to be public after vfs2_set_public, got: ${dirPublicStatusResult.rows[0].is_public}`);
+            throw new Error(`Expected directory to be public after vfs_set_public, got: ${dirPublicStatusResult.rows[0].is_public}`);
         }
 
         console.log('✅ Directory successfully set to public');
@@ -148,18 +148,18 @@ export async function setPublicTest(owner_id: number): Promise<void> {
         console.log('Testing admin access (owner_id = 0)...');
         
         const adminSetResult = await pgdb.query(`
-            SELECT vfs2_set_public($1, $2, $3, $4, $5) as success
+            SELECT vfs_set_public($1, $2, $3, $4, $5) as success
         `, 0, testParentPath, textFilename, testRootKey, true); // owner_id = 0 (admin)
         
         const adminSetSuccess = adminSetResult.rows[0].success;
         
         if (adminSetSuccess !== true) {
-            throw new Error(`Expected admin vfs2_set_public to return true, got: ${adminSetSuccess}`);
+            throw new Error(`Expected admin vfs_set_public to return true, got: ${adminSetSuccess}`);
         }
 
         // Verify file was modified by admin
         const adminModifiedResult = await pgdb.query(`
-            SELECT is_public FROM vfs2_nodes 
+            SELECT is_public FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, textFilename);
         
@@ -176,7 +176,7 @@ export async function setPublicTest(owner_id: number): Promise<void> {
         
         try {
             await pgdb.query(`
-                SELECT vfs2_set_public($1, $2, $3, $4, $5) as success
+                SELECT vfs_set_public($1, $2, $3, $4, $5) as success
             `, wrongOwnerId, testParentPath, textFilename, testRootKey, false);
             
             throw new Error('Expected exception for wrong owner, but function succeeded');
@@ -189,11 +189,11 @@ export async function setPublicTest(owner_id: number): Promise<void> {
         }
 
         // Test 5: Test setting public status for non-existent file
-        console.log('Testing vfs2_set_public for non-existent file...');
+        console.log('Testing vfs_set_public for non-existent file...');
         
         try {
             await pgdb.query(`
-                SELECT vfs2_set_public($1, $2, $3, $4, $5) as success
+                SELECT vfs_set_public($1, $2, $3, $4, $5) as success
             `, owner_id, testParentPath, 'non-existent-file.txt', testRootKey, true);
             
             throw new Error('Expected exception for non-existent file, but function succeeded');
@@ -210,7 +210,7 @@ export async function setPublicTest(owner_id: number): Promise<void> {
         
         // Get current modified_time
         const beforeTimeResult = await pgdb.query(`
-            SELECT modified_time FROM vfs2_nodes 
+            SELECT modified_time FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, dirFilename);
         
@@ -221,12 +221,12 @@ export async function setPublicTest(owner_id: number): Promise<void> {
         
         // Change public status
         await pgdb.query(`
-            SELECT vfs2_set_public($1, $2, $3, $4, $5) as success
+            SELECT vfs_set_public($1, $2, $3, $4, $5) as success
         `, owner_id, testParentPath, dirFilename, testRootKey, false);
         
         // Get new modified_time
         const afterTimeResult = await pgdb.query(`
-            SELECT modified_time FROM vfs2_nodes 
+            SELECT modified_time FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, dirFilename);
         
@@ -242,7 +242,7 @@ export async function setPublicTest(owner_id: number): Promise<void> {
         console.log('Final status of all test files:');
         const finalStatusResult = await pgdb.query(`
             SELECT filename, is_directory, is_public, ordinal
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 
             ORDER BY ordinal ASC
         `, testRootKey, testParentPath);
@@ -262,7 +262,7 @@ export async function setPublicTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {

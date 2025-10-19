@@ -12,21 +12,21 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path LIKE $2
             `, testRootKey, testParentPath + '%');
         } catch (cleanupError) {
             console.log('Warning: Initial cleanup failed (this is usually not a problem):', cleanupError);
         }
         
-        // Test 1: Create a directory using vfs2_mkdir
+        // Test 1: Create a directory using vfs_mkdir
         const testDirName = 'test-directory';
         const testDirOrdinal = 1000;
 
-        console.log('Testing vfs2_mkdir function...');
+        console.log('Testing vfs_mkdir function...');
         
         const mkdirResult = await pgdb.query(`
-            SELECT vfs2_mkdir($1, $2, $3, $4, $5, $6, $7) as dir_id
+            SELECT vfs_mkdir($1, $2, $3, $4, $5, $6, $7) as dir_id
         `, owner_id, testParentPath, testDirName, testRootKey, testDirOrdinal, false, false);
         
         const dirId = mkdirResult.rows[0].dir_id;
@@ -37,7 +37,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         
         const verifyResult = await pgdb.query(`
             SELECT filename, ordinal, is_directory, owner_id, is_public, content_type, size_bytes
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, testDirName);
         
@@ -81,11 +81,11 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
 
         console.log('✅ Directory creation test passed');
 
-        // Test 2: Verify the directory exists using vfs2_exists
+        // Test 2: Verify the directory exists using vfs_exists
         console.log('Testing that created directory exists...');
         
         const existsResult = await pgdb.query(`
-            SELECT vfs2_exists($1, $2, $3) as dir_exists
+            SELECT vfs_exists($1, $2, $3) as dir_exists
         `, testParentPath, testDirName, testRootKey);
         
         const dirExists = existsResult.rows[0].dir_exists;
@@ -98,11 +98,11 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         console.log('✅ Directory exists verification test passed');
 
         // Test 3: Try to create the same directory again (should fail)
-        console.log('Testing vfs2_mkdir for duplicate directory (should fail)...');
+        console.log('Testing vfs_mkdir for duplicate directory (should fail)...');
         
         try {
             await pgdb.query(`
-                SELECT vfs2_mkdir($1, $2, $3, $4, $5, $6, $7) as dir_id
+                SELECT vfs_mkdir($1, $2, $3, $4, $5, $6, $7) as dir_id
             `, owner_id, testParentPath, testDirName, testRootKey, testDirOrdinal, false, false);
             
             throw new Error('Expected exception for duplicate directory, but function succeeded');
@@ -114,11 +114,11 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
             }
         }
 
-        // Test 4: Delete the directory using vfs2_rmdir
-        console.log('Testing vfs2_rmdir function for empty directory...');
+        // Test 4: Delete the directory using vfs_rmdir
+        console.log('Testing vfs_rmdir function for empty directory...');
         
         const rmdirResult = await pgdb.query(`
-            SELECT vfs2_rmdir($1, $2, $3, $4) as deleted_count
+            SELECT vfs_rmdir($1, $2, $3, $4) as deleted_count
         `, owner_id, testParentPath, testDirName, testRootKey);
         
         const deletedCount = rmdirResult.rows[0].deleted_count;
@@ -134,7 +134,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         console.log('Testing that deleted directory no longer exists...');
         
         const noLongerExistsResult = await pgdb.query(`
-            SELECT vfs2_exists($1, $2, $3) as dir_exists
+            SELECT vfs_exists($1, $2, $3) as dir_exists
         `, testParentPath, testDirName, testRootKey);
         
         const dirNoLongerExists = noLongerExistsResult.rows[0].dir_exists;
@@ -150,11 +150,11 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         const testDirName2 = 'test-directory-with-content';
         const testDirOrdinal2 = 2000;
 
-        console.log('Testing vfs2_mkdir and recursive deletion with content...');
+        console.log('Testing vfs_mkdir and recursive deletion with content...');
         
         // Create parent directory
         await pgdb.query(`
-            SELECT vfs2_mkdir($1, $2, $3, $4, $5, $6, $7) as dir_id
+            SELECT vfs_mkdir($1, $2, $3, $4, $5, $6, $7) as dir_id
         `, owner_id, testParentPath, testDirName2, testRootKey, testDirOrdinal2, false, false);
         
         console.log(`Created parent directory: ${testDirName2}`);
@@ -164,7 +164,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         
         // Create a file in the directory
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -176,7 +176,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
 
         // Create a subdirectory
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -189,7 +189,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         // Create a file in the subdirectory
         const subDirPath = dirPath + '/subdir';
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -202,7 +202,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         // Verify directory has content before deletion
         const beforeDeleteResult = await pgdb.query(`
             SELECT filename, parent_path 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND (parent_path = $2 OR parent_path LIKE $3)
             ORDER BY parent_path, filename
         `, testRootKey, dirPath, dirPath + '/%');
@@ -217,10 +217,10 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         }
 
         // Test recursive deletion
-        console.log('Testing vfs2_rmdir for directory with content (recursive deletion)...');
+        console.log('Testing vfs_rmdir for directory with content (recursive deletion)...');
         
         const rmdirRecursiveResult = await pgdb.query(`
-            SELECT vfs2_rmdir($1, $2, $3, $4) as deleted_count
+            SELECT vfs_rmdir($1, $2, $3, $4) as deleted_count
         `, owner_id, testParentPath, testDirName2, testRootKey);
         
         const recursiveDeletedCount = rmdirRecursiveResult.rows[0].deleted_count;
@@ -233,7 +233,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         // Verify all content was deleted
         const afterDeleteResult = await pgdb.query(`
             SELECT filename, parent_path 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND (parent_path = $2 OR parent_path LIKE $3)
         `, testRootKey, dirPath, dirPath + '/%');
         
@@ -246,11 +246,11 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         console.log('✅ Recursive directory deletion test passed');
 
         // Test 7: Try to delete non-existent directory (should fail)
-        console.log('Testing vfs2_rmdir for non-existent directory (should fail)...');
+        console.log('Testing vfs_rmdir for non-existent directory (should fail)...');
         
         try {
             await pgdb.query(`
-                SELECT vfs2_rmdir($1, $2, $3, $4) as deleted_count
+                SELECT vfs_rmdir($1, $2, $3, $4) as deleted_count
             `, owner_id, testParentPath, 'non-existent-directory', testRootKey);
             
             throw new Error('Expected exception for non-existent directory, but function succeeded');
@@ -266,10 +266,10 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         const publicDirName = 'public-test-directory';
         const publicDirOrdinal = 3000;
 
-        console.log('Testing vfs2_mkdir with public directory...');
+        console.log('Testing vfs_mkdir with public directory...');
         
         const publicMkdirResult = await pgdb.query(`
-            SELECT vfs2_mkdir($1, $2, $3, $4, $5, $6, $7) as dir_id
+            SELECT vfs_mkdir($1, $2, $3, $4, $5, $6, $7) as dir_id
         `, owner_id, testParentPath, publicDirName, testRootKey, publicDirOrdinal, false, true); // is_public = true
         
         const publicDirId = publicMkdirResult.rows[0].dir_id;
@@ -278,7 +278,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         // Verify public directory properties
         const publicDirVerifyResult = await pgdb.query(`
             SELECT is_public, is_directory
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, publicDirName);
         
@@ -295,10 +295,10 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         console.log('✅ Public directory creation test passed');
 
         // Delete the public directory
-        console.log('Testing vfs2_rmdir for public directory...');
+        console.log('Testing vfs_rmdir for public directory...');
         
         const publicRmdirResult = await pgdb.query(`
-            SELECT vfs2_rmdir($1, $2, $3, $4) as deleted_count
+            SELECT vfs_rmdir($1, $2, $3, $4) as deleted_count
         `, owner_id, testParentPath, publicDirName, testRootKey);
         
         const publicDeletedCount = publicRmdirResult.rows[0].deleted_count;
@@ -311,7 +311,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         console.log('✅ Public directory deletion test passed');
 
         // Test 9: Test ordinal ordering with multiple directories
-        console.log('Testing vfs2_mkdir with multiple directories for ordinal ordering...');
+        console.log('Testing vfs_mkdir with multiple directories for ordinal ordering...');
         
         const testDirs = [
             { name: 'dir-c', ordinal: 3000 },
@@ -322,7 +322,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         // Create all test directories
         for (const testDir of testDirs) {
             await pgdb.query(`
-                SELECT vfs2_mkdir($1, $2, $3, $4, $5, $6, $7) as dir_id
+                SELECT vfs_mkdir($1, $2, $3, $4, $5, $6, $7) as dir_id
             `, owner_id, testParentPath, testDir.name, testRootKey, testDir.ordinal, false, false);
             
             console.log(`Created directory: ${testDir.name} (ordinal: ${testDir.ordinal})`);
@@ -331,7 +331,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         // Verify ordering by reading directory
         const orderingResult = await pgdb.query(`
             SELECT filename, ordinal, is_directory
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND is_directory = true
             ORDER BY ordinal ASC, filename ASC
         `, testRootKey, testParentPath);
@@ -356,7 +356,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         
         for (const testDir of testDirs) {
             await pgdb.query(`
-                SELECT vfs2_rmdir($1, $2, $3, $4) as deleted_count
+                SELECT vfs_rmdir($1, $2, $3, $4) as deleted_count
             `, owner_id, testParentPath, testDir.name, testRootKey);
             
             console.log(`Deleted directory: ${testDir.name}`);
@@ -365,7 +365,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         // Final verification that all directories are gone
         const finalVerifyResult = await pgdb.query(`
             SELECT filename 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2
         `, testRootKey, testParentPath);
         
@@ -387,7 +387,7 @@ export async function mkdirRmdirTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path LIKE $2
             `, testRootKey, testParentPath + '%');
         } catch (cleanupError) {

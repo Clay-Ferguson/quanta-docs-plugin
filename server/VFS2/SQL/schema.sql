@@ -4,7 +4,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Enable trigram extension for better text search performance (if not already enabled)
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-CREATE TABLE IF NOT EXISTS vfs2_nodes (
+CREATE TABLE IF NOT EXISTS vfs_nodes (
     id SERIAL PRIMARY KEY,
     -- Use UUID for unique identification of each file/folder
     uuid UUID DEFAULT uuid_generate_v4() NOT NULL UNIQUE,
@@ -38,27 +38,27 @@ CREATE TABLE IF NOT EXISTS vfs2_nodes (
     -- that would require this value to exist in user_info table
 );
 
-CREATE INDEX IF NOT EXISTS idx_vfs2_nodes_parent ON vfs2_nodes(doc_root_key, parent_path);
+CREATE INDEX IF NOT EXISTS idx_vfs_nodes_parent ON vfs_nodes(doc_root_key, parent_path);
 
 -- Index for UUID for fast lookups by UUID
-CREATE INDEX IF NOT EXISTS idx_vfs2_nodes_uuid ON vfs2_nodes(uuid);
+CREATE INDEX IF NOT EXISTS idx_vfs_nodes_uuid ON vfs_nodes(uuid);
 
 -- Index for binary flag to optimize queries
-CREATE INDEX IF NOT EXISTS idx_vfs2_nodes_binary ON vfs2_nodes(is_binary);
+CREATE INDEX IF NOT EXISTS idx_vfs_nodes_binary ON vfs_nodes(is_binary);
 
 -- Index for owner_id foreign key to optimize joins with user_info table
-CREATE INDEX IF NOT EXISTS idx_vfs2_nodes_owner_id ON vfs2_nodes(owner_id);
+CREATE INDEX IF NOT EXISTS idx_vfs_nodes_owner_id ON vfs_nodes(owner_id);
 
 -- Index for ordinal column to optimize ordering queries within parent directories
-CREATE INDEX IF NOT EXISTS idx_vfs2_nodes_ordinal ON vfs2_nodes(doc_root_key, parent_path, ordinal);
+CREATE INDEX IF NOT EXISTS idx_vfs_nodes_ordinal ON vfs_nodes(doc_root_key, parent_path, ordinal);
 
 -- We don't need this, according to Claude AI, but it would be useful for older versions of Postgres or something maybe where 'pg_trgm' is not available.
 -- Fallback: Basic GIN index without trigrams (still faster than no index)
--- CREATE INDEX IF NOT EXISTS idx_vfs2_nodes_content_text_gin ON vfs2_nodes USING GIN (to_tsvector('english', content_text)) WHERE is_binary = FALSE;
+-- CREATE INDEX IF NOT EXISTS idx_vfs_nodes_content_text_gin ON vfs_nodes USING GIN (to_tsvector('english', content_text)) WHERE is_binary = FALSE;
 
 -- Full-text search index for content_text column (for VFS search functionality)
 -- GIN index with trigram extension for efficient ILIKE and text search operations
-CREATE INDEX IF NOT EXISTS idx_vfs2_nodes_content_text_gin ON vfs2_nodes USING GIN (content_text gin_trgm_ops) WHERE is_binary = FALSE;
+CREATE INDEX IF NOT EXISTS idx_vfs_nodes_content_text_gin ON vfs_nodes USING GIN (content_text gin_trgm_ops) WHERE is_binary = FALSE;
 
 -- Composite index for search queries (optimizes common search patterns)
-CREATE INDEX IF NOT EXISTS idx_vfs2_nodes_search ON vfs2_nodes(doc_root_key, parent_path, is_binary) WHERE is_binary = FALSE;
+CREATE INDEX IF NOT EXISTS idx_vfs_nodes_search ON vfs_nodes(doc_root_key, parent_path, is_binary) WHERE is_binary = FALSE;

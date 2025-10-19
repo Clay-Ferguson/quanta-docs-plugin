@@ -170,8 +170,8 @@ class DocsServerPlugin implements IServerPlugin {
         await runVfs2Tests();
 
         // need to wipe database table here.
-        console.log('Clearing vfs2_nodes table...');
-        await pgdb.query('DELETE FROM vfs2_nodes;');
+        console.log('Clearing vfs_nodes table...');
+        await pgdb.query('DELETE FROM vfs_nodes;');
         
         return Promise.resolve();
     }    

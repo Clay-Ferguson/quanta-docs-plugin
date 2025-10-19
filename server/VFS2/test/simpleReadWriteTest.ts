@@ -15,7 +15,7 @@ export async function simpleReadWriteTest(owner_id: number): Promise<void> {
         // Clean up any leftover test data from previous runs first
         console.log('Cleaning up any existing test data...');
         await pgdb.query(`
-            DELETE FROM vfs2_nodes 
+            DELETE FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2
         `, testRootKey, testParentPath);
 
@@ -42,7 +42,7 @@ export async function simpleReadWriteTest(owner_id: number): Promise<void> {
         console.log(`Executing INSERT with ${params.length} parameters:`, params);
         
         const result = await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -60,7 +60,7 @@ export async function simpleReadWriteTest(owner_id: number): Promise<void> {
         const readResult = await pgdb.query(`
             SELECT content_text, content_type, size_bytes, ordinal, is_binary, 
                    created_time, modified_time, is_directory
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, testFilename);
         
@@ -91,7 +91,7 @@ export async function simpleReadWriteTest(owner_id: number): Promise<void> {
         console.log('Testing directory listing ordered by ordinal...');
         const dirResult = await pgdb.query(`
             SELECT filename, ordinal, is_directory 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 
             ORDER BY ordinal ASC
         `, testRootKey, testParentPath);
@@ -104,7 +104,7 @@ export async function simpleReadWriteTest(owner_id: number): Promise<void> {
         // Clean up test data
         console.log('Cleaning up test data...');
         await pgdb.query(`
-            DELETE FROM vfs2_nodes 
+            DELETE FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, testFilename);
 

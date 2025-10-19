@@ -12,7 +12,7 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path LIKE $2
             `, testRootKey, testParentPath + '%');
         } catch (cleanupError) {
@@ -58,7 +58,7 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         // Insert test files with different content
         for (const testFile of testFiles) {
             await pgdb.query(`
-                INSERT INTO vfs2_nodes (
+                INSERT INTO vfs_nodes (
                     owner_id, doc_root_key, parent_path, filename, ordinal,
                     is_directory, is_public, content_text, content_binary, is_binary, 
                     content_type, size_bytes
@@ -72,7 +72,7 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         // Create a binary file to ensure it's excluded from text search
         const binaryContent = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]); // PNG header
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -83,10 +83,10 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         console.log('Created binary file: test-image.png (should be excluded from text search)');
 
         // Test 2: MATCH_ANY search mode - search for "JavaScript"
-        console.log('Testing vfs2_search_text with MATCH_ANY mode for "JavaScript"...');
+        console.log('Testing vfs_search_text with MATCH_ANY mode for "JavaScript"...');
         
         const javascriptSearchResult = await pgdb.query(`
-            SELECT * FROM vfs2_search_text($1, $2, $3, $4, $5, $6)
+            SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)
         `, owner_id, 'JavaScript', testParentPath, testRootKey, 'MATCH_ANY', 'MOD_TIME');
         
         console.log(`JavaScript search returned ${javascriptSearchResult.rows.length} results:`);
@@ -111,10 +111,10 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         console.log('✅ MATCH_ANY JavaScript search test passed');
 
         // Test 3: MATCH_ALL search mode - search for "programming language"
-        console.log('Testing vfs2_search_text with MATCH_ALL mode for "programming language"...');
+        console.log('Testing vfs_search_text with MATCH_ALL mode for "programming language"...');
         
         const programmingSearchResult = await pgdb.query(`
-            SELECT * FROM vfs2_search_text($1, $2, $3, $4, $5, $6)
+            SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)
         `, owner_id, 'programming language', testParentPath, testRootKey, 'MATCH_ALL', 'MOD_TIME');
         
         console.log(`Programming language search returned ${programmingSearchResult.rows.length} results:`);
@@ -139,10 +139,10 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         console.log('✅ MATCH_ALL programming language search test passed');
 
         // Test 4: REGEX search mode - search for files containing "SQL" or "CSS" 
-        console.log('Testing vfs2_search_text with REGEX mode for "(SQL|CSS)"...');
+        console.log('Testing vfs_search_text with REGEX mode for "(SQL|CSS)"...');
         
         const regexSearchResult = await pgdb.query(`
-            SELECT * FROM vfs2_search_text($1, $2, $3, $4, $5, $6)
+            SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)
         `, owner_id, '(SQL|CSS)', testParentPath, testRootKey, 'REGEX', 'MOD_TIME');
         
         console.log(`REGEX search returned ${regexSearchResult.rows.length} results:`);
@@ -167,10 +167,10 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         console.log('✅ REGEX search test passed');
 
         // Test 5: Empty query (should return all text files)
-        console.log('Testing vfs2_search_text with empty query (should return all text files)...');
+        console.log('Testing vfs_search_text with empty query (should return all text files)...');
         
         const emptySearchResult = await pgdb.query(`
-            SELECT * FROM vfs2_search_text($1, $2, $3, $4, $5, $6)
+            SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)
         `, owner_id, '', testParentPath, testRootKey, 'MATCH_ANY', 'MOD_TIME');
         
         console.log(`Empty query search returned ${emptySearchResult.rows.length} results:`);
@@ -200,10 +200,10 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         console.log('✅ Empty query search test passed');
 
         // Test 6: Search with no matches
-        console.log('Testing vfs2_search_text with query that has no matches...');
+        console.log('Testing vfs_search_text with query that has no matches...');
         
         const noMatchSearchResult = await pgdb.query(`
-            SELECT * FROM vfs2_search_text($1, $2, $3, $4, $5, $6)
+            SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)
         `, owner_id, 'nonexistentterm12345', testParentPath, testRootKey, 'MATCH_ANY', 'MOD_TIME');
         
         console.log(`No match search returned ${noMatchSearchResult.rows.length} results`);
@@ -215,10 +215,10 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         console.log('✅ No match search test passed');
 
         // Test 7: Test different ordering - by filename
-        console.log('Testing vfs2_search_text with filename ordering...');
+        console.log('Testing vfs_search_text with filename ordering...');
         
         const filenameOrderResult = await pgdb.query(`
-            SELECT * FROM vfs2_search_text($1, $2, $3, $4, $5, $6)
+            SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)
         `, owner_id, 'guide OR tutorial', testParentPath, testRootKey, 'MATCH_ANY', 'FILENAME');
         
         console.log(`Filename order search returned ${filenameOrderResult.rows.length} results:`);
@@ -243,7 +243,7 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         console.log('Testing admin access (owner_id = 0) for text search...');
         
         const adminSearchResult = await pgdb.query(`
-            SELECT * FROM vfs2_search_text($1, $2, $3, $4, $5, $6)
+            SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)
         `, 0, 'JavaScript', testParentPath, testRootKey, 'MATCH_ANY', 'MOD_TIME'); // owner_id = 0 (admin)
         
         console.log(`Admin search returned ${adminSearchResult.rows.length} results`);
@@ -262,7 +262,7 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         
         // Create a subdirectory
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -272,7 +272,7 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         
         // Create a file in the subdirectory
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -284,7 +284,7 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         
         // Search in parent directory (should include subdirectory files due to LIKE pattern)
         const parentSearchResult = await pgdb.query(`
-            SELECT * FROM vfs2_search_text($1, $2, $3, $4, $5, $6)
+            SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)
         `, owner_id, 'JavaScript', testParentPath, testRootKey, 'MATCH_ANY', 'MOD_TIME');
         
         console.log(`Parent directory search returned ${parentSearchResult.rows.length} results (should include subdirectory files):`);
@@ -310,7 +310,7 @@ export async function searchTextTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path LIKE $2
             `, testRootKey, testParentPath + '%');
         } catch (cleanupError) {

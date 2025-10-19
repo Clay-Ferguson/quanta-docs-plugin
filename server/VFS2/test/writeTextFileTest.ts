@@ -12,7 +12,7 @@ export async function writeTextFileTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {
@@ -21,14 +21,14 @@ export async function writeTextFileTest(owner_id: number): Promise<void> {
         
         // Test 1: Write a new text file
         const textFilename = 'new-file.md';
-        const textContent = 'This is a **new markdown** file created by vfs2_write_text_file.';
+        const textContent = 'This is a **new markdown** file created by vfs_write_text_file.';
         const textContentType = 'text/markdown';
         const textOrdinal = 1000;
 
-        console.log('Testing vfs2_write_text_file function for new file...');
+        console.log('Testing vfs_write_text_file function for new file...');
         
         const writeResult = await pgdb.query(`
-            SELECT vfs2_write_text_file($1, $2, $3, $4, $5, $6, $7, $8) as file_id
+            SELECT vfs_write_text_file($1, $2, $3, $4, $5, $6, $7, $8) as file_id
         `, owner_id, testParentPath, textFilename, textContent, testRootKey, textOrdinal, textContentType, false);
         
         const fileId = writeResult.rows[0].file_id;
@@ -38,7 +38,7 @@ export async function writeTextFileTest(owner_id: number): Promise<void> {
         const verifyResult = await pgdb.query(`
             SELECT content_text, content_type, size_bytes, ordinal, is_binary, 
                    is_directory, owner_id, is_public
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, textFilename);
         
@@ -91,10 +91,10 @@ export async function writeTextFileTest(owner_id: number): Promise<void> {
         const updatedContentType = 'text/plain';
         const updatedOrdinal = 2000;
 
-        console.log('Testing vfs2_write_text_file function for updating existing file...');
+        console.log('Testing vfs_write_text_file function for updating existing file...');
         
         const updateResult = await pgdb.query(`
-            SELECT vfs2_write_text_file($1, $2, $3, $4, $5, $6, $7, $8) as file_id
+            SELECT vfs_write_text_file($1, $2, $3, $4, $5, $6, $7, $8) as file_id
         `, owner_id, testParentPath, textFilename, updatedContent, testRootKey, updatedOrdinal, updatedContentType, true);
         
         const updatedFileId = updateResult.rows[0].file_id;
@@ -108,7 +108,7 @@ export async function writeTextFileTest(owner_id: number): Promise<void> {
         // Verify the file was updated correctly
         const verifyUpdateResult = await pgdb.query(`
             SELECT content_text, content_type, size_bytes, ordinal, is_public, modified_time
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, textFilename);
         
@@ -141,7 +141,7 @@ export async function writeTextFileTest(owner_id: number): Promise<void> {
         console.log('✅ File update test passed');
 
         // Test 3: Write files with different ordinals and verify ordering
-        console.log('Testing vfs2_write_text_file with multiple files for ordinal ordering...');
+        console.log('Testing vfs_write_text_file with multiple files for ordinal ordering...');
         
         const testFiles = [
             { filename: 'file-z.txt', ordinal: 3000, content: 'Content Z' },
@@ -152,7 +152,7 @@ export async function writeTextFileTest(owner_id: number): Promise<void> {
         // Write all test files
         for (const testFile of testFiles) {
             await pgdb.query(`
-                SELECT vfs2_write_text_file($1, $2, $3, $4, $5, $6, $7, $8) as file_id
+                SELECT vfs_write_text_file($1, $2, $3, $4, $5, $6, $7, $8) as file_id
             `, owner_id, testParentPath, testFile.filename, testFile.content, testRootKey, testFile.ordinal, 'text/plain', false);
             
             console.log(`Created file: ${testFile.filename} (ordinal: ${testFile.ordinal})`);
@@ -161,7 +161,7 @@ export async function writeTextFileTest(owner_id: number): Promise<void> {
         // Verify ordering by reading directory
         const dirResult = await pgdb.query(`
             SELECT filename, ordinal 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 
             ORDER BY ordinal ASC, filename ASC
         `, testRootKey, testParentPath);
@@ -191,7 +191,7 @@ export async function writeTextFileTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {

@@ -12,7 +12,7 @@ export async function existsTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {
@@ -20,10 +20,10 @@ export async function existsTest(owner_id: number): Promise<void> {
         }
         
         // Test 1: Check that non-existent file returns false
-        console.log('Testing vfs2_exists for non-existent file...');
+        console.log('Testing vfs_exists for non-existent file...');
         
         const nonExistentResult = await pgdb.query(`
-            SELECT vfs2_exists($1, $2, $3) as file_exists
+            SELECT vfs_exists($1, $2, $3) as file_exists
         `, testParentPath, 'non-existent-file.txt', testRootKey);
         
         const nonExistentExists = nonExistentResult.rows[0].file_exists;
@@ -43,7 +43,7 @@ export async function existsTest(owner_id: number): Promise<void> {
         console.log('Creating test text file...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -54,10 +54,10 @@ export async function existsTest(owner_id: number): Promise<void> {
         console.log(`Created text file: ${textFilename}`);
 
         // Test that the file exists
-        console.log('Testing vfs2_exists for existing text file...');
+        console.log('Testing vfs_exists for existing text file...');
         
         const textFileResult = await pgdb.query(`
-            SELECT vfs2_exists($1, $2, $3) as file_exists
+            SELECT vfs_exists($1, $2, $3) as file_exists
         `, testParentPath, textFilename, testRootKey);
         
         const textFileExists = textFileResult.rows[0].file_exists;
@@ -76,7 +76,7 @@ export async function existsTest(owner_id: number): Promise<void> {
         console.log('Creating test directory...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -87,10 +87,10 @@ export async function existsTest(owner_id: number): Promise<void> {
         console.log(`Created directory: ${dirFilename}`);
 
         // Test that the directory exists
-        console.log('Testing vfs2_exists for existing directory...');
+        console.log('Testing vfs_exists for existing directory...');
         
         const dirResult = await pgdb.query(`
-            SELECT vfs2_exists($1, $2, $3) as file_exists
+            SELECT vfs_exists($1, $2, $3) as file_exists
         `, testParentPath, dirFilename, testRootKey);
         
         const dirExists = dirResult.rows[0].file_exists;
@@ -110,7 +110,7 @@ export async function existsTest(owner_id: number): Promise<void> {
         console.log('Creating test binary file...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -121,10 +121,10 @@ export async function existsTest(owner_id: number): Promise<void> {
         console.log(`Created binary file: ${binaryFilename}`);
 
         // Test that the binary file exists
-        console.log('Testing vfs2_exists for existing binary file...');
+        console.log('Testing vfs_exists for existing binary file...');
         
         const binaryFileResult = await pgdb.query(`
-            SELECT vfs2_exists($1, $2, $3) as file_exists
+            SELECT vfs_exists($1, $2, $3) as file_exists
         `, testParentPath, binaryFilename, testRootKey);
         
         const binaryFileExists = binaryFileResult.rows[0].file_exists;
@@ -137,10 +137,10 @@ export async function existsTest(owner_id: number): Promise<void> {
         console.log('✅ Existing binary file test passed');
 
         // Test 5: Test with different root keys (should return false)
-        console.log('Testing vfs2_exists with different root key...');
+        console.log('Testing vfs_exists with different root key...');
         
         const differentRootResult = await pgdb.query(`
-            SELECT vfs2_exists($1, $2, $3) as file_exists
+            SELECT vfs_exists($1, $2, $3) as file_exists
         `, testParentPath, textFilename, 'different-root-key');
         
         const differentRootExists = differentRootResult.rows[0].file_exists;
@@ -153,10 +153,10 @@ export async function existsTest(owner_id: number): Promise<void> {
         console.log('✅ Different root key test passed');
 
         // Test 6: Test with different parent paths (should return false)
-        console.log('Testing vfs2_exists with different parent path...');
+        console.log('Testing vfs_exists with different parent path...');
         
         const differentPathResult = await pgdb.query(`
-            SELECT vfs2_exists($1, $2, $3) as file_exists
+            SELECT vfs_exists($1, $2, $3) as file_exists
         `, '/different-parent-path', textFilename, testRootKey);
         
         const differentPathExists = differentPathResult.rows[0].file_exists;
@@ -169,17 +169,17 @@ export async function existsTest(owner_id: number): Promise<void> {
         console.log('✅ Different parent path test passed');
 
         // Test 7: Delete a file and verify it no longer exists
-        console.log('Testing vfs2_exists after deleting file...');
+        console.log('Testing vfs_exists after deleting file...');
         
         await pgdb.query(`
-            DELETE FROM vfs2_nodes 
+            DELETE FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, textFilename);
         
         console.log(`Deleted text file: ${textFilename}`);
         
         const deletedFileResult = await pgdb.query(`
-            SELECT vfs2_exists($1, $2, $3) as file_exists
+            SELECT vfs_exists($1, $2, $3) as file_exists
         `, testParentPath, textFilename, testRootKey);
         
         const deletedFileExists = deletedFileResult.rows[0].file_exists;
@@ -195,7 +195,7 @@ export async function existsTest(owner_id: number): Promise<void> {
         console.log('Verifying remaining files in test directory...');
         const remainingResult = await pgdb.query(`
             SELECT filename, is_directory, ordinal 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 
             ORDER BY ordinal ASC
         `, testRootKey, testParentPath);
@@ -216,7 +216,7 @@ export async function existsTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {

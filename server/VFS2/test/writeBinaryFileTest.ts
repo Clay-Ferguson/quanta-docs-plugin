@@ -12,7 +12,7 @@ export async function writeBinaryFileTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {
@@ -25,10 +25,10 @@ export async function writeBinaryFileTest(owner_id: number): Promise<void> {
         const binaryContentType = 'image/png';
         const binaryOrdinal = 1000;
 
-        console.log('Testing vfs2_write_binary_file function for new file...');
+        console.log('Testing vfs_write_binary_file function for new file...');
         
         const writeResult = await pgdb.query(`
-            SELECT vfs2_write_binary_file($1, $2, $3, $4, $5, $6, $7, $8) as file_id
+            SELECT vfs_write_binary_file($1, $2, $3, $4, $5, $6, $7, $8) as file_id
         `, owner_id, testParentPath, binaryFilename, binaryContent, testRootKey, binaryOrdinal, binaryContentType, false);
         
         const fileId = writeResult.rows[0].file_id;
@@ -38,7 +38,7 @@ export async function writeBinaryFileTest(owner_id: number): Promise<void> {
         const verifyResult = await pgdb.query(`
             SELECT content_binary, content_type, size_bytes, ordinal, is_binary, 
                    is_directory, owner_id, is_public, content_text
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, binaryFilename);
         
@@ -95,10 +95,10 @@ export async function writeBinaryFileTest(owner_id: number): Promise<void> {
         const updatedContentType = 'image/jpeg';
         const updatedOrdinal = 2000;
 
-        console.log('Testing vfs2_write_binary_file function for updating existing file...');
+        console.log('Testing vfs_write_binary_file function for updating existing file...');
         
         const updateResult = await pgdb.query(`
-            SELECT vfs2_write_binary_file($1, $2, $3, $4, $5, $6, $7, $8) as file_id
+            SELECT vfs_write_binary_file($1, $2, $3, $4, $5, $6, $7, $8) as file_id
         `, owner_id, testParentPath, binaryFilename, updatedContent, testRootKey, updatedOrdinal, updatedContentType, true);
         
         const updatedFileId = updateResult.rows[0].file_id;
@@ -112,7 +112,7 @@ export async function writeBinaryFileTest(owner_id: number): Promise<void> {
         // Verify the file was updated correctly
         const verifyUpdateResult = await pgdb.query(`
             SELECT content_binary, content_type, size_bytes, ordinal, is_public, modified_time
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, binaryFilename);
         
@@ -145,7 +145,7 @@ export async function writeBinaryFileTest(owner_id: number): Promise<void> {
         console.log('✅ Binary file update test passed');
 
         // Test 3: Write binary files with different ordinals and verify ordering
-        console.log('Testing vfs2_write_binary_file with multiple files for ordinal ordering...');
+        console.log('Testing vfs_write_binary_file with multiple files for ordinal ordering...');
         
         const testFiles = [
             { filename: 'image-z.gif', ordinal: 4000, content: Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]) }, // GIF89a header
@@ -156,7 +156,7 @@ export async function writeBinaryFileTest(owner_id: number): Promise<void> {
         // Write all test files
         for (const testFile of testFiles) {
             await pgdb.query(`
-                SELECT vfs2_write_binary_file($1, $2, $3, $4, $5, $6, $7, $8) as file_id
+                SELECT vfs_write_binary_file($1, $2, $3, $4, $5, $6, $7, $8) as file_id
             `, owner_id, testParentPath, testFile.filename, testFile.content, testRootKey, testFile.ordinal, 'application/octet-stream', false);
             
             console.log(`Created binary file: ${testFile.filename} (ordinal: ${testFile.ordinal})`);
@@ -165,7 +165,7 @@ export async function writeBinaryFileTest(owner_id: number): Promise<void> {
         // Verify ordering by reading directory
         const dirResult = await pgdb.query(`
             SELECT filename, ordinal, is_binary, size_bytes
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 
             ORDER BY ordinal ASC, filename ASC
         `, testRootKey, testParentPath);
@@ -183,11 +183,11 @@ export async function writeBinaryFileTest(owner_id: number): Promise<void> {
             throw new Error(`Ordering incorrect! Expected: ${expectedOrder.join(', ')}, Got: ${actualOrder.join(', ')}`);
         }
 
-        // Test 4: Verify binary files can be read correctly with vfs2_read_file
-        console.log('Testing that binary files can be read back correctly with vfs2_read_file...');
+        // Test 4: Verify binary files can be read correctly with vfs_read_file
+        console.log('Testing that binary files can be read back correctly with vfs_read_file...');
         
         const readResult = await pgdb.query(`
-            SELECT vfs2_read_file($1, $2, $3, $4) as file_content
+            SELECT vfs_read_file($1, $2, $3, $4) as file_content
         `, owner_id, testParentPath, binaryFilename, testRootKey);
         
         const retrievedBinaryContent = readResult.rows[0].file_content;
@@ -209,7 +209,7 @@ export async function writeBinaryFileTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {

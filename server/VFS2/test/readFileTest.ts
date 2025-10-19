@@ -12,7 +12,7 @@ export async function readFileTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {
@@ -28,7 +28,7 @@ export async function readFileTest(owner_id: number): Promise<void> {
         console.log('Creating test text file...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -38,11 +38,11 @@ export async function readFileTest(owner_id: number): Promise<void> {
         
         console.log(`Created text file: ${textFilename} with content length: ${textContent.length}`);
 
-        // Test reading the text file using vfs2_read_file function
-        console.log('Testing vfs2_read_file function for text file...');
+        // Test reading the text file using vfs_read_file function
+        console.log('Testing vfs_read_file function for text file...');
         
         const textFileResult = await pgdb.query(`
-            SELECT vfs2_read_file($1, $2, $3, $4) as file_content
+            SELECT vfs_read_file($1, $2, $3, $4) as file_content
         `, owner_id, testParentPath, textFilename, testRootKey);
         
         const retrievedTextBytes = textFileResult.rows[0].file_content;
@@ -66,7 +66,7 @@ export async function readFileTest(owner_id: number): Promise<void> {
         console.log('Creating test binary file...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -76,11 +76,11 @@ export async function readFileTest(owner_id: number): Promise<void> {
         
         console.log(`Created binary file: ${binaryFilename} with content length: ${binaryContent.length} bytes`);
 
-        // Test reading the binary file using vfs2_read_file function
-        console.log('Testing vfs2_read_file function for binary file...');
+        // Test reading the binary file using vfs_read_file function
+        console.log('Testing vfs_read_file function for binary file...');
         
         const binaryFileResult = await pgdb.query(`
-            SELECT vfs2_read_file($1, $2, $3, $4) as file_content
+            SELECT vfs_read_file($1, $2, $3, $4) as file_content
         `, owner_id, testParentPath, binaryFilename, testRootKey);
         
         const retrievedBinaryContent = binaryFileResult.rows[0].file_content;
@@ -95,11 +95,11 @@ export async function readFileTest(owner_id: number): Promise<void> {
         console.log('✅ Binary file read test passed');
 
         // Test 3: Test reading non-existent file (should throw exception)
-        console.log('Testing vfs2_read_file function for non-existent file...');
+        console.log('Testing vfs_read_file function for non-existent file...');
         
         try {
             await pgdb.query(`
-                SELECT vfs2_read_file($1, $2, $3, $4) as file_content
+                SELECT vfs_read_file($1, $2, $3, $4) as file_content
             `, owner_id, testParentPath, 'non-existent-file.txt', testRootKey);
             
             throw new Error('Expected exception for non-existent file, but function succeeded');
@@ -115,7 +115,7 @@ export async function readFileTest(owner_id: number): Promise<void> {
         console.log('Testing admin access (owner_id = 0)...');
         
         const adminFileResult = await pgdb.query(`
-            SELECT vfs2_read_file($1, $2, $3, $4) as file_content
+            SELECT vfs_read_file($1, $2, $3, $4) as file_content
         `, 0, testParentPath, textFilename, testRootKey); // owner_id = 0 (admin)
         
         const retrievedContentAsAdmin = adminFileResult.rows[0].file_content.toString('utf8');
@@ -139,7 +139,7 @@ export async function readFileTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {

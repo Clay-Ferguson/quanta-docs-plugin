@@ -12,14 +12,14 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {
             console.log('Warning: Initial cleanup failed (this is usually not a problem):', cleanupError);
         }
         
-        // Test 1: Create text and binary files, then delete them with vfs2_unlink
+        // Test 1: Create text and binary files, then delete them with vfs_unlink
         const textFilename = 'test-text-file.md';
         const textContent = 'This is a **test markdown** file that will be deleted.';
         const textContentType = 'text/markdown';
@@ -34,7 +34,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         
         // Create text file
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -46,7 +46,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         
         // Create binary file
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -61,7 +61,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         
         const beforeResult = await pgdb.query(`
             SELECT filename, is_directory 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 
             ORDER BY ordinal ASC
         `, testRootKey, testParentPath);
@@ -75,11 +75,11 @@ export async function unlinkTest(owner_id: number): Promise<void> {
             throw new Error(`Expected 2 files before deletion, got: ${beforeResult.rows.length}`);
         }
 
-        // Test vfs2_unlink for text file
-        console.log('Testing vfs2_unlink for text file...');
+        // Test vfs_unlink for text file
+        console.log('Testing vfs_unlink for text file...');
         
         const unlinkTextResult = await pgdb.query(`
-            SELECT vfs2_unlink($1, $2, $3, $4) as success
+            SELECT vfs_unlink($1, $2, $3, $4) as success
         `, owner_id, testParentPath, textFilename, testRootKey);
         
         const textUnlinkSuccess = unlinkTextResult.rows[0].success;
@@ -94,7 +94,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         
         const afterTextDeleteResult = await pgdb.query(`
             SELECT filename 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, textFilename);
         
@@ -104,11 +104,11 @@ export async function unlinkTest(owner_id: number): Promise<void> {
 
         console.log('✅ Text file unlink test passed');
 
-        // Test vfs2_unlink for binary file
-        console.log('Testing vfs2_unlink for binary file...');
+        // Test vfs_unlink for binary file
+        console.log('Testing vfs_unlink for binary file...');
         
         const unlinkBinaryResult = await pgdb.query(`
-            SELECT vfs2_unlink($1, $2, $3, $4) as success
+            SELECT vfs_unlink($1, $2, $3, $4) as success
         `, owner_id, testParentPath, binaryFilename, testRootKey);
         
         const binaryUnlinkSuccess = unlinkBinaryResult.rows[0].success;
@@ -123,7 +123,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         
         const afterBinaryDeleteResult = await pgdb.query(`
             SELECT filename 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, binaryFilename);
         
@@ -138,7 +138,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         
         const afterAllDeletesResult = await pgdb.query(`
             SELECT filename 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2
         `, testRootKey, testParentPath);
         
@@ -151,11 +151,11 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         console.log('✅ Directory cleanup verification test passed');
 
         // Test 2: Try to delete non-existent file (should throw exception)
-        console.log('Testing vfs2_unlink for non-existent file (should throw exception)...');
+        console.log('Testing vfs_unlink for non-existent file (should throw exception)...');
         
         try {
             await pgdb.query(`
-                SELECT vfs2_unlink($1, $2, $3, $4) as success
+                SELECT vfs_unlink($1, $2, $3, $4) as success
             `, owner_id, testParentPath, 'non-existent-file.txt', testRootKey);
             
             throw new Error('Expected exception for non-existent file, but function succeeded');
@@ -171,11 +171,11 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         const dirFilename = 'test-directory';
         const dirOrdinal = 3000;
 
-        console.log('Testing that vfs2_unlink cannot delete directories...');
+        console.log('Testing that vfs_unlink cannot delete directories...');
         
         // Create directory
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -188,7 +188,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         // Try to unlink the directory (should fail because is_directory = TRUE)
         try {
             await pgdb.query(`
-                SELECT vfs2_unlink($1, $2, $3, $4) as success
+                SELECT vfs_unlink($1, $2, $3, $4) as success
             `, owner_id, testParentPath, dirFilename, testRootKey);
             
             throw new Error('Expected exception when trying to unlink directory, but function succeeded');
@@ -203,7 +203,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         // Verify directory still exists after failed unlink attempt
         const dirStillExistsResult = await pgdb.query(`
             SELECT filename, is_directory 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, dirFilename);
         
@@ -222,7 +222,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         
         // Create file owned by the regular user
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -234,7 +234,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
 
         // Delete it as admin (owner_id = 0)
         const adminUnlinkResult = await pgdb.query(`
-            SELECT vfs2_unlink($1, $2, $3, $4) as success
+            SELECT vfs_unlink($1, $2, $3, $4) as success
         `, 0, testParentPath, adminTestFilename, testRootKey); // owner_id = 0 (admin)
         
         const adminUnlinkSuccess = adminUnlinkResult.rows[0].success;
@@ -247,7 +247,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         // Verify file was deleted by admin
         const afterAdminDeleteResult = await pgdb.query(`
             SELECT filename 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, adminTestFilename);
         
@@ -267,7 +267,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         
         // Create file owned by the regular user
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -280,7 +280,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         // Try to delete it as a different user (should fail)
         try {
             await pgdb.query(`
-                SELECT vfs2_unlink($1, $2, $3, $4) as success
+                SELECT vfs_unlink($1, $2, $3, $4) as success
             `, nonOwnerUserId, testParentPath, ownerTestFilename, testRootKey);
             
             throw new Error('Expected exception when non-owner tries to delete file, but function succeeded');
@@ -295,7 +295,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         // Verify file still exists after failed non-owner delete attempt
         const fileStillExistsResult = await pgdb.query(`
             SELECT filename, owner_id 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, ownerTestFilename);
         
@@ -309,7 +309,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         console.log('Testing that actual owner can delete their own file...');
         
         const ownerUnlinkResult = await pgdb.query(`
-            SELECT vfs2_unlink($1, $2, $3, $4) as success
+            SELECT vfs_unlink($1, $2, $3, $4) as success
         `, owner_id, testParentPath, ownerTestFilename, testRootKey); // actual owner
         
         const ownerUnlinkSuccess = ownerUnlinkResult.rows[0].success;
@@ -322,7 +322,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         // Verify file was deleted by owner
         const afterOwnerDeleteResult = await pgdb.query(`
             SELECT filename 
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3
         `, testRootKey, testParentPath, ownerTestFilename);
         
@@ -343,7 +343,7 @@ export async function unlinkTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {

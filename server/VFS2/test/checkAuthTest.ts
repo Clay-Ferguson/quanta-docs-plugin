@@ -12,7 +12,7 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {
@@ -20,10 +20,10 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         }
         
         // Test 1: Check auth for non-existent file (should return false)
-        console.log('Testing vfs2_check_auth for non-existent file...');
+        console.log('Testing vfs_check_auth for non-existent file...');
         
         const nonExistentResult = await pgdb.query(`
-            SELECT vfs2_check_auth($1, $2, $3, $4, $5) as is_authorized
+            SELECT vfs_check_auth($1, $2, $3, $4, $5) as is_authorized
         `, owner_id, testParentPath, 'non-existent-file.txt', testRootKey, null);
         
         const nonExistentAuth = nonExistentResult.rows[0].is_authorized;
@@ -43,7 +43,7 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         console.log('Creating test file owned by current user...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -54,10 +54,10 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         console.log(`Created file: ${textFilename} owned by user: ${owner_id}`);
 
         // Test owner access
-        console.log('Testing vfs2_check_auth for file owner...');
+        console.log('Testing vfs_check_auth for file owner...');
         
         const ownerAuthResult = await pgdb.query(`
-            SELECT vfs2_check_auth($1, $2, $3, $4, $5) as is_authorized
+            SELECT vfs_check_auth($1, $2, $3, $4, $5) as is_authorized
         `, owner_id, testParentPath, textFilename, testRootKey, false);
         
         const ownerAuth = ownerAuthResult.rows[0].is_authorized;
@@ -71,10 +71,10 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
 
         // Test 3: Test non-owner access (should return false)
         const nonOwnerId = owner_id + 1000; // Use a different user ID
-        console.log(`Testing vfs2_check_auth for non-owner (user ${nonOwnerId})...`);
+        console.log(`Testing vfs_check_auth for non-owner (user ${nonOwnerId})...`);
         
         const nonOwnerAuthResult = await pgdb.query(`
-            SELECT vfs2_check_auth($1, $2, $3, $4, $5) as is_authorized
+            SELECT vfs_check_auth($1, $2, $3, $4, $5) as is_authorized
         `, nonOwnerId, testParentPath, textFilename, testRootKey, false);
         
         const nonOwnerAuth = nonOwnerAuthResult.rows[0].is_authorized;
@@ -87,10 +87,10 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         console.log('✅ Non-owner auth test passed');
 
         // Test 4: Test admin access (owner_id = 0 should always have access)
-        console.log('Testing vfs2_check_auth for admin user (owner_id = 0)...');
+        console.log('Testing vfs_check_auth for admin user (owner_id = 0)...');
         
         const adminAuthResult = await pgdb.query(`
-            SELECT vfs2_check_auth($1, $2, $3, $4, $5) as is_authorized
+            SELECT vfs_check_auth($1, $2, $3, $4, $5) as is_authorized
         `, 0, testParentPath, textFilename, testRootKey, false);
         
         const adminAuth = adminAuthResult.rows[0].is_authorized;
@@ -109,7 +109,7 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         console.log('Creating test directory owned by current user...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -120,10 +120,10 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         console.log(`Created directory: ${dirFilename} owned by user: ${owner_id}`);
 
         // Test directory owner access with is_directory_param = true
-        console.log('Testing vfs2_check_auth for directory owner with is_directory_param = true...');
+        console.log('Testing vfs_check_auth for directory owner with is_directory_param = true...');
         
         const dirOwnerAuthResult = await pgdb.query(`
-            SELECT vfs2_check_auth($1, $2, $3, $4, $5) as is_authorized
+            SELECT vfs_check_auth($1, $2, $3, $4, $5) as is_authorized
         `, owner_id, testParentPath, dirFilename, testRootKey, true);
         
         const dirOwnerAuth = dirOwnerAuthResult.rows[0].is_authorized;
@@ -136,10 +136,10 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         console.log('✅ Directory owner auth test passed');
 
         // Test directory access with wrong is_directory_param (should return false)
-        console.log('Testing vfs2_check_auth for directory with is_directory_param = false...');
+        console.log('Testing vfs_check_auth for directory with is_directory_param = false...');
         
         const dirWrongTypeResult = await pgdb.query(`
-            SELECT vfs2_check_auth($1, $2, $3, $4, $5) as is_authorized
+            SELECT vfs_check_auth($1, $2, $3, $4, $5) as is_authorized
         `, owner_id, testParentPath, dirFilename, testRootKey, false);
         
         const dirWrongTypeAuth = dirWrongTypeResult.rows[0].is_authorized;
@@ -152,10 +152,10 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         console.log('✅ Directory wrong type auth test passed');
 
         // Test 6: Test file access with wrong is_directory_param (should return false)
-        console.log('Testing vfs2_check_auth for file with is_directory_param = true...');
+        console.log('Testing vfs_check_auth for file with is_directory_param = true...');
         
         const fileWrongTypeResult = await pgdb.query(`
-            SELECT vfs2_check_auth($1, $2, $3, $4, $5) as is_authorized
+            SELECT vfs_check_auth($1, $2, $3, $4, $5) as is_authorized
         `, owner_id, testParentPath, textFilename, testRootKey, true);
         
         const fileWrongTypeAuth = fileWrongTypeResult.rows[0].is_authorized;
@@ -168,10 +168,10 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         console.log('✅ File wrong type auth test passed');
 
         // Test 7: Test auth with is_directory_param = null (should work for both files and directories)
-        console.log('Testing vfs2_check_auth with is_directory_param = null...');
+        console.log('Testing vfs_check_auth with is_directory_param = null...');
         
         const nullTypeFileResult = await pgdb.query(`
-            SELECT vfs2_check_auth($1, $2, $3, $4, $5) as is_authorized
+            SELECT vfs_check_auth($1, $2, $3, $4, $5) as is_authorized
         `, owner_id, testParentPath, textFilename, testRootKey, null);
         
         const nullTypeFileAuth = nullTypeFileResult.rows[0].is_authorized;
@@ -182,7 +182,7 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         }
         
         const nullTypeDirResult = await pgdb.query(`
-            SELECT vfs2_check_auth($1, $2, $3, $4, $5) as is_authorized
+            SELECT vfs_check_auth($1, $2, $3, $4, $5) as is_authorized
         `, owner_id, testParentPath, dirFilename, testRootKey, null);
         
         const nullTypeDirAuth = nullTypeDirResult.rows[0].is_authorized;
@@ -195,10 +195,10 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         console.log('✅ Null is_directory_param auth test passed');
 
         // Test 8: Test auth with different root key (should return false)
-        console.log('Testing vfs2_check_auth with different root key...');
+        console.log('Testing vfs_check_auth with different root key...');
         
         const differentRootResult = await pgdb.query(`
-            SELECT vfs2_check_auth($1, $2, $3, $4, $5) as is_authorized
+            SELECT vfs_check_auth($1, $2, $3, $4, $5) as is_authorized
         `, owner_id, testParentPath, textFilename, 'different-root-key', false);
         
         const differentRootAuth = differentRootResult.rows[0].is_authorized;
@@ -214,7 +214,7 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         console.log('Verifying all created items in test directory...');
         const allItemsResult = await pgdb.query(`
             SELECT filename, is_directory, owner_id, ordinal
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 
             ORDER BY ordinal ASC
         `, testRootKey, testParentPath);
@@ -235,7 +235,7 @@ export async function checkAuthTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {

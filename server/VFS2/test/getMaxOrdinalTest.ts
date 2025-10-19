@@ -12,7 +12,7 @@ export async function getMaxOrdinalTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {
@@ -23,7 +23,7 @@ export async function getMaxOrdinalTest(owner_id: number): Promise<void> {
         console.log('Testing empty directory (should return 0)...');
         
         const emptyResult = await pgdb.query(`
-            SELECT vfs2_get_max_ordinal($1, $2) as max_ordinal
+            SELECT vfs_get_max_ordinal($1, $2) as max_ordinal
         `, testParentPath, testRootKey);
         
         const emptyMaxOrdinal = emptyResult.rows[0].max_ordinal;
@@ -63,7 +63,7 @@ export async function getMaxOrdinalTest(owner_id: number): Promise<void> {
             ];
             
             await pgdb.query(`
-                INSERT INTO vfs2_nodes (
+                INSERT INTO vfs_nodes (
                     owner_id, doc_root_key, parent_path, filename, ordinal,
                     is_directory, is_public, content_text, content_binary, is_binary, 
                     content_type, size_bytes
@@ -73,11 +73,11 @@ export async function getMaxOrdinalTest(owner_id: number): Promise<void> {
             console.log(`Created ${testFile.isDirectory ? 'directory' : 'file'}: ${testFile.filename} (ordinal: ${testFile.ordinal})`);
         }
 
-        // Test the vfs2_get_max_ordinal function
-        console.log('Testing vfs2_get_max_ordinal function...');
+        // Test the vfs_get_max_ordinal function
+        console.log('Testing vfs_get_max_ordinal function...');
         
         const maxOrdinalResult = await pgdb.query(`
-            SELECT vfs2_get_max_ordinal($1, $2) as max_ordinal
+            SELECT vfs_get_max_ordinal($1, $2) as max_ordinal
         `, testParentPath, testRootKey);
         
         const actualMaxOrdinal = maxOrdinalResult.rows[0].max_ordinal;
@@ -94,7 +94,7 @@ export async function getMaxOrdinalTest(owner_id: number): Promise<void> {
         console.log('Adding file with higher ordinal (2000) to test function updates...');
         
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -104,7 +104,7 @@ export async function getMaxOrdinalTest(owner_id: number): Promise<void> {
         
         // Test max ordinal again
         const updatedMaxOrdinalResult = await pgdb.query(`
-            SELECT vfs2_get_max_ordinal($1, $2) as max_ordinal
+            SELECT vfs_get_max_ordinal($1, $2) as max_ordinal
         `, testParentPath, testRootKey);
         
         const updatedMaxOrdinal = updatedMaxOrdinalResult.rows[0].max_ordinal;
@@ -125,7 +125,7 @@ export async function getMaxOrdinalTest(owner_id: number): Promise<void> {
         
         // Create a subdirectory first
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -135,7 +135,7 @@ export async function getMaxOrdinalTest(owner_id: number): Promise<void> {
         
         // Create a file in the subdirectory with a very high ordinal
         await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -147,7 +147,7 @@ export async function getMaxOrdinalTest(owner_id: number): Promise<void> {
         
         // Test max ordinal for parent directory (should still be 2000, not affected by subdirectory content)
         const finalMaxOrdinalResult = await pgdb.query(`
-            SELECT vfs2_get_max_ordinal($1, $2) as max_ordinal
+            SELECT vfs_get_max_ordinal($1, $2) as max_ordinal
         `, testParentPath, testRootKey);
         
         const finalMaxOrdinal = finalMaxOrdinalResult.rows[0].max_ordinal;
@@ -173,13 +173,13 @@ export async function getMaxOrdinalTest(owner_id: number): Promise<void> {
         try {
             // Clean up subdirectory and its contents first
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path LIKE $2
             `, testRootKey, testParentPath + '%');
             
             // Clean up main test directory
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {

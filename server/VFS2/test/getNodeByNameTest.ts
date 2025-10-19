@@ -12,7 +12,7 @@ export async function getNodeByNameTest(owner_id: number): Promise<void> {
         console.log('Cleaning up any existing test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {
@@ -20,10 +20,10 @@ export async function getNodeByNameTest(owner_id: number): Promise<void> {
         }
         
         // Test 1: Check that non-existent file returns no rows
-        console.log('Testing vfs2_get_node_by_name for non-existent file...');
+        console.log('Testing vfs_get_node_by_name for non-existent file...');
         
         const nonExistentResult = await pgdb.query(`
-            SELECT * FROM vfs2_get_node_by_name($1, $2, $3)
+            SELECT * FROM vfs_get_node_by_name($1, $2, $3)
         `, testParentPath, 'non-existent-file.txt', testRootKey);
         
         console.log(`Non-existent file query returned ${nonExistentResult.rows.length} rows`);
@@ -43,7 +43,7 @@ export async function getNodeByNameTest(owner_id: number): Promise<void> {
         console.log('Creating test text file...');
         
         const insertResult = await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -60,10 +60,10 @@ export async function getNodeByNameTest(owner_id: number): Promise<void> {
         console.log(`Created text file: ${textFilename} with ID: ${expectedId}, UUID: ${expectedUuid}`);
 
         // Test that we can get the complete node data
-        console.log('Testing vfs2_get_node_by_name for existing text file...');
+        console.log('Testing vfs_get_node_by_name for existing text file...');
         
         const textFileResult = await pgdb.query(`
-            SELECT * FROM vfs2_get_node_by_name($1, $2, $3)
+            SELECT * FROM vfs_get_node_by_name($1, $2, $3)
         `, testParentPath, textFilename, testRootKey);
         
         console.log(`Text file query returned ${textFileResult.rows.length} rows`);
@@ -159,7 +159,7 @@ export async function getNodeByNameTest(owner_id: number): Promise<void> {
         console.log('Creating test directory...');
         
         const dirInsertResult = await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -174,10 +174,10 @@ export async function getNodeByNameTest(owner_id: number): Promise<void> {
         console.log(`Created directory: ${dirFilename} with ID: ${expectedDirId}, UUID: ${expectedDirUuid}`);
 
         // Test that we can get the directory node data
-        console.log('Testing vfs2_get_node_by_name for existing directory...');
+        console.log('Testing vfs_get_node_by_name for existing directory...');
         
         const dirResult = await pgdb.query(`
-            SELECT * FROM vfs2_get_node_by_name($1, $2, $3)
+            SELECT * FROM vfs_get_node_by_name($1, $2, $3)
         `, testParentPath, dirFilename, testRootKey);
         
         if (dirResult.rows.length !== 1) {
@@ -235,7 +235,7 @@ export async function getNodeByNameTest(owner_id: number): Promise<void> {
         console.log('Creating test binary file...');
         
         const binaryInsertResult = await pgdb.query(`
-            INSERT INTO vfs2_nodes (
+            INSERT INTO vfs_nodes (
                 owner_id, doc_root_key, parent_path, filename, ordinal,
                 is_directory, is_public, content_text, content_binary, is_binary, 
                 content_type, size_bytes
@@ -250,10 +250,10 @@ export async function getNodeByNameTest(owner_id: number): Promise<void> {
         console.log(`Created binary file: ${binaryFilename} with ID: ${expectedBinaryId}, UUID: ${expectedBinaryUuid}`);
 
         // Test that we can get the binary file node data
-        console.log('Testing vfs2_get_node_by_name for existing binary file...');
+        console.log('Testing vfs_get_node_by_name for existing binary file...');
         
         const binaryFileResult = await pgdb.query(`
-            SELECT * FROM vfs2_get_node_by_name($1, $2, $3)
+            SELECT * FROM vfs_get_node_by_name($1, $2, $3)
         `, testParentPath, binaryFilename, testRootKey);
         
         if (binaryFileResult.rows.length !== 1) {
@@ -303,10 +303,10 @@ export async function getNodeByNameTest(owner_id: number): Promise<void> {
         console.log('✅ Existing binary file node retrieval test passed');
 
         // Test 5: Test with different root keys (should return no rows)
-        console.log('Testing vfs2_get_node_by_name with different root key...');
+        console.log('Testing vfs_get_node_by_name with different root key...');
         
         const differentRootResult = await pgdb.query(`
-            SELECT * FROM vfs2_get_node_by_name($1, $2, $3)
+            SELECT * FROM vfs_get_node_by_name($1, $2, $3)
         `, testParentPath, textFilename, 'different-root-key');
         
         console.log(`Different root key query returned ${differentRootResult.rows.length} rows`);
@@ -318,10 +318,10 @@ export async function getNodeByNameTest(owner_id: number): Promise<void> {
         console.log('✅ Different root key test passed');
 
         // Test 6: Test with different parent paths (should return no rows)
-        console.log('Testing vfs2_get_node_by_name with different parent path...');
+        console.log('Testing vfs_get_node_by_name with different parent path...');
         
         const differentPathResult = await pgdb.query(`
-            SELECT * FROM vfs2_get_node_by_name($1, $2, $3)
+            SELECT * FROM vfs_get_node_by_name($1, $2, $3)
         `, '/different-parent-path', textFilename, testRootKey);
         
         console.log(`Different parent path query returned ${differentPathResult.rows.length} rows`);
@@ -336,7 +336,7 @@ export async function getNodeByNameTest(owner_id: number): Promise<void> {
         console.log('Verifying all created files exist and are properly ordered...');
         const allFilesResult = await pgdb.query(`
             SELECT filename, ordinal, is_directory, is_binary, content_type
-            FROM vfs2_nodes 
+            FROM vfs_nodes 
             WHERE doc_root_key = $1 AND parent_path = $2 
             ORDER BY ordinal ASC, filename ASC
         `, testRootKey, testParentPath);
@@ -366,7 +366,7 @@ export async function getNodeByNameTest(owner_id: number): Promise<void> {
         console.log('Final cleanup of test data...');
         try {
             await pgdb.query(`
-                DELETE FROM vfs2_nodes 
+                DELETE FROM vfs_nodes 
                 WHERE doc_root_key = $1 AND parent_path = $2
             `, testRootKey, testParentPath);
         } catch (cleanupError) {

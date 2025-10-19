@@ -1,24 +1,23 @@
 import pgdb from '../../../../../server/db/PGDB.js';
 import { TestRunner } from '../../../../../common/TestRunner.js';
-import { simpleReadWriteTest } from './simpleReadWriteTest.test.js';
-import { readdirTest } from './readdirTest.test.js';
-import { readdirByOwnerTest } from './readdirByOwnerTest.test.js';
-import { getMaxOrdinalTest } from './getMaxOrdinalTest.test.js';
-import { readFileTest } from './readFileTest.test.js';
-import { writeTextFileTest } from './writeTextFileTest.test.js';
-import { writeBinaryFileTest } from './writeBinaryFileTest.test.js';
-import { existsTest } from './existsTest.test.js';
-import { getNodeByNameTest } from './getNodeByNameTest.test.js';
-import { statTest } from './statTest.test.js';
-import { unlinkTest } from './unlinkTest.test.js';
-import { childrenExistTest } from './childrenExistTest.test.js';
-import { mkdirRmdirTest } from './mkdirRmdirTest.test.js';
-import { ensurePathAndRenameTest } from './ensurePathAndRenameTest.test.js';
-import { setPublicTest } from './setPublicTest.test.js';
-import { checkAuthTest } from './checkAuthTest.test.js';
-import { getNodeByUuidTest } from './getNodeByUuidTest.test.js';
-import { searchTextTest } from './searchTextTest.test.js';
-
+import { simpleReadWriteTest } from './simpleReadWriteTest.js';
+import { readdirTest } from './readdirTest.js';
+import { readdirByOwnerTest } from './readdirByOwnerTest.js';
+import { getMaxOrdinalTest } from './getMaxOrdinalTest.js';
+import { readFileTest } from './readFileTest.js';
+import { writeTextFileTest } from './writeTextFileTest.js';
+import { writeBinaryFileTest } from './writeBinaryFileTest.js';
+import { existsTest } from './existsTest.js';
+import { getNodeByNameTest } from './getNodeByNameTest.js';
+import { statTest } from './statTest.js';
+import { unlinkTest } from './unlinkTest.js';
+import { childrenExistTest } from './childrenExistTest.js';
+import { mkdirRmdirTest } from './mkdirRmdirTest.js';
+import { ensurePathAndRenameTest } from './ensurePathAndRenameTest.js';
+import { setPublicTest } from './setPublicTest.js';
+import { checkAuthTest } from './checkAuthTest.js';
+import { getNodeByUuidTest } from './getNodeByUuidTest.js';
+import { searchTextTest } from './searchTextTest.js';
 import { normalizePathTest } from './normalizePathTest.js';
 import { joinPathTest } from './joinPathTest.js';
 import { existsTest2 } from './existsTest2.js';
@@ -35,7 +34,6 @@ import { readdirTest2 } from './readdirTest2.js';
 import { getItemByIDTest } from './getItemByIDTest.js';
 import { setOrdinalTest } from './setOrdinalTest.js';
 import { moveUpOrDownTest } from './moveUpOrDownTest.js';
-
 
 export async function runTests() {
     console.log("🚀 Starting VFS2 embedded tests...");

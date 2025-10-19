@@ -62,14 +62,14 @@ class VFS2 {
 
         // Get the next available ordinal (max + 1) for the root directory
         const maxOrdinalResult = await pgdb.query(
-            'SELECT COALESCE(MAX(ordinal), -1) + 1 as next_ordinal FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2',
+            'SELECT COALESCE(MAX(ordinal), -1) + 1 as next_ordinal FROM vfs_nodes WHERE doc_root_key = $1 AND parent_path = $2',
             rootKey, ""
         );
         const maxOrdinal = maxOrdinalResult.rows[0].next_ordinal;
         const maxOrdinalStr = maxOrdinal.toString().padStart(4, '0');
 
         await pgdb.query(
-            'SELECT vfs2_mkdir($1, $2, $3, $4, $5, $6, $7)',
+            'SELECT vfs_mkdir($1, $2, $3, $4, $5, $6, $7)',
             userProfile.id, "", `${maxOrdinalStr}_${userProfile.name}`, rootKey, maxOrdinal, false, false
         );
     }
@@ -129,7 +129,7 @@ class VFS2 {
             const { parentPath, filename } = this.parsePath(relativePath);
             
             const result = await pgdb.query(
-                'SELECT * FROM vfs2_get_node_by_name($1, $2, $3)',
+                'SELECT * FROM vfs_get_node_by_name($1, $2, $3)',
                 parentPath, filename, rootKey
             );
             
@@ -172,11 +172,11 @@ class VFS2 {
             const { parentPath, filename } = this.parsePath(relativePath);
             
             const result = await pgdb.query(
-                'SELECT vfs2_exists($1, $2, $3)',
+                'SELECT vfs_exists($1, $2, $3)',
                 parentPath, filename, rootKey
             );
             
-            return result.rows[0].vfs2_exists;
+            return result.rows[0].vfs_exists;
         } catch (error) {
             console.error('VFS2.exists error:', error);
             return false;
@@ -192,11 +192,11 @@ class VFS2 {
                 return true;
             }
             const result = await pgdb.query(
-                'SELECT vfs2_children_exist($1, $2, $3)',
+                'SELECT vfs_children_exist($1, $2, $3)',
                 owner_id, relativePath, rootKey
             );
             
-            return result.rows[0].vfs2_children_exist;
+            return result.rows[0].vfs_children_exist;
         } catch (error) {
             console.error('VFS2.children_exist error:', error);
             return false;
@@ -222,7 +222,7 @@ class VFS2 {
             
             const { parentPath, filename } = this.parsePath(relativePath);
             const result = await pgdb.query(
-                'SELECT * FROM vfs2_get_node_by_name($1, $2, $3)',
+                'SELECT * FROM vfs_get_node_by_name($1, $2, $3)',
                 parentPath, filename, rootKey
             );
             
@@ -249,14 +249,14 @@ class VFS2 {
             const { parentPath, filename } = this.parsePath(fullPath);
             
             const result = await pgdb.query(
-                'SELECT vfs2_read_file($1, $2, $3, $4)',
+                'SELECT vfs_read_file($1, $2, $3, $4)',
                 owner_id, parentPath, filename, rootKey
             );
             
             if (result.rows.length === 0) {
                 throw new Error(`File not found: ${fullPath}`);
             }
-            const content = result.rows[0].vfs2_read_file;
+            const content = result.rows[0].vfs_read_file;
             if (encoding) {
                 return content.toString(encoding);
             } else {
@@ -343,7 +343,7 @@ class VFS2 {
             let finalOrdinal = ordinal;
             if (finalOrdinal === undefined) {
                 const maxOrdinalResult = await pgdb.query(
-                    'SELECT COALESCE(MAX(ordinal), -1) + 1 as next_ordinal FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2',
+                    'SELECT COALESCE(MAX(ordinal), -1) + 1 as next_ordinal FROM vfs_nodes WHERE doc_root_key = $1 AND parent_path = $2',
                     rootKey, parentPath
                 );
                 finalOrdinal = maxOrdinalResult.rows[0].next_ordinal;
@@ -366,7 +366,7 @@ class VFS2 {
                 }
                 
                 await pgdb.query(
-                    'SELECT vfs2_write_binary_file($1, $2, $3, $4, $5, $6, $7, $8)',
+                    'SELECT vfs_write_binary_file($1, $2, $3, $4, $5, $6, $7, $8)',
                     owner_id, parentPath, filename, content, rootKey, finalOrdinal, contentType, is_public
                 );
             } else {
@@ -379,7 +379,7 @@ class VFS2 {
                 }
                 
                 await pgdb.query(
-                    'SELECT vfs2_write_text_file($1, $2, $3, $4, $5, $6, $7, $8)',
+                    'SELECT vfs_write_text_file($1, $2, $3, $4, $5, $6, $7, $8)',
                     owner_id, parentPath, filename, textContent, rootKey, finalOrdinal, contentType, is_public
                 );
             }
@@ -398,7 +398,7 @@ class VFS2 {
     async getItemByID(uuid: string, rootKey: string = "usr"): Promise<{ node: TreeNode | null; docPath: string }> {
         try {
             const result = await pgdb.query(
-                'SELECT * FROM vfs2_nodes WHERE uuid = $1 AND doc_root_key = $2',
+                'SELECT * FROM vfs_nodes WHERE uuid = $1 AND doc_root_key = $2',
                 uuid, rootKey
             );
             
@@ -431,7 +431,7 @@ class VFS2 {
             const relativePath = this.normalizePath(fullPath);
             
             const result = await pgdb.query(
-                'SELECT * FROM vfs2_readdir($1, $2, $3, $4)',
+                'SELECT * FROM vfs_readdir($1, $2, $3, $4)',
                 owner_id, relativePath, rootKey, false
             );
             
@@ -448,7 +448,7 @@ class VFS2 {
             const relativePath = this.normalizePath(fullPath);
             
             const rootContents = await pgdb.query(
-                'SELECT * FROM vfs2_readdir($1, $2, $3, $4)',
+                'SELECT * FROM vfs_readdir($1, $2, $3, $4)',
                 owner_id, relativePath, rootKey, loadContent
             );
             
@@ -475,14 +475,14 @@ class VFS2 {
             let finalOrdinal = ordinal;
             if (finalOrdinal === undefined) {
                 const maxOrdinalResult = await pgdb.query(
-                    'SELECT COALESCE(MAX(ordinal), -1) + 1 as next_ordinal FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2',
+                    'SELECT COALESCE(MAX(ordinal), -1) + 1 as next_ordinal FROM vfs_nodes WHERE doc_root_key = $1 AND parent_path = $2',
                     rootKey, parentPath
                 );
                 finalOrdinal = maxOrdinalResult.rows[0].next_ordinal;
             }
             
             await pgdb.query(
-                'SELECT vfs2_mkdir($1, $2, $3, $4, $5, $6, $7)',
+                'SELECT vfs_mkdir($1, $2, $3, $4, $5, $6, $7)',
                 owner_id, parentPath, filename, rootKey, finalOrdinal, options?.recursive || false, is_public || false
             );
         } catch (error) {
@@ -500,7 +500,7 @@ class VFS2 {
         const { parentPath: newParentPath, filename: newFilename } = this.parsePath(newPath);
             
         const result = await pgdb.query(
-            'SELECT * FROM vfs2_rename($1, $2, $3, $4, $5, $6)',
+            'SELECT * FROM vfs_rename($1, $2, $3, $4, $5, $6)',
             owner_id, oldParentPath, oldFilename, newParentPath, newFilename, rootKey
         );
             
@@ -536,7 +536,7 @@ class VFS2 {
             
             // Delete the file using direct DELETE query
             const result = await pgdb.query(
-                'DELETE FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3 AND is_directory = false AND (owner_id = $4 OR $4 = 0) RETURNING *',
+                'DELETE FROM vfs_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3 AND is_directory = false AND (owner_id = $4 OR $4 = 0) RETURNING *',
                 rootKey, parentPath, filename, owner_id
             );
             
@@ -581,9 +581,9 @@ class VFS2 {
                     }
                 }
                 
-                // Use a direct DELETE query for now since vfs2_rmdir doesn't exist yet
+                // Use a direct DELETE query for now since vfs_rmdir doesn't exist yet
                 const result = await pgdb.query(
-                    'DELETE FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3 AND (owner_id = $4 OR $4 = 0) RETURNING *',
+                    'DELETE FROM vfs_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3 AND (owner_id = $4 OR $4 = 0) RETURNING *',
                     rootKey, parentPath, filename, owner_id
                 );
                 
@@ -595,14 +595,14 @@ class VFS2 {
                 if (options?.recursive) {
                     const childPath = relativePath;
                     await pgdb.query(
-                        'DELETE FROM vfs2_nodes WHERE doc_root_key = $1 AND (parent_path = $2 OR parent_path LIKE $3) AND (owner_id = $4 OR $4 = 0)',
+                        'DELETE FROM vfs_nodes WHERE doc_root_key = $1 AND (parent_path = $2 OR parent_path LIKE $3) AND (owner_id = $4 OR $4 = 0)',
                         rootKey, childPath, childPath + '/%', owner_id
                     );
                 }
             } else {
-                // For files, use direct DELETE query since vfs2_unlink doesn't exist yet
+                // For files, use direct DELETE query since vfs_unlink doesn't exist yet
                 const result = await pgdb.query(
-                    'DELETE FROM vfs2_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3 AND (owner_id = $4 OR $4 = 0) RETURNING *',
+                    'DELETE FROM vfs_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3 AND (owner_id = $4 OR $4 = 0) RETURNING *',
                     rootKey, parentPath, filename, owner_id
                 );
                 
@@ -637,7 +637,7 @@ class VFS2 {
             const relativePath = this.normalizePath(parentPath);
             
             const result = await pgdb.query(
-                'SELECT * FROM vfs2_shift_ordinals_down($1, $2, $3, $4, $5)',
+                'SELECT * FROM vfs_shift_ordinals_down($1, $2, $3, $4, $5)',
                 owner_id, relativePath, rootKey, insertOrdinal, slotsToAdd
             );
             
@@ -668,7 +668,7 @@ class VFS2 {
     async setOrdinal(uuid: string, ordinal: number): Promise<void> {
         try {
             const result = await pgdb.query(
-                'UPDATE vfs2_nodes SET ordinal = $1 WHERE uuid = $2 AND doc_root_key = $3 RETURNING *',
+                'UPDATE vfs_nodes SET ordinal = $1 WHERE uuid = $2 AND doc_root_key = $3 RETURNING *',
                 ordinal, uuid, rootKey
             );
             
