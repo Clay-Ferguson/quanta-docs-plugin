@@ -105,8 +105,9 @@ class DocBinary {
     }
 
     onUploadEnd = async (owner_id: number, chunks: any, boundary: any, res: Response): Promise<void> => {
-        await runTrans(async () => {
-            try {
+        try {
+            // Run the upload processing inside a transaction and capture the result
+            const result = await runTrans(async () => {
                 // Combine all chunks into a single buffer for parsing
                 const buffer = Buffer.concat(chunks);
                 const boundaryBuffer = Buffer.from(`--${boundary}`);
@@ -164,8 +165,7 @@ class DocBinary {
     
                 // Validate that all required fields are present
                 if (!treeFolder || files.length === 0) {
-                    res.status(400).json({ error: 'Missing required fields: treeFolder, or files' });
-                    return;
+                    return { error: 'Missing required fields: treeFolder, or files', status: 400 };
                 }
     
                 // Resolve the document root path and validate access
@@ -176,8 +176,7 @@ class DocBinary {
             
                 const parentInfo: any = {};
                 if (!await vfs2.exists(absoluteFolderPath, parentInfo)) {
-                    res.status(404).json({ error: 'Parent directory not found' });
-                    return;
+                    return { error: 'Parent directory not found', status: 404 };
                 }
     
                 // Determine the ordinal position for inserting new files
@@ -221,17 +220,27 @@ class DocBinary {
                     }
                 }
     
-                // Send success response with upload statistics
-                res.json({ 
+                // Return success result (will be sent after transaction commits)
+                return { 
+                    success: true,
                     message: `Successfully uploaded ${savedCount} file(s)`,
                     uploadedCount: savedCount
+                };
+            });
+
+            // Send response AFTER transaction has committed
+            if (result.error) {
+                res.status(result.status || 500).json({ error: result.error });
+            } else {
+                res.json({ 
+                    message: result.message,
+                    uploadedCount: result.uploadedCount
                 });
-            } catch (error) {
-                console.error('Error processing upload:');
-                res.status(500).json({ error: 'Failed to process upload' });
-                throw error;
             }
-        })
+        } catch (error: any) {
+            console.error('Error processing upload:', error);
+            res.status(500).json({ error: 'Failed to process upload' });
+        }
     }
 
     /**
