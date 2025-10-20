@@ -649,8 +649,6 @@ class VFS2 {
                 // Since filenames don't change in VFS2, we map each filename to itself
                 const filename = row.old_filename;
                 pathMapping.set(filename, filename);
-                
-                console.log(`Shifted ordinal for ${filename}: ${row.old_ordinal} -> ${row.new_ordinal}`);
             }
             
             return pathMapping;
@@ -679,6 +677,39 @@ class VFS2 {
             console.log(`Set ordinal for UUID ${uuid} to ${ordinal}`);
         } catch (error) {
             console.error('VFS2.setOrdinal error:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Swap the ordinal values of two files/folders in a single atomic operation
+     * This safely handles the unique constraint on (doc_root_key, parent_path, ordinal)
+     * @param uuid1 - The UUID of the first file/folder
+     * @param uuid2 - The UUID of the second file/folder
+     * @returns Object containing the UUIDs and their new ordinal values
+     */
+    async swapOrdinals(uuid1: string, uuid2: string): Promise<{ uuid1: string; ordinal1: number; uuid2: string; ordinal2: number }> {
+        try {
+            const result = await pgdb.query(
+                'SELECT * FROM vfs_swap_ordinals($1, $2, $3)',
+                uuid1, uuid2, rootKey
+            );
+            
+            if (result.rows.length === 0) {
+                throw new Error(`Failed to swap ordinals for UUIDs ${uuid1} and ${uuid2}`);
+            }
+            
+            const row = result.rows[0];
+            console.log(`Swapped ordinals: ${uuid1} (${row.ordinal1}) <-> ${uuid2} (${row.ordinal2})`);
+            
+            return {
+                uuid1: row.uuid1,
+                ordinal1: row.ordinal1,
+                uuid2: row.uuid2,
+                ordinal2: row.ordinal2
+            };
+        } catch (error) {
+            console.error('VFS2.swapOrdinals error:', error);
             throw error;
         }
     }

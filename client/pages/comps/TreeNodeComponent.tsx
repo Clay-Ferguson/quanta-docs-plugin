@@ -115,18 +115,18 @@ export default function TreeNodeComponent({
                     </div>
                 }
                 <div className="flex-grow">
+                    {gs.docsMetaMode && 
+                        <div className="mt-3 text-s text-gray-400 flex justify-end items-center">
+                            <span className="mr-4">{node.name} ({node.ordinal || 0})</span>
+                            <span 
+                                className="mr-4 cursor-pointer" 
+                                title={`Timestamps: \n\nCreated: ${formatDateTime(node.createTime)}\n\nModified: ${formatDateTime(node.modifyTime)}`}
+                            >
+                                {new Date(node.modifyTime).toLocaleDateString()}
+                            </span>
+                        </div>}
                     {!isFolder && !isBinary && 
                         <div className="mt-3 text-s text-gray-400 flex justify-end items-center">
-                            {gs.docsMetaMode && 
-                                <>
-                                    <span className="mr-4">{node.name} ({node.ordinal || 0})</span>
-                                    <span 
-                                        className="mr-4 cursor-pointer" 
-                                        title={`Timestamps: \n\nCreated: ${formatDateTime(node.createTime)}\n\nModified: ${formatDateTime(node.modifyTime)}`}
-                                    >
-                                        {new Date(node.modifyTime).toLocaleDateString()}
-                                    </span>
-                                </>}
                             {gs.docsEditMode && canMod && 
                                 <EditIcons 
                                     node={node} 

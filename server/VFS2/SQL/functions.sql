@@ -1109,10 +1109,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -----------------------------------------------------------------------------------------------------------
+-- todo-0: we can remove the RAISE NOTICE statements after testing is complete
 -- Function: vfs_shift_ordinals_down
 -- Shifts ordinals down for all files/folders at or above a given ordinal position
 -- This creates space for new files to be inserted at specific positions
--- Uses the ordinal column directly for efficient bulk updates (key difference from VFS)
 -----------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION vfs_shift_ordinals_down(
     owner_id_arg INTEGER,
@@ -1127,21 +1127,107 @@ RETURNS TABLE(
     old_ordinal INTEGER,
     new_ordinal INTEGER
 ) AS $$
+DECLARE
+    affected_row RECORD;
+    row_count INTEGER := 0;
 BEGIN
-    -- Update ordinals for all items at or above the insert position
-    -- Return the affected items for tracking path mappings
-    RETURN QUERY
+    RAISE NOTICE '[vfs_shift_ordinals_down] Starting with owner_id=%, parent_path=%, root_key=%, insert_ordinal=%, slots_to_add=%', 
+        owner_id_arg, parent_path_param, root_key, insert_ordinal, slots_to_add;
+    
+    -- First, lock and select all rows that need to be shifted in reverse ordinal order
+    -- This prevents conflicts by updating highest ordinals first
+    FOR affected_row IN
+        SELECT *
+        FROM vfs_nodes
+        WHERE 
+            doc_root_key = root_key 
+            AND parent_path = parent_path_param
+            AND owner_id = owner_id_arg
+            AND ordinal >= insert_ordinal
+        ORDER BY ordinal DESC
+        FOR UPDATE
+    LOOP
+        row_count := row_count + 1;
+        RAISE NOTICE '[vfs_shift_ordinals_down] Processing row %: filename=%, old_ordinal=%, new_ordinal=%', 
+            row_count, affected_row.filename, affected_row.ordinal, affected_row.ordinal + slots_to_add;
+        
+        -- Update each row individually in reverse order to avoid unique constraint violations
+        UPDATE vfs_nodes 
+        SET ordinal = affected_row.ordinal + slots_to_add
+        WHERE uuid = affected_row.uuid;
+        
+        -- Return the affected item for tracking
+        RETURN QUERY SELECT 
+            affected_row.filename,
+            affected_row.filename,
+            affected_row.ordinal,
+            affected_row.ordinal + slots_to_add;
+    END LOOP;
+    
+    RAISE NOTICE '[vfs_shift_ordinals_down] Completed, processed % rows', row_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-----------------------------------------------------------------------------------------------------------
+-- Function: vfs_swap_ordinals
+-- Swaps the ordinal values of two files/folders in a single atomic operation
+-- This handles the unique constraint on (doc_root_key, parent_path, ordinal) by using
+-- a temporary negative value during the swap operation within a single transaction
+-----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION vfs_swap_ordinals(
+    uuid1_arg UUID,
+    uuid2_arg UUID,
+    root_key TEXT
+) 
+RETURNS TABLE(
+    uuid1 UUID,
+    ordinal1 INTEGER,
+    uuid2 UUID,
+    ordinal2 INTEGER
+) AS $$
+DECLARE
+    ord1 INTEGER;
+    ord2 INTEGER;
+    temp_ordinal INTEGER;
+BEGIN
+    -- Get the current ordinals for both items
+    SELECT ordinal INTO ord1 
+    FROM vfs_nodes 
+    WHERE uuid = uuid1_arg AND doc_root_key = root_key;
+    
+    SELECT ordinal INTO ord2 
+    FROM vfs_nodes 
+    WHERE uuid = uuid2_arg AND doc_root_key = root_key;
+    
+    IF ord1 IS NULL THEN
+        RAISE EXCEPTION 'Item with UUID % not found', uuid1_arg;
+    END IF;
+    
+    IF ord2 IS NULL THEN
+        RAISE EXCEPTION 'Item with UUID % not found', uuid2_arg;
+    END IF;
+    
+    -- Use a temporary negative ordinal that won't conflict
+    -- We use a large negative number to avoid conflicts with any existing ordinals
+    temp_ordinal := -2147483648; -- Min integer value
+    
+    -- Perform the swap in three steps within the same transaction:
+    -- 1. Set first item to temporary value
     UPDATE vfs_nodes 
-    SET ordinal = ordinal + slots_to_add
-    WHERE 
-        doc_root_key = root_key 
-        AND parent_path = parent_path_param
-        AND (owner_id_arg = 0 OR owner_id = owner_id_arg)
-        AND ordinal >= insert_ordinal
-    RETURNING 
-        filename as old_filename,
-        filename as new_filename,
-        ordinal - slots_to_add as old_ordinal,
-        ordinal as new_ordinal;
+    SET ordinal = temp_ordinal 
+    WHERE uuid = uuid1_arg AND doc_root_key = root_key;
+    
+    -- 2. Set second item to first item's original value
+    UPDATE vfs_nodes 
+    SET ordinal = ord1 
+    WHERE uuid = uuid2_arg AND doc_root_key = root_key;
+    
+    -- 3. Set first item to second item's original value
+    UPDATE vfs_nodes 
+    SET ordinal = ord2 
+    WHERE uuid = uuid1_arg AND doc_root_key = root_key;
+    
+    -- Return the swap details
+    RETURN QUERY SELECT uuid1_arg, ord2, uuid2_arg, ord1;
 END;
 $$ LANGUAGE plpgsql;

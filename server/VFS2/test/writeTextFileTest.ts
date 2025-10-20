@@ -89,7 +89,7 @@ export async function writeTextFileTest(owner_id: number): Promise<void> {
         // Test 2: Update an existing file (ON CONFLICT DO UPDATE)
         const updatedContent = 'This is the **updated content** for the existing file.';
         const updatedContentType = 'text/plain';
-        const updatedOrdinal = 2000;
+        const updatedOrdinal = 1500; // Changed from 2000 to avoid conflict with file-m.txt
 
         console.log('Testing vfs_write_text_file function for updating existing file...');
         
@@ -172,7 +172,7 @@ export async function writeTextFileTest(owner_id: number): Promise<void> {
         });
         
         // Verify the ordering is correct (by ordinal, then filename)
-        const expectedOrder = ['file-a.txt', 'file-m.txt', 'new-file.md', 'file-z.txt']; // ordinals: 1000, 2000, 2000, 3000
+        const expectedOrder = ['file-a.txt', 'new-file.md', 'file-m.txt', 'file-z.txt']; // ordinals: 1000, 1500, 2000, 3000
         const actualOrder = dirResult.rows.map((row: any) => row.filename);
         
         if (JSON.stringify(actualOrder) !== JSON.stringify(expectedOrder)) {

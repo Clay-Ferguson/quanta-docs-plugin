@@ -54,10 +54,9 @@ export async function moveUpOrDownTest(owner_id: number): Promise<void> {
         const file1Ordinal = file1.ordinal || 0;
         const file2Ordinal = file2.ordinal || 0;
         
-        // Swap ordinals
-        await vfs2.setOrdinal(file1.uuid, file2Ordinal);
-        await vfs2.setOrdinal(file2.uuid, file1Ordinal);
-        console.log(`Test 3 - Swapped ordinals: ${file1.name} (${file1Ordinal}->${file2Ordinal}) with ${file2.name} (${file2Ordinal}->${file1Ordinal})`);
+        // Swap ordinals using the new atomic swap function
+        await vfs2.swapOrdinals(file1.uuid, file2.uuid);
+        console.log(`Test 3 - Swapped ordinals: ${file1.name} (${file1Ordinal}<->${file2Ordinal}) with ${file2.name} (${file2Ordinal}<->${file1Ordinal})`);
         
         // Verify new ordering
         contents = await vfs2.readdirEx(owner_id, '', false);
@@ -86,12 +85,8 @@ export async function moveUpOrDownTest(owner_id: number): Promise<void> {
             throw new Error('Test 4 failed! Files should have UUIDs');
         }
         
-        const newFile1Ordinal = newFile1.ordinal || 0;
-        const newFile2Ordinal = newFile2.ordinal || 0;
-        
-        // Swap ordinals back
-        await vfs2.setOrdinal(newFile1.uuid, newFile2Ordinal);
-        await vfs2.setOrdinal(newFile2.uuid, newFile1Ordinal);
+        // Swap ordinals back using the atomic swap function
+        await vfs2.swapOrdinals(newFile1.uuid, newFile2.uuid);
         console.log(`Test 4 - Swapped ordinals back: ${newFile1.name} with ${newFile2.name}`);
         
         // Verify we're back to original ordering
@@ -122,11 +117,7 @@ export async function moveUpOrDownTest(owner_id: number): Promise<void> {
         }
         
         // First swap: file3 with file2
-        let file3Ordinal = file3.ordinal || 0;
-        const file2AgainOrdinal = file2Again.ordinal || 0;
-        
-        await vfs2.setOrdinal(file3.uuid, file2AgainOrdinal);
-        await vfs2.setOrdinal(file2Again.uuid, file3Ordinal);
+        await vfs2.swapOrdinals(file3.uuid, file2Again.uuid);
         console.log(`Test 5 - First swap: ${file3.name} with ${file2Again.name}`);
         
         // Refresh and get new positions
@@ -143,11 +134,7 @@ export async function moveUpOrDownTest(owner_id: number): Promise<void> {
             throw new Error('Test 5 failed! Files should have UUIDs');
         }
         
-        file3Ordinal = file3Again.ordinal || 0;
-        const file1AgainOrdinal = file1Again.ordinal || 0;
-        
-        await vfs2.setOrdinal(file3Again.uuid, file1AgainOrdinal);
-        await vfs2.setOrdinal(file1Again.uuid, file3Ordinal);
+        await vfs2.swapOrdinals(file3Again.uuid, file1Again.uuid);
         console.log(`Test 5 - Second swap: ${file3Again.name} with ${file1Again.name}`);
         
         // Verify final ordering

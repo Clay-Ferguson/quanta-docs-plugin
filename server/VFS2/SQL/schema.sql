@@ -33,7 +33,9 @@ CREATE TABLE IF NOT EXISTS vfs_nodes (
     created_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     modified_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
-    UNIQUE(doc_root_key, parent_path, filename)
+    UNIQUE(doc_root_key, parent_path, filename),
+    -- Ensure ordinals are unique within each parent directory (controls ordering)
+    UNIQUE(doc_root_key, parent_path, ordinal)
     -- Note: owner_id = 0 represents admin, so we don't use a foreign key constraint
     -- that would require this value to exist in user_info table
 );

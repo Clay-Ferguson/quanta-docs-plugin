@@ -292,7 +292,6 @@ class DocService {
                 // Calculate insertion ordinal based on insertAfterNode
                 let insertOrdinal = 0; // Default: insert at top (ordinal 0)
                 if (insertAfterNode && insertAfterNode.trim() !== '') {
-                    console.log(`Create file "${fileName}" below node: ${insertAfterNode}`);
                 
                     // For VFS2: insertAfterNode is just the filename, we need to get its ordinal from the database
                     // For legacy VFS: insertAfterNode has ordinal prefix, extract it
@@ -301,16 +300,11 @@ class DocService {
                     const afterNodeInfo: any = {};
                     if (await vfs2.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
                         insertOrdinal = afterNodeInfo.node.ordinal + 1;
-                    }
-                    
+                    } 
                 } else {
-                    console.log(`Create new top file "${fileName}"`);
+                    console.log(`[CREATE_FILE] Creating new top file "${fileName}"`);
                 }
-
-                // Shift existing files down to make room for the new file
-                // This ensures proper ordinal sequence is maintained
-                await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root);
-                
+                            
                 // Auto-add .md extension if no extension is provided
                 let finalFileName = fileName;
                 if (!getFilenameExtension(fileName)) {
@@ -327,7 +321,8 @@ class DocService {
             
                 // Safety check: prevent overwriting existing files
                 // If file already exists, try different random suffixes until we find a unique name
-                while (await vfs2.exists(newFilePath)) {
+                let existsCheck = await vfs2.exists(newFilePath);
+                while (existsCheck) {
                     const randomSuffix = Math.floor(Math.random() * 100000);
                     const baseFileName = finalFileName.includes('.') 
                         ? finalFileName.substring(0, finalFileName.lastIndexOf('.'))
@@ -341,11 +336,10 @@ class DocService {
                     // VFS2: No ordinal prefix in filename
                     newFilePath = vfs2.pathJoin(absoluteParentPath, uniqueFileName);
                     fileNameToReturn = uniqueFileName;
+                    existsCheck = await vfs2.exists(newFilePath);
                 }
                 
-                // VFS2: Pass ordinal as parameter to writeFileEx
-                await vfs2.writeFileEx(owner_id, newFilePath, '', 'utf8', info.node.is_public, insertOrdinal);
-                
+                await vfs2.writeFileEx(owner_id, newFilePath, '', 'utf8', info.node.is_public, insertOrdinal);                
                 //console.log(`File created successfully: ${newFilePath}`);
             
                 // Send success response with the created filename

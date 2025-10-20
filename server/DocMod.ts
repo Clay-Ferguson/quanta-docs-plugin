@@ -538,14 +538,9 @@ class DocMod {
                 const currentNode = treeNodes[currentIndex];
                 const targetNode = treeNodes[targetIndex];
 
-                // Get current ordinal values
-                const currentOrdinal = currentNode.ordinal || 0;
-                const targetOrdinal = targetNode.ordinal || 0;
-
-                // Swap ordinal values in the database
+                // Swap ordinal values in the database using atomic swap function
                 if (currentNode.uuid && targetNode.uuid) {
-                    await vfs2.setOrdinal(currentNode.uuid, targetOrdinal);
-                    await vfs2.setOrdinal(targetNode.uuid, currentOrdinal);
+                    await vfs2.swapOrdinals(currentNode.uuid, targetNode.uuid);
                 } else {
                     res.status(500).json({ error: 'Unable to swap ordinals: missing UUID' });
                     return;

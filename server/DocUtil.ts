@@ -1,4 +1,3 @@
-import path from 'path';
 import vfs2 from './VFS2/VFS2.js';
 
 /**
@@ -58,11 +57,10 @@ class DocUtil {
         
         console.log(`Using VFS2 database-based ordinal shifting for ${slotsToAdd} slots at ${absoluteParentPath}`);
             
-        // Calculate the relative path from root for VFS2
-        const relativePath = path.relative(root, absoluteParentPath);
-            
-        // Use VFS2's efficient database-based shifting
-        return await vfs2.shiftOrdinalsDown(owner_id, relativePath, insertOrdinal, slotsToAdd);
+        // VFS2's shiftOrdinalsDown already normalizes the path, so we can pass it directly
+        // It expects the full path (which will be normalized to remove leading slashes)
+        // Note: root parameter kept for API compatibility but not used in VFS2 implementation
+        return await vfs2.shiftOrdinalsDown(owner_id, absoluteParentPath, insertOrdinal, slotsToAdd);
     } 
     
     /**

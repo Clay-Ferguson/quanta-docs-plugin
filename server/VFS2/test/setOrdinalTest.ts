@@ -1,16 +1,57 @@
 import vfs2 from '../VFS2.js';
 
 export async function setOrdinalTest(owner_id: number): Promise<void> {
+    const testFiles = [
+        { name: 'ordinal-test-1.md', ordinal: 10 },
+        { name: 'ordinal-test-2.md', ordinal: 20 },
+        { name: 'ordinal-test-3.md', ordinal: 30 }
+    ];
+    const testDirName = 'test-ordinal-dir';
+    
     try {
         console.log('=== VFS2 SetOrdinal Test Starting ===');
 
+        // Clean up any leftover test data from previous runs first
+        console.log('Cleanup - Removing any existing test files from previous runs');
+        
+        // First, try to delete our specific test files by name
+        for (const file of testFiles) {
+            try {
+                await vfs2.unlink(owner_id, file.name);
+                console.log(`Cleanup - Deleted existing ${file.name}`);
+            } catch (error) {
+                // File doesn't exist, which is fine - ignore the error
+            }
+        }
+        
+        try {
+            await vfs2.rm(owner_id, testDirName);
+            console.log(`Cleanup - Deleted existing directory ${testDirName}`);
+        } catch (error) {
+            // Directory doesn't exist, which is fine - ignore the error
+        }
+        
+        // Also check if there are any files with the ordinals we plan to use and delete them
+        // This handles cases where files from other tests might have these ordinals
+        const existingFiles = await vfs2.readdirEx(owner_id, '', false);
+        const targetOrdinals = [10, 20, 30, 5, 0, 99999, -10, 100, 200, 300, 500, 600];
+        for (const file of existingFiles) {
+            if (targetOrdinals.includes(file.ordinal!)) {
+                try {
+                    if (file.is_directory) {
+                        await vfs2.rm(owner_id, file.name);
+                    } else {
+                        await vfs2.unlink(owner_id, file.name);
+                    }
+                    console.log(`Cleanup - Deleted file/folder with conflicting ordinal ${file.ordinal}: ${file.name}`);
+                } catch (error) {
+                    console.log(`Cleanup - Could not delete ${file.name}:`, error);
+                }
+            }
+        }
+
         // Test 1: Create test files with specific ordinals
         console.log('Test 1 - Create test files with specific ordinals');
-        const testFiles = [
-            { name: 'ordinal-test-1.md', ordinal: 10 },
-            { name: 'ordinal-test-2.md', ordinal: 20 },
-            { name: 'ordinal-test-3.md', ordinal: 30 }
-        ];
         
         // Create files with specific ordinals
         for (const file of testFiles) {
@@ -206,7 +247,6 @@ export async function setOrdinalTest(owner_id: number): Promise<void> {
 
         // Test 10: Test setOrdinal on directory
         console.log('Test 10 - Test setOrdinal on directory');
-        const testDirName = 'test-ordinal-dir';
         const dirOrdinal = 500;
         
         // Create directory
