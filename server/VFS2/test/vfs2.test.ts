@@ -36,6 +36,8 @@ import { getItemByIDTest } from './getItemByIDTest.js';
 import { setOrdinalTest } from './setOrdinalTest.js';
 import { moveUpOrDownTest } from './moveUpOrDownTest.js';
 import { moveUpOrDownTest2 } from './moveUpOrDownTest2.js';
+import { crossFolderPasteTest } from './crossFolderPasteTest.js';
+import { sameFolderReorderTest } from './sameFolderReorderTest.js';
 
 export async function runTests() {
     console.log("🚀 Starting VFS2 embedded tests...");
@@ -161,6 +163,12 @@ export async function runTests() {
 
         // Test the moveUpOrDown functionality with ordinals 0 and 1 (bug reproduction test)
         await pgdb.query('DELETE FROM vfs_nodes;'); await testRunner.run("moveUpOrDownTest2", () => moveUpOrDownTest2(owner_id), true);
+
+        // Test cross-folder paste with ordinal conflicts (regression test for duplicate key bug)
+        await pgdb.query('DELETE FROM vfs_nodes;'); await testRunner.run("crossFolderPasteTest", () => crossFolderPasteTest(owner_id), true);
+
+        // Test same-folder reordering with ordinal conflicts (regression test for duplicate key bug)
+        await pgdb.query('DELETE FROM vfs_nodes;'); await testRunner.run("sameFolderReorderTest", () => sameFolderReorderTest(owner_id), true);
 
         console.log("✅ VFS2 test suite passed");
     } catch {

@@ -830,11 +830,19 @@ BEGIN
     END IF;
     
     -- Update the main record
+    -- For same-folder renames (where parent path doesn't change), we don't need to change ordinal
+    -- For cross-folder moves, use a unique temporary negative ordinal to avoid unique constraint violations
+    -- We use (-2147483648 + id) to ensure uniqueness since each node has a unique ID
+    -- The calling code (DocMod.ts) will set the correct ordinal immediately after rename
     UPDATE vfs_nodes
     SET 
         parent_path = new_parent_path,
         filename = new_filename,
-        modified_time = NOW()
+        modified_time = NOW(),
+        ordinal = CASE 
+            WHEN old_parent_path = new_parent_path THEN ordinal  -- Same folder: keep ordinal
+            ELSE -2147483648 + id  -- Cross-folder: use unique temp ordinal based on node ID
+        END
     WHERE 
         doc_root_key = root_key
         AND parent_path = old_parent_path
@@ -1207,9 +1215,12 @@ BEGIN
         RAISE EXCEPTION 'Item with UUID % not found', uuid2_arg;
     END IF;
     
-    -- Use a temporary negative ordinal that won't conflict
-    -- We use a large negative number to avoid conflicts with any existing ordinals
-    temp_ordinal := -2147483648; -- Min integer value
+    -- Use a unique temporary negative ordinal based on the first item's ID to avoid conflicts
+    -- This ensures that even if multiple swaps happen in the same parent folder,
+    -- each one uses a different temporary ordinal value
+    SELECT (-2147483648 + id) INTO temp_ordinal
+    FROM vfs_nodes 
+    WHERE uuid = uuid1_arg AND doc_root_key = root_key;
     
     -- Perform the swap in three steps within the same transaction:
     -- 1. Set first item to temporary value

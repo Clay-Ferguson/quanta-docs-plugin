@@ -304,6 +304,10 @@ class DocService {
                 } else {
                     console.log(`[CREATE_FILE] Creating new top file "${fileName}"`);
                 }
+                
+                // Shift existing files/folders down to make room for the new file
+                // This ensures proper ordinal sequence is maintained
+                await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root);
                             
                 // Auto-add .md extension if no extension is provided
                 let finalFileName = fileName;
@@ -443,7 +447,7 @@ class DocService {
 
                 // Create the directory (recursive option ensures parent directories exist, and we inherit `is_public` from parent.
                 // VFS2: Pass ordinal as parameter to mkdirEx
-                vfs2.mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public, insertOrdinal);
+                await vfs2.mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public, insertOrdinal);
                 console.log(`Folder created successfully: ${newFolderPath}`);
             
                 // Send success response with the created folder name

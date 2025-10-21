@@ -420,11 +420,15 @@ export const insertFolder = async (gs: DocsGlobalState, reRenderTree: any, node:
 
         // Refresh the tree view to show the new folder
         if (response) {
-            await reRenderTree();
-            // Scroll to the newly created folder
-            if (response.folderName) {
-                scrollToItem(response.folderName);
-            }
+            // Small delay to ensure database transaction commits before re-rendering
+            console.log("Waiting briefly before querying to re-render tree...");
+            setTimeout(async () => {
+                await reRenderTree();
+                // Scroll to the newly created folder
+                if (response.folderName) {
+                    scrollToItem(response.folderName);
+                }
+            }, 100);
         }
     } catch (error) {
         console.error('Error creating folder:', error);

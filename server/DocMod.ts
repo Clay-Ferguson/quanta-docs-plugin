@@ -660,7 +660,6 @@ class DocMod {
         await runTrans(async () => {
             try {
                 const { targetFolder, pasteItems: pasteItemUuids, targetOrdinal } = req.body;
-    
                 const root = "/"
     
                 if (!targetFolder || !pasteItemUuids || !Array.isArray(pasteItemUuids) || pasteItemUuids.length === 0) {
@@ -794,7 +793,23 @@ class DocMod {
                         newOrdinals.set(item.uuid!, nextOrdinal++);
                     }
                     
-                    // Apply all ordinal changes
+                    // Apply all ordinal changes in two phases to avoid unique constraint violations:
+                    // Phase 1: Set all items to temporary negative ordinals (based on their index)
+                    // Phase 2: Set all items to their final ordinals
+                    // This prevents conflicts when swapping ordinals (e.g., A:0->1, B:1->0)
+                    let tempOrdinal = -2147483648; // Start with min integer value
+                    const tempOrdinalMap = new Map<string, number>();
+                    
+                    console.log('Phase 1: Setting temporary ordinals to avoid conflicts');
+                    for (const [uuid] of newOrdinals.entries()) {
+                        const nodeName = treeNodes.find(n => n.uuid === uuid)?.name;
+                        console.log(`  ${nodeName}(${uuid}): -> temp ordinal ${tempOrdinal}`);
+                        await vfs2.setOrdinal(uuid, tempOrdinal);
+                        tempOrdinalMap.set(uuid, tempOrdinal);
+                        tempOrdinal++; // Each item gets a unique temporary ordinal
+                    }
+                    
+                    console.log('Phase 2: Setting final ordinals');
                     for (const [uuid, newOrdinal] of newOrdinals.entries()) {
                         const nodeName = treeNodes.find(n => n.uuid === uuid)?.name;
                         console.log(`  ${nodeName}(${uuid}): -> ${newOrdinal}`);

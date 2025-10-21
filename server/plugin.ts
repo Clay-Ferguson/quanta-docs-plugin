@@ -1,6 +1,7 @@
 import { config } from "../../../server/Config.js";
 import { Request } from 'express';
 import { runTests as runVfs2Tests } from './VFS2/test/vfs2.test.js';
+import { runRESTEndpointsTests } from './VFS2/test/rest.test.js';
 import { httpServerUtil } from "../../../server/HttpServerUtil.js";
 import { docSvc } from "./DocService.js";
 import { IAppContext, IServerPlugin, asyncHandler } from "../../../server/ServerUtil.js";
@@ -58,7 +59,7 @@ class DocsServerPlugin implements IServerPlugin {
         await this.initializeFunctions(folder);
     }
 
-    private initRoutes(context: IAppContext) { 
+    private initRoutes(context: IAppContext) {  
         context.app.get('/api/docs/images/*',httpServerUtil.verifyReqHTTPQuerySig, asyncHandler(docBinary.serveDocImage));
 
         // For now we only allow admin to access the docs API
@@ -168,10 +169,7 @@ class DocsServerPlugin implements IServerPlugin {
     async runAllTests(): Promise<void> {
         console.log("Running embedded tests...");
         await runVfs2Tests();
-
-        // need to wipe database table here.
-        console.log('Clearing vfs_nodes table...');
-        await pgdb.query('DELETE FROM vfs_nodes;');
+        await runRESTEndpointsTests();
         
         return Promise.resolve();
     }    
