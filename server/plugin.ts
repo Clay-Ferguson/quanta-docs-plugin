@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import pgdb from "../../../server/db/PGDB.js";
 import { UserProfileCompact } from "../../../common/types/CommonTypes.js";
 import vfs2 from "./VFS2/VFS2.js";
+import { docTags } from "./DocTags.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -80,8 +81,8 @@ class DocsServerPlugin implements IServerPlugin {
         context.app.post('/api/docs/paste', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.pasteItems)); 
         context.app.post('/api/docs/join', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.joinFiles)); 
         context.app.post('/api/docs/search-vfs', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.searchVFSFiles)); 
-        context.app.post('/api/docs/tags', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.extractTags));
-        context.app.post('/api/docs/tags/scan', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docSvc.scanAndUpdateTags));
+        context.app.post('/api/docs/tags', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docTags.extractTags));
+        context.app.post('/api/docs/tags/scan', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docTags.scanAndUpdateTags));
         
         // Removed until there's a docker+Postres version of this
         // context.app.post('/api/docs/ssg', httpServerUtil.verifyReqHTTPSignature, asyncHandler(ssg.generateStaticSite));

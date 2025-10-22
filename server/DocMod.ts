@@ -419,55 +419,51 @@ class DocMod {
     }
 
     /**
-     * Moves a file or folder up or down in the ordered list by swapping numeric prefixes
+     * Moves a file or folder up or down within its parent directory by swapping ordinal positions
      * 
-     * This method implements ordinal-based repositioning for files and folders within a directory.
-     * It works by swapping the numeric prefixes (ordinals) between the target item and an adjacent item
-     * to change their display order in the tree viewer.
-     * 
-     * How it works:
-     * - Files/folders use numeric prefixes (e.g., "0001_", "0002_") to determine sort order
-     * - "Move up" swaps ordinals with the item that has the next lower ordinal
-     * - "Move down" swaps ordinals with the item that has the next higher ordinal
-     * - Uses temporary file renaming to prevent naming conflicts during the swap
-     * 
-     * Features:
-     * - Supports both files and directories
-     * - Validates movement boundaries (can't move up from top, down from bottom)
-     * - Atomic operation using temporary files to prevent conflicts
-     * - Returns detailed information about the swap for UI updates
-     * - Security validation for all file operations
-     * 
-     * @param req - Express request object containing:
-     *   - direction: string - Movement direction, must be "up" or "down"
-     *   - filename: string - Name of the file or folder to move
-     *   - treeFolder: string - Relative path to the parent directory
-     * @param res - Express response object for sending results
-     * @returns Promise<void> - Resolves when operation completes
-     */
-    /**
-     * Moves a file or folder up or down in the ordering within its parent directory
-     * 
-     * This operation swaps the ordinal values of two adjacent items in the directory listing,
-     * effectively changing their display order. The ordinals are stored as integer values in 
-     * the database and control the sorting order independent of filenames.
+     * This method provides reordering functionality for files and folders within the document tree structure.
+     * It enables users to change the display order of items by swapping ordinal values between adjacent items
+     * in the sorted directory listing. The operation maintains filesystem integrity while updating the 
+     * database-stored ordinal values that control item positioning.
      * 
      * Process:
      * 1. Validates the target file/folder exists in the specified directory
-     * 2. Retrieves all items in the directory with their ordinal values
-     * 3. Sorts items by ordinal to establish current ordering
-     * 4. Identifies the adjacent item to swap with (up = previous item, down = next item)
-     * 5. Swaps the ordinal values in the database using VFS2.setOrdinal()
+     * 2. Retrieves all directory contents sorted by ordinal values
+     * 3. Locates the current position of the target item in the ordered list
+     * 4. Identifies the adjacent item to swap with (up=previous, down=next)
+     * 5. Performs atomic ordinal swap operation in the database
+     * 6. Returns confirmation of the successful position change
+     * 
+     * Ordinal Management (VFS2):
+     * - Ordinals are stored as integer values in the PostgreSQL database
+     * - Items are sorted by ordinal to establish display order (ascending)
+     * - Swapping exchanges ordinal values between two items atomically
+     * - No filesystem operations needed - only database updates
+     * - Filenames remain unchanged (ordinals not embedded in names)
+     * 
+     * Boundary Handling:
+     * - "Up" moves toward ordinal 0 (beginning of list)
+     * - "Down" moves toward higher ordinals (end of list)
+     * - Prevents moving beyond list boundaries with appropriate error messages
+     * - Validates that movement is possible before attempting the swap
      * 
      * Features:
-     * - Database-based ordinal swapping (no file renaming required)
-     * - Validates boundary conditions (can't move top item up or bottom item down)
-     * - Atomic operation within transaction context
-     * - Returns success message upon completion
+     * - Atomic database operations ensure data consistency
+     * - Works with both files and folders uniformly
+     * - Validates directory existence and item presence
+     * - Provides clear error messages for boundary conditions
+     * - UUID-based item identification for reliable database operations
+     * - Maintains proper ordinal sequencing across all directory items
+     * 
+     * Security:
+     * - Validates all file paths stay within configured document root
+     * - Requires valid owner authentication for all operations
+     * - Ensures target directory exists and is accessible
+     * - Prevents manipulation of items outside authorized scope
      * 
      * @param req - Express request object containing:
-     *   - direction: string - "up" or "down" to specify move direction
-     *   - filename: string - Name of the file/folder to move
+     *   - direction: string - Movement direction ("up" or "down")
+     *   - filename: string - Name of the file or folder to move
      *   - treeFolder: string - Relative path to the parent directory
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
@@ -562,6 +558,71 @@ class DocMod {
         });
     }
 
+    /**
+     * Sets the public accessibility status of files and folders in the document tree
+     * 
+     * This method provides access control functionality for files and folders, allowing users to make
+     * content publicly accessible or restrict it to authenticated users only. It supports both individual
+     * item operations and recursive operations that affect entire directory hierarchies. The public status
+     * is stored in the PostgreSQL database and controls whether content can be accessed without authentication.
+     * 
+     * Process:
+     * 1. Validates the target file/folder exists and parameters are correct
+     * 2. Normalizes the tree folder path for consistent processing
+     * 3. Constructs absolute paths and verifies accessibility
+     * 4. Delegates to VFS2 system method for database-level public status management
+     * 5. Returns operation result with success/failure status and diagnostic information
+     * 
+     * Public Status Management (VFS2):
+     * - Public status is stored as boolean field in PostgreSQL database nodes
+     * - Public files/folders can be accessed without user authentication
+     * - Private files/folders require valid user session for access
+     * - Recursive mode applies status change to all nested content
+     * - Status inheritance: newly created items inherit parent folder's public status
+     * - URL access patterns: `/public/...` for public content, `/api/docs/...` for private
+     * 
+     * Recursive Behavior:
+     * - When recursive=true, applies status change to all child files and subdirectories
+     * - Maintains referential integrity by updating all nested items atomically
+     * - Useful for converting entire document sections between public/private access
+     * - Non-recursive mode affects only the specified file/folder
+     * 
+     * Access Control Integration:
+     * - Works with HTTP middleware to enforce access restrictions
+     * - Public content bypasses authentication requirements
+     * - Private content requires valid user session and ownership verification
+     * - Supports granular permissions at individual file/folder level
+     * 
+     * Features:
+     * - Supports both files and folders uniformly
+     * - Optional recursive operation for batch status changes
+     * - Path normalization ensures consistent database operations
+     * - Comprehensive error handling with detailed diagnostic messages
+     * - Atomic database operations maintain data consistency
+     * - Integration with VFS2 security and access control systems
+     * 
+     * Security Considerations:
+     * - Validates user ownership before allowing status changes
+     * - Prevents unauthorized access control modifications
+     * - Ensures all paths remain within configured document root
+     * - Maintains audit trail of public status changes
+     * - Respects existing file permissions and security constraints
+     * 
+     * Use Cases:
+     * - Publishing documentation or content for public access
+     * - Creating public file shares or downloads
+     * - Converting private drafts to public content
+     * - Batch privacy management for document collections
+     * - Setting up public documentation websites or blogs
+     * 
+     * @param req - Express request object containing:
+     *   - is_public: boolean - Target public accessibility status (true=public, false=private)
+     *   - filename: string - Name of the file or folder to modify
+     *   - treeFolder: string - Relative path to the parent directory
+     *   - recursive?: boolean - Optional flag to apply changes recursively to all nested content
+     * @param res - Express response object for sending results
+     * @returns Promise<void> - Resolves when operation completes
+     */
     setPublic = async (req: Request<any, any, { is_public: boolean; filename: string; treeFolder: string; recursive?: boolean }>, res: Response): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
