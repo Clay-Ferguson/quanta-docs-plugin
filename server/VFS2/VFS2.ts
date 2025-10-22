@@ -611,28 +611,49 @@ class VFS2 {
      */
     async setPublic(owner_id: number, parentPath: string, filename: string, is_public: boolean, recursive: boolean = false): Promise<{ success: boolean; diagnostic: string }> {
         try {
+            const relativePath = normalizePath(parentPath);
+            
             const result = await pgdb.query(
                 'SELECT * FROM vfs_set_public($1, $2, $3, $4, $5, $6)',
-                owner_id, parentPath, filename, is_public, recursive, rootKey
+                owner_id, relativePath, filename, rootKey, is_public, recursive
             );
             
-            if (result.rows.length === 0) {
-                throw new Error('No result returned from vfs_set_public function');
-            }
-            
-            const row = result.rows[0];
-            const success = row.success;
-            const diagnostic = row.diagnostic;
-            
-            if (success) {
-                console.log(`Successfully set visibility to ${is_public ? 'public' : 'private'}: ${diagnostic}`);
-            } else {
-                console.error(`Failed to set visibility: ${diagnostic}`);
-            }
-            
-            return { success, diagnostic };
+            return {
+                success: result.rows[0]?.success || false,
+                diagnostic: result.rows[0]?.diagnostic || 'Unknown error'
+            };
         } catch (error) {
             console.error('VFS2.setPublic error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Search for text within files in the VFS
+     * @param user_id - The user ID for authorization 
+     * @param query - The search query string
+     * @param treeFolder - The folder path to search within
+     * @param rootKey - The root key for the VFS2 (defaults to "usr")
+     * @param searchMode - The search mode (REGEX, MATCH_ANY, MATCH_ALL)
+     * @param searchOrder - The search result ordering (MOD_TIME, etc.)
+     * @returns Array of search result objects with normalized file paths
+     */
+    async search(user_id: number, query: string, treeFolder: string, rootKey: string = "usr", searchMode: string = "MATCH_ANY", searchOrder: string = "MOD_TIME"): Promise<any[]> {
+        try {
+            const result = await pgdb.query(
+                'SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)',
+                user_id, query, treeFolder, rootKey, searchMode, searchOrder
+            );
+            
+            // Transform results to match the expected format (file-level results without line numbers)
+            const transformedResults = result.rows.map((row: any) => ({
+                // remove "/" prefix if it exists, to ensure full path is consistent
+                file: row.full_path.startsWith("/") ? row.full_path.substring(1) : row.full_path,
+            }));
+            
+            return transformedResults;
+        } catch (error) {
+            console.error('VFS2.search error:', error);
             throw error;
         }
     }

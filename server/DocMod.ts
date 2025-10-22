@@ -3,7 +3,6 @@ import path from 'path';
 import { AuthenticatedRequest, handleError, svrUtil } from "../../../server/ServerUtil.js";
 import { docUtil } from "./DocUtil.js";
 import { runTrans } from '../../../server/db/Transactional.js';
-import pgdb from "../../../server/db/PGDB.js";
 import { fixName } from '../../../common/CommonUtils.js';
 import { ANON_USER_ID, TreeNode } from '../../../common/types/CommonTypes.js';
 import vfs2 from './VFS2/VFS2.js';
@@ -1208,18 +1207,8 @@ class DocMod {
 
             console.log(`VFS search query: "${query}" with mode: "${searchMode}" in folder: "${treeFolder}"`);
             
-            // Call the PostgreSQL search function
-            // todo-0: all direct calls to vfs_* belong in VFS2.ts
-            const searchResult = await pgdb.query(
-                'SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)',
-                user_id, query, treeFolder, "usr", searchMode, searchOrder 
-            );
-            
-            // Transform results to match the expected format (file-level results without line numbers)
-            const results = searchResult.rows.map((row: any) => ({
-                // remove "/" prefix if it exists, to ensure full path is consistent
-                file: row.full_path.startsWith("/") ? row.full_path.substring(1) : row.full_path,
-            }));
+            // Call the VFS2 search method (returns already-transformed results)
+            const results = await vfs2.search(user_id, query!, treeFolder, "usr", searchMode!, searchOrder!);
             
             // Send successful response in the same format as searchTextFiles
             res.json({ 
