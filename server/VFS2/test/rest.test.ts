@@ -16,13 +16,9 @@ export async function runRESTEndpointsTests() {
     
     const owner_id = pgdb.adminProfile.id;
     console.log(`🔧 Running REST Endpoint tests with owner_id: ${owner_id}`);
-        
-    // todo-0: clean this up so that the 'DELETE FROM vfs_nodes' is not repeated everywhere.
     const testRunner = new TestRunner("REST Endpoints");
     
     try {
-        // todo-0: need to wrap the 'delete from vfs_nodes' into some reusable lambda.
-        
         // Run the saveFile test - creates three files in root folder
         await pgdb.query('DELETE FROM vfs_nodes;'); 
         await testRunner.run("createFilesTest", () => createFilesTest(owner_id), true);

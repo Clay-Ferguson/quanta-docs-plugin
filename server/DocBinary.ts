@@ -6,6 +6,7 @@ import { runTrans } from '../../../server/db/Transactional.js';
 import { fixName, getImageContentType, isImageExt } from '../../../common/CommonUtils.js';
 import { ANON_USER_ID } from '../../../common/types/CommonTypes.js';
 import vfs2 from './VFS2/VFS2.js';
+import { pathJoin } from './VFS2/vfs-utils.js';
 
 /**
  * DocBinary class handles binary file operations for the docs plugin
@@ -64,7 +65,7 @@ class DocBinary {
             }
 
             // Construct the absolute path to the image file
-            const absoluteImagePath = vfs2.pathJoin(root, imagePath);
+            const absoluteImagePath = pathJoin(root, imagePath);
 
             // Perform security check to ensure file is within allowed directory
             // and verify file exists

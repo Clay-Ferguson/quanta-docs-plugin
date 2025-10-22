@@ -194,7 +194,7 @@ $$ LANGUAGE plpgsql;
 -- Function: vfs_write_text_file
 -- Equivalent to fs.writeFileSync() for text files - writes text file content
 -- Uses ordinal column directly instead of filename prefix management (key difference from VFS)
--- Ordinal parameter is required and controls the positional ordering within the parent directory
+-- Ordinal parameter is optional - if null, automatically calculates next available ordinal (max + 1)
 -----------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION vfs_write_text_file(
     owner_id_arg INTEGER,
@@ -210,8 +210,19 @@ RETURNS INTEGER AS $$
 DECLARE
     file_id INTEGER;
     file_size BIGINT;
+    final_ordinal INTEGER;
 BEGIN
     file_size := LENGTH(content_data);
+    
+    -- If ordinal is null, calculate the next available ordinal (max + 1)
+    IF ordinal_param IS NULL THEN
+        SELECT COALESCE(MAX(ordinal), -1) + 1
+        INTO final_ordinal
+        FROM vfs_nodes 
+        WHERE doc_root_key = root_key AND parent_path = parent_path_param;
+    ELSE
+        final_ordinal := ordinal_param;
+    END IF;
     
     INSERT INTO vfs_nodes (
         owner_id,
@@ -233,7 +244,7 @@ BEGIN
         root_key,
         parent_path_param,
         filename_param,
-        ordinal_param,
+        final_ordinal,
         FALSE,
         content_data,
         NULL,
@@ -251,7 +262,7 @@ BEGIN
         is_binary = FALSE,
         content_type = content_type_param,
         size_bytes = file_size,
-        ordinal = ordinal_param,
+        ordinal = final_ordinal,
         is_public = is_public_param,
         modified_time = NOW()
     RETURNING id INTO file_id;
@@ -264,7 +275,7 @@ $$ LANGUAGE plpgsql;
 -- Function: vfs_write_binary_file
 -- Equivalent to fs.writeFileSync() for binary files - writes binary file content
 -- Uses ordinal column directly instead of filename prefix management (key difference from VFS)
--- Ordinal parameter is required and controls the positional ordering within the parent directory
+-- Ordinal parameter is optional - if null, automatically calculates next available ordinal (max + 1)
 -----------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION vfs_write_binary_file(
     owner_id_arg INTEGER,
@@ -280,8 +291,19 @@ RETURNS INTEGER AS $$
 DECLARE
     file_id INTEGER;
     file_size BIGINT;
+    final_ordinal INTEGER;
 BEGIN
     file_size := LENGTH(content_data);
+    
+    -- If ordinal is null, calculate the next available ordinal (max + 1)
+    IF ordinal_param IS NULL THEN
+        SELECT COALESCE(MAX(ordinal), -1) + 1
+        INTO final_ordinal
+        FROM vfs_nodes 
+        WHERE doc_root_key = root_key AND parent_path = parent_path_param;
+    ELSE
+        final_ordinal := ordinal_param;
+    END IF;
     
     INSERT INTO vfs_nodes (
         owner_id,
@@ -303,7 +325,7 @@ BEGIN
         root_key,
         parent_path_param,
         filename_param,
-        ordinal_param,
+        final_ordinal,
         FALSE,
         NULL,
         content_data,
@@ -321,7 +343,7 @@ BEGIN
         is_binary = TRUE,
         content_type = content_type_param,
         size_bytes = file_size,
-        ordinal = ordinal_param,
+        ordinal = final_ordinal,
         is_public = is_public_param,
         modified_time = NOW()
     RETURNING id INTO file_id;
@@ -518,7 +540,7 @@ $$ LANGUAGE plpgsql;
 -- Function: vfs_mkdir
 -- Equivalent to fs.mkdirSync() - creates a directory
 -- Uses ordinal column directly instead of filename prefix management (key difference from VFS)
--- Ordinal parameter is required and controls the positional ordering within the parent directory
+-- Ordinal parameter is optional - if null, automatically calculates next available ordinal (max + 1)
 -----------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION vfs_mkdir(
     owner_id_arg INTEGER,
@@ -533,10 +555,21 @@ RETURNS INTEGER AS $$
 DECLARE
     dir_id INTEGER;
     inserted_count INTEGER;
+    final_ordinal INTEGER;
 BEGIN
     -- Check if directory already exists
     IF vfs_exists(parent_path_param, dirname_param, root_key) THEN
         RAISE EXCEPTION 'Directory already exists: %/%', parent_path_param, dirname_param;
+    END IF;
+    
+    -- If ordinal is null, calculate the next available ordinal (max + 1)
+    IF ordinal_param IS NULL THEN
+        SELECT COALESCE(MAX(ordinal), -1) + 1
+        INTO final_ordinal
+        FROM vfs_nodes 
+        WHERE doc_root_key = root_key AND parent_path = parent_path_param;
+    ELSE
+        final_ordinal := ordinal_param;
     END IF;
     
     -- Create the directory
@@ -560,7 +593,7 @@ BEGIN
         root_key,
         parent_path_param,
         dirname_param,
-        ordinal_param,
+        final_ordinal,
         TRUE,
         NULL,
         NULL,
@@ -1117,7 +1150,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -----------------------------------------------------------------------------------------------------------
--- todo-0: we can remove the RAISE NOTICE statements after testing is complete
 -- Function: vfs_shift_ordinals_down
 -- Shifts ordinals down for all files/folders at or above a given ordinal position
 -- This creates space for new files to be inserted at specific positions
@@ -1139,8 +1171,8 @@ DECLARE
     affected_row RECORD;
     row_count INTEGER := 0;
 BEGIN
-    RAISE NOTICE '[vfs_shift_ordinals_down] Starting with owner_id=%, parent_path=%, root_key=%, insert_ordinal=%, slots_to_add=%', 
-        owner_id_arg, parent_path_param, root_key, insert_ordinal, slots_to_add;
+    -- RAISE NOTICE '[vfs_shift_ordinals_down] Starting with owner_id=%, parent_path=%, root_key=%, insert_ordinal=%, slots_to_add=%', 
+    --     owner_id_arg, parent_path_param, root_key, insert_ordinal, slots_to_add;
     
     -- First, lock and select all rows that need to be shifted in reverse ordinal order
     -- This prevents conflicts by updating highest ordinals first
@@ -1156,8 +1188,8 @@ BEGIN
         FOR UPDATE
     LOOP
         row_count := row_count + 1;
-        RAISE NOTICE '[vfs_shift_ordinals_down] Processing row %: filename=%, old_ordinal=%, new_ordinal=%', 
-            row_count, affected_row.filename, affected_row.ordinal, affected_row.ordinal + slots_to_add;
+        -- RAISE NOTICE '[vfs_shift_ordinals_down] Processing row %: filename=%, old_ordinal=%, new_ordinal=%', 
+        --     row_count, affected_row.filename, affected_row.ordinal, affected_row.ordinal + slots_to_add;
         
         -- Update each row individually in reverse order to avoid unique constraint violations
         UPDATE vfs_nodes 
@@ -1172,7 +1204,7 @@ BEGIN
             affected_row.ordinal + slots_to_add;
     END LOOP;
     
-    RAISE NOTICE '[vfs_shift_ordinals_down] Completed, processed % rows', row_count;
+    -- RAISE NOTICE '[vfs_shift_ordinals_down] Completed, processed % rows', row_count;
 END;
 $$ LANGUAGE plpgsql;
 

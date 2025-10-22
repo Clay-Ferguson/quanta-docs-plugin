@@ -14,7 +14,7 @@ export interface GenerateDocOptions {
  * Scans ordered files/folders (by numeric prefix) and generates a consolidated markdown file
  * containing all content with proper relative image paths.
  * 
- * todo-0: This will need to be completely rewritten for VFS. 
+ * todo-1: This will need to be completely rewritten for VFS. 
  */
 class SSGService {
     /**

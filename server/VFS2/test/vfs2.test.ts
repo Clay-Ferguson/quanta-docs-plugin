@@ -49,13 +49,10 @@ export async function runTests() {
     }
     
     const owner_id = pgdb.adminProfile.id;
-    console.log(`🔧 Running VFS2 tests with owner_id: ${owner_id}`);
-    
-    // todo-0: clean this up so that the 'DELETE FROM vfs_nodes' is not repeated everywhere.
+    console.log(`🔧 Running VFS2 tests with owner_id: ${owner_id}`);    
     const testRunner = new TestRunner("VFS2");
     
     try {
-        // todo-0: need to wrap the 'delete from vfs_nodes' into some reusable lambda.
         // Run the simple read/write test using the test runner
         await pgdb.query('DELETE FROM vfs_nodes;'); await testRunner.run("simpleReadWriteTest", () => simpleReadWriteTest(owner_id), true);
         

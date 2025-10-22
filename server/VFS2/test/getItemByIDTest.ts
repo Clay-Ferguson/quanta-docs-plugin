@@ -1,3 +1,4 @@
+import { pathJoin } from '../vfs-utils.js';
 import vfs2 from '../VFS2.js';
 
 export async function getItemByIDTest(owner_id: number): Promise<void> {
@@ -73,7 +74,7 @@ export async function getItemByIDTest(owner_id: number): Promise<void> {
         console.log(`Test 3 - Created nested directory: ${nestedDirName}`);
         
         // Create file in nested directory
-        const nestedFilePath = vfs2.pathJoin(nestedDirName, nestedFileName);
+        const nestedFilePath = pathJoin(nestedDirName, nestedFileName);
         await vfs2.writeFile(owner_id, nestedFilePath, nestedContent, 'utf8');
         console.log(`Test 3 - Created nested file: ${nestedFilePath}`);
         

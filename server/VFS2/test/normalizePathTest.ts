@@ -1,11 +1,11 @@
-import vfs2 from '../VFS2.js';
+import { normalizePath } from '../vfs-utils.js';
 
 export async function normalizePathTest(): Promise<void> {
     try {
         console.log('=== VFS2 Normalize Path Test Starting ===');
 
         // Test 1: Remove leading slashes
-        const result1 = vfs2.normalizePath('/test/path');
+        const result1 = normalizePath('/test/path');
         const expected1 = 'test/path';
         console.log(`Test 1 - Input: '/test/path', Expected: '${expected1}', Got: '${result1}'`);
         if (result1 !== expected1) {
@@ -13,7 +13,7 @@ export async function normalizePathTest(): Promise<void> {
         }
 
         // Test 2: Remove leading dots and slashes
-        const result2 = vfs2.normalizePath('./test/path');
+        const result2 = normalizePath('./test/path');
         const expected2 = 'test/path';
         console.log(`Test 2 - Input: './test/path', Expected: '${expected2}', Got: '${result2}'`);
         if (result2 !== expected2) {
@@ -21,7 +21,7 @@ export async function normalizePathTest(): Promise<void> {
         }
 
         // Test 3: Remove multiple leading slashes
-        const result3 = vfs2.normalizePath('///test/path');
+        const result3 = normalizePath('///test/path');
         const expected3 = 'test/path';
         console.log(`Test 3 - Input: '///test/path', Expected: '${expected3}', Got: '${result3}'`);
         if (result3 !== expected3) {
@@ -29,7 +29,7 @@ export async function normalizePathTest(): Promise<void> {
         }
 
         // Test 4: Replace multiple slashes with single slash
-        const result4 = vfs2.normalizePath('test//path///file');
+        const result4 = normalizePath('test//path///file');
         const expected4 = 'test/path/file';
         console.log(`Test 4 - Input: 'test//path///file', Expected: '${expected4}', Got: '${result4}'`);
         if (result4 !== expected4) {
@@ -37,7 +37,7 @@ export async function normalizePathTest(): Promise<void> {
         }
 
         // Test 5: Remove trailing slashes
-        const result5 = vfs2.normalizePath('test/path/');
+        const result5 = normalizePath('test/path/');
         const expected5 = 'test/path';
         console.log(`Test 5 - Input: 'test/path/', Expected: '${expected5}', Got: '${result5}'`);
         if (result5 !== expected5) {
@@ -45,7 +45,7 @@ export async function normalizePathTest(): Promise<void> {
         }
 
         // Test 6: Remove multiple trailing slashes
-        const result6 = vfs2.normalizePath('test/path///');
+        const result6 = normalizePath('test/path///');
         const expected6 = 'test/path';
         console.log(`Test 6 - Input: 'test/path///', Expected: '${expected6}', Got: '${result6}'`);
         if (result6 !== expected6) {
@@ -53,7 +53,7 @@ export async function normalizePathTest(): Promise<void> {
         }
 
         // Test 7: Handle empty string
-        const result7 = vfs2.normalizePath('');
+        const result7 = normalizePath('');
         const expected7 = '';
         console.log(`Test 7 - Input: '', Expected: '${expected7}', Got: '${result7}'`);
         if (result7 !== expected7) {
@@ -61,7 +61,7 @@ export async function normalizePathTest(): Promise<void> {
         }
 
         // Test 8: Handle single slash
-        const result8 = vfs2.normalizePath('/');
+        const result8 = normalizePath('/');
         const expected8 = '';
         console.log(`Test 8 - Input: '/', Expected: '${expected8}', Got: '${result8}'`);
         if (result8 !== expected8) {
@@ -69,7 +69,7 @@ export async function normalizePathTest(): Promise<void> {
         }
 
         // Test 9: Handle multiple slashes only
-        const result9 = vfs2.normalizePath('///');
+        const result9 = normalizePath('///');
         const expected9 = '';
         console.log(`Test 9 - Input: '///', Expected: '${expected9}', Got: '${result9}'`);
         if (result9 !== expected9) {
@@ -77,7 +77,7 @@ export async function normalizePathTest(): Promise<void> {
         }
 
         // Test 10: Complex case with all issues
-        const result10 = vfs2.normalizePath('./////test///path//file///');
+        const result10 = normalizePath('./////test///path//file///');
         const expected10 = 'test/path/file';
         console.log(`Test 10 - Input: './////test///path//file///', Expected: '${expected10}', Got: '${result10}'`);
         if (result10 !== expected10) {
@@ -85,7 +85,7 @@ export async function normalizePathTest(): Promise<void> {
         }
 
         // Test 11: Single filename
-        const result11 = vfs2.normalizePath('filename.txt');
+        const result11 = normalizePath('filename.txt');
         const expected11 = 'filename.txt';
         console.log(`Test 11 - Input: 'filename.txt', Expected: '${expected11}', Got: '${result11}'`);
         if (result11 !== expected11) {
@@ -93,7 +93,7 @@ export async function normalizePathTest(): Promise<void> {
         }
 
         // Test 12: Single filename with leading slash
-        const result12 = vfs2.normalizePath('/filename.txt');
+        const result12 = normalizePath('/filename.txt');
         const expected12 = 'filename.txt';
         console.log(`Test 12 - Input: '/filename.txt', Expected: '${expected12}', Got: '${result12}'`);
         if (result12 !== expected12) {

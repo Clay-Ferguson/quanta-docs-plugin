@@ -43,6 +43,7 @@ class DocsServerPlugin implements IServerPlugin {
         }
     }
 
+    // todo-0: we need to retest everything related to creating other users other than admin
     onCreateNewUser = async (userProfile: UserProfileCompact): Promise<UserProfileCompact> => {
         if (process.env.POSTGRES_HOST) {
             console.log('Docs onCreateNewUser: ', userProfile);

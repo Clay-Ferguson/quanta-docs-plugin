@@ -7,6 +7,7 @@ import pgdb from "../../../server/db/PGDB.js";
 import { fixName } from '../../../common/CommonUtils.js';
 import { ANON_USER_ID, TreeNode } from '../../../common/types/CommonTypes.js';
 import vfs2 from './VFS2/VFS2.js';
+import { normalizePath } from './VFS2/vfs-utils.js';
 
 /**
  * DocMod - Document Modification Service
@@ -572,7 +573,7 @@ class DocMod {
                 // Extract request parameters
                 const { is_public, filename } = req.body;
                 let {treeFolder} = req.body;
-                treeFolder = vfs2.normalizePath(treeFolder); // Ensure treeFolder is normalized
+                treeFolder = normalizePath(treeFolder); // Ensure treeFolder is normalized
                 const recursive = req.body.recursive === true; // Default to false if not provided
                 
                 // Validate document root configuration
@@ -1187,7 +1188,7 @@ class DocMod {
      * - Modification time ordering
      * - Consistent API with existing search endpoints
      */
-    // todo-0: Most of the advanced search options are not yet enabled here yet, and need to be written as VFS versions of else removed.
+    // todo-1: Most of the advanced search options are not yet enabled here yet, and need to be written as VFS versions of else removed.
     searchVFSFiles = async (req: Request<any, any, {  
         query?: string; 
         treeFolder: string; 

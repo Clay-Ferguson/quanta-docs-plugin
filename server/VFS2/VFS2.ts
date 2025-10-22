@@ -1,10 +1,7 @@
-/* eslint-disable */
-// @ts-nocheck
 import pgdb from '../../../../server/db/PGDB.js';
-import { config } from '../../../../server/Config.js';
 import { TreeNode, UserProfileCompact } from '../../../../common/types/CommonTypes.js';
-import { svrUtil } from '../../../../server/ServerUtil.js';
 import { getFilenameExtension } from '../../../../common/CommonUtils.js';
+import { convertToTreeNode, getContentType, isBinaryFile, normalizePath, parsePath, pathJoin, validPath } from './vfs-utils.js';
 
 const rootKey = "usr"; // Default root key for VFS2, can be changed based on configuration
 
@@ -20,12 +17,12 @@ export interface VFS2Stats {
  * Virtual File System 2 (VFS2) for handling file operations in a server environment, by using PostgreSQL as a backend for storage of files and folders.
  */
 class VFS2 {
-        /* Ensures that this user has a folder in the VFS root directory, and that it's named after their username. */
+    /* Ensures that this user has a folder in the VFS root directory, and that it's named after their username. */
     async createUserFolder(userProfile: UserProfileCompact) {
         console.log(`Creating user folder for: ${userProfile.name} (ID: ${userProfile.id})`);
         const rootKey = "usr";
 
-        // Throw an error if 'userProfile.name' is not a valid filename.
+        // Throw an error if 'userProfile.name' is not valid.
         if (!/^[a-zA-Z0-9_]+$/.test(userProfile.name!)) {
             throw new Error(`Invalid user name: ${userProfile.name}. Only alphanumeric characters and underscores are allowed.`);
         }
@@ -33,100 +30,37 @@ class VFS2 {
         if (!userProfile.id) {
             throw new Error(`User profile must have an ID to create a folder. User: ${JSON.stringify(userProfile)}`);
         }
-        const existingNodes = await this.readdirEx(userProfile.id, "", false);
-        if (existingNodes && existingNodes.length > 0) {
-            const node = existingNodes[0];
-            const ordinalPrefix = node.name.split('_')[0]; // Get the ordinal prefix from the first node
-            // Get the substring to the right of the "_" in node.name
-            const nameSuffix = node.name.split('_').slice(1).join('_'); // Join the rest of the name after the ordinal prefix
-            if (nameSuffix === userProfile.name) {
-                console.log(`User folder already exists with the correct name: ${node.name}`);
-                return; // User folder already exists with the correct name
-            }
 
-            const newFolderName = `${ordinalPrefix}_${userProfile.name}`;
-            console.log(`Renaming existing user folder to: ${newFolderName}`);
-            await this.rename(userProfile.id, existingNodes[0].name, newFolderName);
+        // Check if user's root folder already exists
+        const folderName = `rt_${userProfile.id}`;
+        const existingFolder = await pgdb.query(
+            'SELECT * FROM vfs_nodes WHERE doc_root_key = $1 AND parent_path = $2 AND filename = $3',
+            rootKey, "", folderName
+        );
+
+        if (existingFolder.rows.length > 0) {
+            console.log(`User folder ${folderName} already exists, skipping creation`);
             return;
         }
 
-        // Check for already existing user folder
-        // const docPath = await docSvc.resolveNonOrdinalPath(0, rootKey, userProfile.name, this);
-        // if (docPath) {
-        //     console.log(`Resolved docPath: ${docPath}`);
-        //     if (await this.exists(docPath)) {
-        //         console.log(`User folder already exists: ${docPath}`);
-        //         return; 
-        //     }
-        // }
-
-        // Get the next available ordinal (max + 1) for the root directory
-        const maxOrdinalResult = await pgdb.query(
-            'SELECT COALESCE(MAX(ordinal), -1) + 1 as next_ordinal FROM vfs_nodes WHERE doc_root_key = $1 AND parent_path = $2',
-            rootKey, ""
-        );
-        const maxOrdinal = maxOrdinalResult.rows[0].next_ordinal;
-        const maxOrdinalStr = maxOrdinal.toString().padStart(4, '0');
-
+        // Using user's ID to build their root folder, since all users are part of a single tree.
+        // Pass null for ordinal to let vfs_mkdir calculate the next available ordinal automatically
         await pgdb.query(
             'SELECT vfs_mkdir($1, $2, $3, $4, $5, $6, $7)',
-            userProfile.id, "", `${maxOrdinalStr}_${userProfile.name}`, rootKey, maxOrdinal, false, false
+            userProfile.id, "", folderName, rootKey, null, false, false
         );
-    }
-
-    /**
-     * Parse a full path to extract parent path and filename
-     * @param fullPath - The full absolute path 
-     * @returns Object with parentPath and filename
-     */
-    private parsePath(fullPath: string): { parentPath: string; filename: string } {
-        const normalizedPath = this.normalizePath(fullPath);
-
-        // Split the path into parent directory and filename, using string functions, by finding the last slash
-        const lastSlashIndex = normalizedPath.lastIndexOf('/');
-        let parentPath: string;
-        let filename: string;
-        if (lastSlashIndex === -1) {
-            // No slashes found, this is just a filename
-            parentPath = '';
-            filename = normalizedPath;
-        } else {
-            // Split into parent path and filename
-            parentPath = normalizedPath.slice(0, lastSlashIndex);
-            filename = normalizedPath.slice(lastSlashIndex + 1);
-        }
-        
-        return { parentPath, filename };
-    }
-
-    convertToTreeNode(row: any): TreeNode | null {
-        if (!row) {
-            return null; // No row found, return null
-        }
-        // Convert PostgreSQL row to TreeNode format
-        return {
-            uuid: row.uuid,  // Add the UUID field
-            owner_id: row.owner_id,
-            is_public: row.is_public,
-            is_directory: row.is_directory,
-            name: row.filename, 
-            createTime: row.created_time,
-            modifyTime: row.modified_time,
-            content: row.content_text,  // Fixed: was row.text_content, now row.content_text
-            ordinal: row.ordinal,  // Add the ordinal field from database
-        } as TreeNode;
     }
 
     async getNodeByName(fullPath: string): Promise<TreeNode | null> {
         try {
-            const relativePath = this.normalizePath(fullPath);
+            const relativePath = normalizePath(fullPath);
             
             // Special case for root directory. It always exists and we have no DB table 'row' for it.
             if (relativePath === '') {
                 return {is_directory: true} as TreeNode; // Root directory has no database row
             }
             
-            const { parentPath, filename } = this.parsePath(relativePath);
+            const { parentPath, filename } = parsePath(relativePath);
             
             const result = await pgdb.query(
                 'SELECT * FROM vfs_get_node_by_name($1, $2, $3)',
@@ -134,7 +68,7 @@ class VFS2 {
             );
             
             // Return the first row if found, null if no rows returned
-            return result.rows.length > 0 ? this.convertToTreeNode(result.rows[0]) : null;
+            return result.rows.length > 0 ? convertToTreeNode(result.rows[0]) : null;
         } catch (error) {
             console.error('VFS2.getNodeByName error:', error);
             return null;
@@ -145,7 +79,7 @@ class VFS2 {
     async exists(fullPath: string, info: any=null): Promise<boolean> {
         // if a non-info object was passed the caller needs additional info so we run getNodeByName
         // which returns the whole record.
-        fullPath = this.normalizePath(fullPath);
+        fullPath = normalizePath(fullPath);
 
         if (info) {
             if (fullPath === '') {
@@ -162,14 +96,14 @@ class VFS2 {
         }
 
         try {
-            const relativePath = this.normalizePath(fullPath);
+            const relativePath = normalizePath(fullPath);
             
             // Special case for root directory. It always exists and we have no DB table 'row' for it.
             if (relativePath === '') {
                 return true;
             }
             
-            const { parentPath, filename } = this.parsePath(relativePath);
+            const { parentPath, filename } = parsePath(relativePath);
             
             const result = await pgdb.query(
                 'SELECT vfs_exists($1, $2, $3)',
@@ -185,7 +119,7 @@ class VFS2 {
     
     async childrenExist(owner_id: number, path: string): Promise<boolean> {
         try {
-            const relativePath = this.normalizePath(path);
+            const relativePath = normalizePath(path);
             
             // Special case for root directory
             if (relativePath === '') {
@@ -205,7 +139,7 @@ class VFS2 {
     
     async stat(fullPath: string): Promise<VFS2Stats> { 
         try {
-            const relativePath = this.normalizePath(fullPath);
+            const relativePath = normalizePath(fullPath);
             
             // Special case for root directory
             if (relativePath === '') {
@@ -220,7 +154,7 @@ class VFS2 {
                 } as VFS2Stats;
             }
             
-            const { parentPath, filename } = this.parsePath(relativePath);
+            const { parentPath, filename } = parsePath(relativePath);
             const result = await pgdb.query(
                 'SELECT * FROM vfs_get_node_by_name($1, $2, $3)',
                 parentPath, filename, rootKey
@@ -246,7 +180,7 @@ class VFS2 {
     
     async readFile(owner_id: number, fullPath: string, encoding?: BufferEncoding): Promise<string | Buffer> {
         try {
-            const { parentPath, filename } = this.parsePath(fullPath);
+            const { parentPath, filename } = parsePath(fullPath);
             
             const result = await pgdb.query(
                 'SELECT vfs_read_file($1, $2, $3, $4)',
@@ -272,89 +206,20 @@ class VFS2 {
         return await this.writeFileEx(owner_id, fullPath, data, encoding || 'utf8', false);
     }
     
-    
-    /**
-     * Determine if a file is binary based on its extension
-     */
-    private isBinaryFile(ext: string): boolean {
-        const binaryExtensions = [
-            '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.ico', '.tiff', '.webp',
-            '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-            '.zip', '.tar', '.gz', '.rar', '.7z',
-            '.mp3', '.mp4', '.avi', '.mov', '.wmv', '.flv',
-            '.exe', '.dll', '.so', '.dylib',
-            '.woff', '.woff2', '.ttf', '.otf'
-        ];
-        
-        return binaryExtensions.includes(ext.toLowerCase());
-    }
-
-    /**
-     * Get content type based on file extension
-     */
-    private getContentType(ext: string): string {
-        switch (ext.toLowerCase()) {
-        case '.md':
-            return 'text/markdown';
-        case '.txt':
-            return 'text/plain';
-        case '.json':
-            return 'application/json';
-        case '.html':
-        case '.htm':
-            return 'text/html';
-        case '.css':
-            return 'text/css';
-        case '.js':
-            return 'application/javascript';
-        case '.ts':
-            return 'text/typescript';
-        case '.xml':
-            return 'application/xml';
-        case '.yaml':
-        case '.yml':
-            return 'application/yaml';
-        case '.jpg':
-        case '.jpeg':
-            return 'image/jpeg';
-        case '.png':
-            return 'image/png';
-        case '.gif':
-            return 'image/gif';
-        case '.pdf':
-            return 'application/pdf';
-        case '.zip':
-            return 'application/zip';
-        case '.mp3':
-            return 'audio/mpeg';
-        case '.mp4':
-            return 'video/mp4';
-        default:
-            return 'application/octet-stream';
-        }
-    }
-    
     async writeFileEx(owner_id: number, fullPath: string, data: string | Buffer, encoding: BufferEncoding, is_public: boolean, ordinal?: number): Promise<void> {
         try {
-            const relativePath = this.normalizePath(fullPath);
-            const { parentPath, filename } = this.parsePath(relativePath);
+            const relativePath = normalizePath(fullPath);
+            const { parentPath, filename } = parsePath(relativePath);
             
-            // If ordinal is not provided, get the next available ordinal (max + 1)
-            let finalOrdinal = ordinal;
-            if (finalOrdinal === undefined) {
-                const maxOrdinalResult = await pgdb.query(
-                    'SELECT COALESCE(MAX(ordinal), -1) + 1 as next_ordinal FROM vfs_nodes WHERE doc_root_key = $1 AND parent_path = $2',
-                    rootKey, parentPath
-                );
-                finalOrdinal = maxOrdinalResult.rows[0].next_ordinal;
-            }
+            // Pass null for ordinal if not provided to let the SQL function calculate it automatically
+            const finalOrdinal = ordinal ?? null;
             
             // Determine if this is a binary file based on extension
             const ext = getFilenameExtension(filename).toLowerCase();
-            const isBinary = this.isBinaryFile(ext);
+            const isBinary = isBinaryFile(ext);
             
             // Determine content type based on file extension
-            const contentType = this.getContentType(ext);
+            const contentType = getContentType(ext);
             
             if (isBinary || Buffer.isBuffer(data)) {
                 // Handle binary files
@@ -375,7 +240,8 @@ class VFS2 {
                 if (typeof data === 'string') {
                     textContent = data;
                 } else {
-                    textContent = data.toString(encoding || 'utf8');
+                    // data is Buffer - explicitly cast to ensure TypeScript knows it has toString method
+                    textContent = (data as Buffer).toString(encoding || 'utf8');
                 }
                 
                 await pgdb.query(
@@ -407,7 +273,7 @@ class VFS2 {
             }
             
             const row = result.rows[0];
-            const node = this.convertToTreeNode(row);
+            const node = convertToTreeNode(row);
             
             // Construct the docPath from parent_path and filename
             let docPath: string;
@@ -416,7 +282,7 @@ class VFS2 {
                 docPath = row.filename;
             } else {
                 // Combine parent_path and filename with proper path separator
-                docPath = this.pathJoin(row.parent_path, row.filename);
+                docPath = pathJoin(row.parent_path, row.filename);
             }
             
             return { node, docPath };
@@ -428,7 +294,7 @@ class VFS2 {
     
     async readdir(owner_id: number, fullPath: string): Promise<string[]> {
         try {
-            const relativePath = this.normalizePath(fullPath);
+            const relativePath = normalizePath(fullPath);
             
             const result = await pgdb.query(
                 'SELECT * FROM vfs_readdir($1, $2, $3, $4)',
@@ -445,7 +311,7 @@ class VFS2 {
     
     async readdirEx(owner_id: number, fullPath: string, loadContent: boolean): Promise<TreeNode[]> {
         try {
-            const relativePath = this.normalizePath(fullPath);
+            const relativePath = normalizePath(fullPath);
             
             const rootContents = await pgdb.query(
                 'SELECT * FROM vfs_readdir($1, $2, $3, $4)',
@@ -453,7 +319,7 @@ class VFS2 {
             );
             
             const treeNodes = rootContents.rows.map((row: any) => {
-                return this.convertToTreeNode(row);
+                return convertToTreeNode(row);
             });
             return treeNodes;
         } catch (error) {
@@ -461,25 +327,14 @@ class VFS2 {
             throw error;
         }
     }
-    
-    async mkdir(owner_id: number, fullPath: string, options?: { recursive?: boolean }): Promise<void> {
-        throw new Error("Method not implemented yet");
-    }
-    
+        
     async mkdirEx(owner_id: number, fullPath: string, options?: { recursive?: boolean }, is_public?: boolean, ordinal?: number): Promise<void> {
         try {
-            const relativePath = this.normalizePath(fullPath);
-            const { parentPath, filename } = this.parsePath(relativePath);
+            const relativePath = normalizePath(fullPath);
+            const { parentPath, filename } = parsePath(relativePath);
             
-            // If ordinal is not provided, get the next available ordinal (max + 1)
-            let finalOrdinal = ordinal;
-            if (finalOrdinal === undefined) {
-                const maxOrdinalResult = await pgdb.query(
-                    'SELECT COALESCE(MAX(ordinal), -1) + 1 as next_ordinal FROM vfs_nodes WHERE doc_root_key = $1 AND parent_path = $2',
-                    rootKey, parentPath
-                );
-                finalOrdinal = maxOrdinalResult.rows[0].next_ordinal;
-            }
+            // Pass null for ordinal if not provided to let the SQL function calculate it automatically
+            const finalOrdinal = ordinal ?? null;
             
             await pgdb.query(
                 'SELECT vfs_mkdir($1, $2, $3, $4, $5, $6, $7)',
@@ -492,12 +347,12 @@ class VFS2 {
     } 
     
     async rename(owner_id: number, oldPath: string, newPath: string): Promise<void> {
-        if (!this.validPath(newPath)) {
+        if (!validPath(newPath)) {
             throw new Error(`Invalid new path: ${newPath}. Only alphanumeric characters and underscores`);
         }
         
-        const { parentPath: oldParentPath, filename: oldFilename } = this.parsePath(oldPath);
-        const { parentPath: newParentPath, filename: newFilename } = this.parsePath(newPath);
+        const { parentPath: oldParentPath, filename: oldFilename } = parsePath(oldPath);
+        const { parentPath: newParentPath, filename: newFilename } = parsePath(newPath);
             
         const result = await pgdb.query(
             'SELECT * FROM vfs_rename($1, $2, $3, $4, $5, $6)',
@@ -512,19 +367,20 @@ class VFS2 {
     
     async unlink(owner_id: number, fullPath: string): Promise<void> {
         try {
-            const relativePath = this.normalizePath(fullPath);
+            const relativePath = normalizePath(fullPath);
             
             // Special case: prevent deletion of root directory
             if (relativePath === '') {
                 throw new Error('Cannot unlink root directory');
             }
             
-            const { parentPath, filename } = this.parsePath(relativePath);
+            const { parentPath, filename } = parsePath(relativePath);
             
             // Check if the file exists and get its info
             let stats: VFS2Stats;
             try {
                 stats = await this.stat(fullPath);
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (error) {
                 throw new Error(`File not found: ${fullPath}`);
             }
@@ -551,14 +407,14 @@ class VFS2 {
     
     async rm(owner_id: number, fullPath: string, options?: { recursive?: boolean, force?: boolean }): Promise<void> {
         try {
-            const relativePath = this.normalizePath(fullPath);
+            const relativePath = normalizePath(fullPath);
             
             // Special case: prevent deletion of root directory
             if (relativePath === '') {
                 throw new Error('Cannot delete root directory');
             }
             
-            const { parentPath, filename } = this.parsePath(relativePath);
+            const { parentPath, filename } = parsePath(relativePath);
             
             // Check if the file/directory exists and get its info
             let stats: VFS2Stats;
@@ -634,7 +490,7 @@ class VFS2 {
      */
     async shiftOrdinalsDown(owner_id: number, parentPath: string, insertOrdinal: number, slotsToAdd: number): Promise<Map<string, string>> {
         try {
-            const relativePath = this.normalizePath(parentPath);
+            const relativePath = normalizePath(parentPath);
             
             const result = await pgdb.query(
                 'SELECT * FROM vfs_shift_ordinals_down($1, $2, $3, $4, $5)',
@@ -712,39 +568,6 @@ class VFS2 {
             console.error('VFS2.swapOrdinals error:', error);
             throw error;
         }
-    }
-        
-    pathJoin(...parts: string[]): string {
-        return this.normalizePath(parts.join('/'));
-    }
-    
-    // Split 'fullPath' by '/' and then run 'validName' on each part or if there's no '/' just run 'validName' on the fullPath
-    public validPath(fullPath: string): boolean {
-        // Normalize the path to ensure consistent formatting
-        fullPath = this.normalizePath(fullPath);
-
-        // Split the path by '/' and check each part
-        const parts = fullPath.split('/');
-        for (const part of parts) {
-            if (!svrUtil.validName(part)) {
-                return false; // If any part is invalid, return false
-            }
-        }
-        return true; // All parts are valid
-    }
-
-    /* NOTE: VFS2 requires there be NO leading slashes on paths */
-    public normalizePath(fullPath: string): string {
-        // use regex to strip any leading slashes or dots
-        const normalizedPath = 
-            // strip any leading slashes or dots
-            fullPath.replace(/^[/.]+/, '')
-                // replace multiple slashes with a single slash
-                .replace(/\/+/g, '/')
-                // final replacement to ensure no trailing slash
-                .replace(/\/+$/, '');
-
-        return normalizedPath;
     }
 }
 

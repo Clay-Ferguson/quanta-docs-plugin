@@ -1,11 +1,11 @@
-import vfs2 from '../VFS2.js';
+import { pathJoin } from '../vfs-utils.js';
 
 export async function joinPathTest(): Promise<void> {
     try {
         console.log('=== VFS2 Join Path Test Starting ===');
 
         // Test 1: Basic path joining
-        const result1 = vfs2.pathJoin('folder', 'file.txt');
+        const result1 = pathJoin('folder', 'file.txt');
         const expected1 = 'folder/file.txt';
         console.log(`Test 1 - Input: ['folder', 'file.txt'], Expected: '${expected1}', Got: '${result1}'`);
         if (result1 !== expected1) {
@@ -13,7 +13,7 @@ export async function joinPathTest(): Promise<void> {
         }
 
         // Test 2: Multiple path parts
-        const result2 = vfs2.pathJoin('folder1', 'folder2', 'folder3', 'file.txt');
+        const result2 = pathJoin('folder1', 'folder2', 'folder3', 'file.txt');
         const expected2 = 'folder1/folder2/folder3/file.txt';
         console.log(`Test 2 - Input: ['folder1', 'folder2', 'folder3', 'file.txt'], Expected: '${expected2}', Got: '${result2}'`);
         if (result2 !== expected2) {
@@ -21,7 +21,7 @@ export async function joinPathTest(): Promise<void> {
         }
 
         // Test 3: Empty strings in parts
-        const result3 = vfs2.pathJoin('folder', '', 'file.txt');
+        const result3 = pathJoin('folder', '', 'file.txt');
         const expected3 = 'folder/file.txt';
         console.log(`Test 3 - Input: ['folder', '', 'file.txt'], Expected: '${expected3}', Got: '${result3}'`);
         if (result3 !== expected3) {
@@ -29,7 +29,7 @@ export async function joinPathTest(): Promise<void> {
         }
 
         // Test 4: Parts with leading/trailing slashes
-        const result4 = vfs2.pathJoin('/folder/', '/subfolder/', '/file.txt');
+        const result4 = pathJoin('/folder/', '/subfolder/', '/file.txt');
         const expected4 = 'folder/subfolder/file.txt';
         console.log(`Test 4 - Input: ['/folder/', '/subfolder/', '/file.txt'], Expected: '${expected4}', Got: '${result4}'`);
         if (result4 !== expected4) {
@@ -37,7 +37,7 @@ export async function joinPathTest(): Promise<void> {
         }
 
         // Test 5: Single part
-        const result5 = vfs2.pathJoin('file.txt');
+        const result5 = pathJoin('file.txt');
         const expected5 = 'file.txt';
         console.log(`Test 5 - Input: ['file.txt'], Expected: '${expected5}', Got: '${result5}'`);
         if (result5 !== expected5) {
@@ -45,7 +45,7 @@ export async function joinPathTest(): Promise<void> {
         }
 
         // Test 6: No parts (empty array)
-        const result6 = vfs2.pathJoin();
+        const result6 = pathJoin();
         const expected6 = '';
         console.log(`Test 6 - Input: [], Expected: '${expected6}', Got: '${result6}'`);
         if (result6 !== expected6) {
@@ -53,7 +53,7 @@ export async function joinPathTest(): Promise<void> {
         }
 
         // Test 7: Parts with multiple slashes
-        const result7 = vfs2.pathJoin('folder//subfolder', 'file.txt');
+        const result7 = pathJoin('folder//subfolder', 'file.txt');
         const expected7 = 'folder/subfolder/file.txt';
         console.log(`Test 7 - Input: ['folder//subfolder', 'file.txt'], Expected: '${expected7}', Got: '${result7}'`);
         if (result7 !== expected7) {
@@ -61,7 +61,7 @@ export async function joinPathTest(): Promise<void> {
         }
 
         // Test 8: All empty strings
-        const result8 = vfs2.pathJoin('', '', '');
+        const result8 = pathJoin('', '', '');
         const expected8 = '';
         console.log(`Test 8 - Input: ['', '', ''], Expected: '${expected8}', Got: '${result8}'`);
         if (result8 !== expected8) {
@@ -69,7 +69,7 @@ export async function joinPathTest(): Promise<void> {
         }
 
         // Test 9: Complex path with dots and slashes (normalizePath doesn't resolve .. paths)
-        const result9 = vfs2.pathJoin('./folder', '../other', 'file.txt');
+        const result9 = pathJoin('./folder', '../other', 'file.txt');
         const expected9 = 'folder/../other/file.txt';
         console.log(`Test 9 - Input: ['./folder', '../other', 'file.txt'], Expected: '${expected9}', Got: '${result9}'`);
         if (result9 !== expected9) {
@@ -77,7 +77,7 @@ export async function joinPathTest(): Promise<void> {
         }
 
         // Test 10: Root-like paths
-        const result10 = vfs2.pathJoin('/', 'folder', 'file.txt');
+        const result10 = pathJoin('/', 'folder', 'file.txt');
         const expected10 = 'folder/file.txt';
         console.log(`Test 10 - Input: ['/', 'folder', 'file.txt'], Expected: '${expected10}', Got: '${result10}'`);
         if (result10 !== expected10) {

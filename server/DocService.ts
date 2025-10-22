@@ -7,6 +7,7 @@ import { runTrans } from "../../../server/db/Transactional.js";
 import pgdb from "../../../server/db/PGDB.js";
 import { fixName, getFilenameExtension, isImageExt } from '../../../common/CommonUtils.js';
 import vfs2 from "./VFS2/VFS2.js";
+import { normalizePath, pathJoin } from "./VFS2/vfs-utils.js";
 /**
  * Service class for handling document management operations in the docs plugin.
  * 
@@ -88,7 +89,7 @@ class DocService {
             // Extract the pullup parameter from query string
             const pullup = req.query.pullup as string; 
 
-            treeFolder = vfs2.normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
+            treeFolder = normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
             // console.log(`Normalized treeFolder: [${treeFolder}]`);
 
             if (process.env.POSTGRES_HOST) {
@@ -108,7 +109,7 @@ class DocService {
             // Use regex to check if treeFolder starts with pattern "NNNN_" where 4 is a numeric digit
         
             // Construct the absolute path to the target directory
-            const absolutePath = vfs2.pathJoin(root, treeFolder);
+            const absolutePath = pathJoin(root, treeFolder);
 
             const info: any = {};
             // Verify the target directory exists
@@ -191,7 +192,7 @@ class DocService {
         // Process each file/folder in the directory
         for (const file of fileNodes) {    
             // Get file information
-            const filePath = vfs2.pathJoin(absolutePath, file.name);
+            const filePath = pathJoin(absolutePath, file.name);
 
             // DIRECTORY
             if (file.is_directory) {
@@ -268,7 +269,7 @@ class DocService {
                 let {treeFolder} = req.body;
                 let {fileName} = req.body;
                 fileName = fixName(fileName); // Ensure valid file name
-                treeFolder = vfs2.normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
+                treeFolder = normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
             
                 // Resolve and validate document root
                 const root = "/";
@@ -280,7 +281,7 @@ class DocService {
                 }
 
                 // Construct absolute path to parent directory
-                const absoluteParentPath = vfs2.pathJoin(root, treeFolder);
+                const absoluteParentPath = pathJoin(root, treeFolder);
 
                 // Verify parent directory exists and is accessible
                 const info: any = {};
@@ -296,7 +297,7 @@ class DocService {
                     // For VFS2: insertAfterNode is just the filename, we need to get its ordinal from the database
                     // For legacy VFS: insertAfterNode has ordinal prefix, extract it
                     // VFS2: Get ordinal from database
-                    const afterNodePath = vfs2.pathJoin(absoluteParentPath, insertAfterNode);
+                    const afterNodePath = pathJoin(absoluteParentPath, insertAfterNode);
                     const afterNodeInfo: any = {};
                     if (await vfs2.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
                         insertOrdinal = afterNodeInfo.node.ordinal + 1;
@@ -320,7 +321,7 @@ class DocService {
                 let fileNameToReturn: string;
                 
                 // VFS2: No ordinal prefix in filename, ordinal is stored in database
-                newFilePath = vfs2.pathJoin(absoluteParentPath, finalFileName);
+                newFilePath = pathJoin(absoluteParentPath, finalFileName);
                 fileNameToReturn = finalFileName;
             
                 // Safety check: prevent overwriting existing files
@@ -338,7 +339,7 @@ class DocService {
                     const uniqueFileName = `${baseFileName}_${randomSuffix}${extension}`;
                                         
                     // VFS2: No ordinal prefix in filename
-                    newFilePath = vfs2.pathJoin(absoluteParentPath, uniqueFileName);
+                    newFilePath = pathJoin(absoluteParentPath, uniqueFileName);
                     fileNameToReturn = uniqueFileName;
                     existsCheck = await vfs2.exists(newFilePath);
                 }
@@ -410,7 +411,7 @@ class DocService {
                 }
 
                 // Construct absolute path to parent directory
-                const absoluteParentPath = vfs2.pathJoin(root, treeFolder);
+                const absoluteParentPath = pathJoin(root, treeFolder);
 
                 // Verify parent directory exists and is accessible
                 const parentInfo: any = {};
@@ -426,7 +427,7 @@ class DocService {
                     console.log(`Create folder "${folderName}" below node: ${insertAfterNode}`);
                 
                     // VFS2: Get ordinal from database
-                    const afterNodePath = vfs2.pathJoin(absoluteParentPath, insertAfterNode);
+                    const afterNodePath = pathJoin(absoluteParentPath, insertAfterNode);
                     const afterNodeInfo: any = {};
                     if (await vfs2.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
                         insertOrdinal = afterNodeInfo.node.ordinal + 1;
@@ -441,7 +442,7 @@ class DocService {
                 await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root);
                  
                 // VFS2: No ordinal prefix in folder name, ordinal is stored in database
-                const newFolderPath = vfs2.pathJoin(absoluteParentPath, folderName);
+                const newFolderPath = pathJoin(absoluteParentPath, folderName);
                 const folderNameToReturn = folderName;
                
 
@@ -481,7 +482,7 @@ class DocService {
 
             try {
                 // Try to read .TAGS.md from the root directory
-                const tagsFilePath = vfs2.pathJoin("/", '.TAGS.md');
+                const tagsFilePath = pathJoin("/", '.TAGS.md');
                 const fileContent = await vfs2.readFile(owner_id, tagsFilePath, 'utf8') as string;
                 console.log('Read .TAGS.md file content:', fileContent); // Debug logging
                 
@@ -534,7 +535,7 @@ class DocService {
             }
 
             // Phase 1: Load existing tags from .TAGS.md
-            const tagsFilePath = vfs2.pathJoin("/", '.TAGS.md');
+            const tagsFilePath = pathJoin("/", '.TAGS.md');
             const existingTagsMap = new Map<string, boolean>();
             let existingContent = '';
             
@@ -635,7 +636,7 @@ class DocService {
                     continue;
                 }
                 
-                const itemPath = vfs2.pathJoin(currentPath, item.name);
+                const itemPath = pathJoin(currentPath, item.name);
                 
                 if (item.is_directory) {
                     // Recursively scan subdirectories
