@@ -1,5 +1,5 @@
 import pgdb from '../../../../server/db/PGDB.js';
-import { TreeNode, UserProfileCompact } from '../../../../common/types/CommonTypes.js';
+import { TreeNode, UserProfileCompact, CompactTreeNode } from '../../../../common/types/CommonTypes.js';
 import { getFilenameExtension } from '../../../../common/CommonUtils.js';
 import { convertToTreeNode, getContentType, isBinaryFile, normalizePath, parsePath, pathJoin, validPath } from './vfs-utils.js';
 
@@ -291,6 +291,36 @@ class VFS2 {
             return { node: null, docPath: '' };
         }
     }
+
+    /**
+     * Get a compact node by its UUID containing only uuid, parent_path, filename, and ordinal
+     * @param uuid - The UUID of the node to retrieve
+     * @param rootKey - The root key for the VFS2 (defaults to "usr")
+     * @returns The CompactTreeNode or null if not found
+     */
+    async getCompactNodeById(uuid: string, rootKey: string = "usr"): Promise<CompactTreeNode | null> {
+        try {
+            const result = await pgdb.query(
+                'SELECT uuid, parent_path, filename, ordinal FROM vfs_nodes WHERE uuid = $1 AND doc_root_key = $2',
+                uuid, rootKey
+            );
+            
+            if (result.rows.length === 0) {
+                return null;
+            }
+            
+            const row = result.rows[0];
+            return {
+                uuid: row.uuid,
+                parent_path: row.parent_path,
+                filename: row.filename,
+                ordinal: row.ordinal
+            };
+        } catch (error) {
+            console.error('VFS2.getCompactNodeById error:', error);
+            return null;
+        }
+    }
     
     async readdir(owner_id: number, fullPath: string): Promise<string[]> {
         try {
@@ -566,6 +596,43 @@ class VFS2 {
             };
         } catch (error) {
             console.error('VFS2.swapOrdinals error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Set the public/private status of a file or folder
+     * @param owner_id - The owner ID for authorization
+     * @param parentPath - The parent directory path
+     * @param filename - The name of the file or folder to update
+     * @param is_public - Whether the item should be public (true) or private (false)
+     * @param recursive - Whether to apply the change recursively to subdirectories and files
+     * @returns Object containing success status and diagnostic message
+     */
+    async setPublic(owner_id: number, parentPath: string, filename: string, is_public: boolean, recursive: boolean = false): Promise<{ success: boolean; diagnostic: string }> {
+        try {
+            const result = await pgdb.query(
+                'SELECT * FROM vfs_set_public($1, $2, $3, $4, $5, $6)',
+                owner_id, parentPath, filename, is_public, recursive, rootKey
+            );
+            
+            if (result.rows.length === 0) {
+                throw new Error('No result returned from vfs_set_public function');
+            }
+            
+            const row = result.rows[0];
+            const success = row.success;
+            const diagnostic = row.diagnostic;
+            
+            if (success) {
+                console.log(`Successfully set visibility to ${is_public ? 'public' : 'private'}: ${diagnostic}`);
+            } else {
+                console.error(`Failed to set visibility: ${diagnostic}`);
+            }
+            
+            return { success, diagnostic };
+        } catch (error) {
+            console.error('VFS2.setPublic error:', error);
             throw error;
         }
     }

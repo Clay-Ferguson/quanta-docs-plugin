@@ -595,24 +595,15 @@ class DocMod {
                     return;
                 }
 
-                
-                // Call the PostgreSQL function
-                const result = await pgdb.query(
-                    'SELECT * FROM vfs_set_public($1, $2, $3, $4, $5, $6)',
-                    owner_id, treeFolder, filename, is_public, recursive, "usr" 
-                );
+                // Use VFS2 method to set public status
+                const result = await vfs2.setPublic(owner_id, treeFolder, filename, is_public, recursive);
                     
-                const success = result.rows[0].success;
-                const diagnostic = result.rows[0].diagnostic;
-                    
-                if (success) {
-                    console.log(`Successfully set visibility to ${is_public ? 'public' : 'private'}: ${diagnostic}`);
+                if (result.success) {
                     res.json({ 
-                        message: diagnostic 
+                        message: result.diagnostic 
                     });
                 } else {
-                    console.error(`Failed to set visibility: ${diagnostic}`);
-                    res.status(500).json({ error: diagnostic });
+                    res.status(500).json({ error: result.diagnostic });
                 }
                 
             } catch (error) {
@@ -682,24 +673,20 @@ class DocMod {
                 const nodeInfos: { uuid: string; parent_path: string; filename: string; ordinal: number; fullPath: string }[] = [];
                 
                 for (const uuid of pasteItemUuids) {
-                    const result = await pgdb.query(
-                        'SELECT uuid, parent_path, filename, ordinal FROM vfs_nodes WHERE uuid = $1 AND doc_root_key = $2',
-                        uuid, "usr"
-                    );
+                    const compactNode = await vfs2.getCompactNodeById(uuid, "usr");
                     
-                    if (result.rows.length === 0) {
+                    if (!compactNode) {
                         console.warn(`Item with UUID ${uuid} not found in database, skipping`);
                         continue;
                     }
                     
-                    const row = result.rows[0];
-                    const fullPath = row.parent_path ? `${row.parent_path}/${row.filename}` : row.filename;
+                    const fullPath = compactNode.parent_path ? `${compactNode.parent_path}/${compactNode.filename}` : compactNode.filename;
                     
                     nodeInfos.push({
-                        uuid: row.uuid,
-                        parent_path: row.parent_path,
-                        filename: row.filename,
-                        ordinal: row.ordinal,
+                        uuid: compactNode.uuid,
+                        parent_path: compactNode.parent_path,
+                        filename: compactNode.filename,
+                        ordinal: compactNode.ordinal,
                         fullPath: fullPath
                     });
                 }
@@ -1222,6 +1209,7 @@ class DocMod {
             console.log(`VFS search query: "${query}" with mode: "${searchMode}" in folder: "${treeFolder}"`);
             
             // Call the PostgreSQL search function
+            // todo-0: all direct calls to vfs_* belong in VFS2.ts
             const searchResult = await pgdb.query(
                 'SELECT * FROM vfs_search_text($1, $2, $3, $4, $5, $6)',
                 user_id, query, treeFolder, "usr", searchMode, searchOrder 
