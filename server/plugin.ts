@@ -1,7 +1,7 @@
 import { config } from "../../../server/Config.js";
 import { Request } from 'express';
-import { runTests as runVfs2Tests } from './VFS2/test/vfs2.test.js';
-import { runRESTEndpointsTests } from './VFS2/test/rest.test.js';
+import { runTests as runVfsTests } from './VFS/test/vfs.test.js';
+import { runRESTEndpointsTests } from './VFS/test/rest.test.js';
 import { httpServerUtil } from "../../../server/HttpServerUtil.js";
 import { docSvc } from "./DocService.js";
 import { IAppContext, IServerPlugin, asyncHandler } from "../../../server/ServerUtil.js";
@@ -13,7 +13,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import pgdb from "../../../server/db/PGDB.js";
 import { UserProfileCompact } from "../../../common/types/CommonTypes.js";
-import vfs2 from "./VFS2/VFS2.js";
+import vfs from "./VFS/VFS.js";
 import { docTags } from "./DocTags.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,12 +32,12 @@ class DocsServerPlugin implements IServerPlugin {
             this.pgMode = true;
         
             // Initialize database schema
-            await this.initializeDatabase('VFS2/SQL');
+            await this.initializeDatabase('VFS/SQL');
 
             if (!pgdb.adminProfile) {
                 throw new Error('Admin profile not loaded. Please ensure the database is initialized and the admin user is created.');
             }
-            await vfs2.createUserFolder(pgdb.adminProfile);
+            await vfs.createUserFolder(pgdb.adminProfile);
         }
         else {
             throw new Error('POSTGRES_HOST environment variable is not set.');
@@ -48,7 +48,7 @@ class DocsServerPlugin implements IServerPlugin {
     onCreateNewUser = async (userProfile: UserProfileCompact): Promise<UserProfileCompact> => {
         if (process.env.POSTGRES_HOST) {
             console.log('Docs onCreateNewUser: ', userProfile);
-            await vfs2.createUserFolder(userProfile);
+            await vfs.createUserFolder(userProfile);
         }
         return userProfile;
     }
@@ -65,7 +65,7 @@ class DocsServerPlugin implements IServerPlugin {
         context.app.get('/api/docs/images/*',httpServerUtil.verifyReqHTTPQuerySig, asyncHandler(docBinary.serveDocImage));
 
         // For now we only allow admin to access the docs API
-        context.app.post('/api/docs/render/*', httpServerUtil.verifyReqHTTPSignatureAllowAnon, asyncHandler(docSvc.treeRender)); 
+        context.app.post('/api/docs/render/*', httpServerUtil.verifyReqHTTPSignatureAllowAnon, asyncHandler(docSvc.treeRender));  
         
         context.app.post('/api/docs/upload', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docBinary.uploadFiles)); 
         context.app.post('/api/docs/delete', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.deleteFileOrFolder)); 
@@ -170,7 +170,7 @@ class DocsServerPlugin implements IServerPlugin {
 
     async runAllTests(): Promise<void> {
         console.log("Running embedded tests...");
-        await runVfs2Tests();
+        await runVfsTests();
         await runRESTEndpointsTests();
         
         return Promise.resolve();

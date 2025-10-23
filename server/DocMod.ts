@@ -5,8 +5,8 @@ import { docUtil } from "./DocUtil.js";
 import { runTrans } from '../../../server/db/Transactional.js';
 import { fixName } from '../../../common/CommonUtils.js';
 import { ANON_USER_ID, TreeNode } from '../../../common/types/CommonTypes.js';
-import vfs2 from './VFS2/VFS2.js';
-import { normalizePath } from './VFS2/vfs-utils.js';
+import vfs from './VFS/VFS.js';
+import { normalizePath } from './VFS/vfs-utils.js';
 
 /**
  * DocMod - Document Modification Service
@@ -90,13 +90,13 @@ class DocMod {
                 const absoluteFilePath = path.join(absoluteFolderPath, filename);
     
                 // Verify target directory exists and is accessible
-                if (!await vfs2.exists(absoluteFolderPath)) {
+                if (!await vfs.exists(absoluteFolderPath)) {
                     res.status(404).json({ error: 'Directory not found' });
                     return;
                 }
     
                 // Ensure the target path is actually a directory
-                const stat = await vfs2.stat(absoluteFolderPath);
+                const stat = await vfs.stat(absoluteFolderPath);
                 if (!stat.is_directory) {
                     res.status(400).json({ error: 'Path is not a directory' });
                     return;
@@ -109,15 +109,15 @@ class DocMod {
                     const newAbsoluteFilePath = path.join(absoluteFolderPath, newFileName);
                     
                     // Verify the original file exists before attempting rename
-                    if (await vfs2.exists(absoluteFilePath)) {
+                    if (await vfs.exists(absoluteFilePath)) {
                         // Prevent overwriting existing files
-                        if (await vfs2.exists(newAbsoluteFilePath)) {
+                        if (await vfs.exists(newAbsoluteFilePath)) {
                             res.status(409).json({ error: 'A file with the new name already exists' });
                             return;
                         }
                         
                         // Perform the file rename operation with security check
-                        await vfs2.rename(owner_id, absoluteFilePath, newAbsoluteFilePath);
+                        await vfs.rename(owner_id, absoluteFilePath, newAbsoluteFilePath);
                         console.log(`File renamed successfully: ${absoluteFilePath} -> ${newAbsoluteFilePath}`);
                     }
                     
@@ -133,9 +133,9 @@ class DocMod {
                         // Determine the file system type to handle ordinal extraction differently
                         let originalOrdinal: number;
                         
-                        // VFS2: Get ordinal from database
+                        // VFS: Get ordinal from database
                         const fileInfo: any = {};
-                        if (await vfs2.exists(finalFilePath, fileInfo) && fileInfo.node) {
+                        if (await vfs.exists(finalFilePath, fileInfo) && fileInfo.node) {
                             originalOrdinal = fileInfo.node.ordinal;
                         } else {
                             originalOrdinal = 0; // Default if file doesn't exist yet
@@ -153,7 +153,7 @@ class DocMod {
                             let partFilePath = finalFilePath;
                             
                             if (i > 0) {
-                                // VFS2: Generate new filename without ordinal prefix
+                                // VFS: Generate new filename without ordinal prefix
                                 const originalBaseName = path.basename(finalFilePath);
                                 const nameWithoutExt = path.parse(originalBaseName).name;
                                 const extension = path.parse(originalBaseName).ext;
@@ -161,9 +161,9 @@ class DocMod {
                                 partFilePath = path.join(path.dirname(finalFilePath), newBaseName);
                             }
                                                         
-                            // VFS2: Use writeFileEx with explicit ordinal
+                            // VFS: Use writeFileEx with explicit ordinal
                             const targetOrdinal = originalOrdinal + i;
-                            await vfs2.writeFileEx(owner_id, partFilePath, partContent, 'utf8', false, targetOrdinal);
+                            await vfs.writeFileEx(owner_id, partFilePath, partContent, 'utf8', false, targetOrdinal);
                             
                             console.log(`Split file part ${i + 1} saved successfully: ${partFilePath}`);
                         }
@@ -176,11 +176,11 @@ class DocMod {
                         // Preserve existing ordinal if file exists
                         let existingOrdinal: number | undefined = undefined;
                         const fileInfo: any = {};
-                        if (await vfs2.exists(finalFilePath, fileInfo) && fileInfo.node) {
+                        if (await vfs.exists(finalFilePath, fileInfo) && fileInfo.node) {
                             existingOrdinal = fileInfo.node.ordinal;
                         }
                         
-                        await vfs2.writeFileEx(owner_id, finalFilePath, content, 'utf8', false, existingOrdinal);
+                        await vfs.writeFileEx(owner_id, finalFilePath, content, 'utf8', false, existingOrdinal);
                         console.log(`File saved successfully: ${finalFilePath}`);
                         res.json({ message: 'File saved successfully (no split delimiter found)' });
                     }
@@ -189,11 +189,11 @@ class DocMod {
                     // Preserve existing ordinal if file exists
                     let existingOrdinal: number | undefined = undefined;
                     const fileInfo: any = {};
-                    if (await vfs2.exists(finalFilePath, fileInfo) && fileInfo.node) {
+                    if (await vfs.exists(finalFilePath, fileInfo) && fileInfo.node) {
                         existingOrdinal = fileInfo.node.ordinal;
                     }
                     
-                    await vfs2.writeFileEx(owner_id, finalFilePath, content, 'utf8', false, existingOrdinal);
+                    await vfs.writeFileEx(owner_id, finalFilePath, content, 'utf8', false, existingOrdinal);
                     console.log(`File saved successfully: ${finalFilePath}`);
                     res.json({ message: 'File saved successfully' });
                 }
@@ -254,19 +254,19 @@ class DocMod {
                 const newAbsolutePath = path.join(absoluteParentPath, newFolderName);
 
                 // Verify the parent directory exists
-                if (!await vfs2.exists(absoluteParentPath)) {
+                if (!await vfs.exists(absoluteParentPath)) {
                     res.status(404).json({ error: 'Parent directory not found' });
                     return;
                 }
 
                 // Verify the folder to be renamed exists
-                if (!await vfs2.exists(oldAbsolutePath)) {
+                if (!await vfs.exists(oldAbsolutePath)) {
                     res.status(404).json({ error: 'Old folder not found' });
                     return;
                 }
 
                 // Ensure the target is actually a directory, not a file
-                const stat = await vfs2.stat(oldAbsolutePath);
+                const stat = await vfs.stat(oldAbsolutePath);
                 if (!stat.is_directory) {
                     res.status(400).json({ error: 'Path is not a directory' });
                     return;
@@ -279,12 +279,12 @@ class DocMod {
                 }
 
                 // Prevent naming conflicts with existing folders
-                if (await vfs2.exists(newAbsolutePath)) {
+                if (await vfs.exists(newAbsolutePath)) {
                     res.status(409).json({ error: 'A folder with the new name already exists' });
                     return;
                 }
 
-                await vfs2.rename(owner_id, oldAbsolutePath, newAbsolutePath);
+                await vfs.rename(owner_id, oldAbsolutePath, newAbsolutePath);
             
                 // console.log(`Folder renamed successfully: ${oldAbsolutePath} -> ${newAbsolutePath}`);
                 res.json({ message: 'Folder renamed successfully' });
@@ -354,7 +354,7 @@ class DocMod {
                 const absoluteParentPath = path.join(root, treeFolder);
 
                 // Check if the parent directory exists
-                if (!await vfs2.exists(absoluteParentPath)) {
+                if (!await vfs.exists(absoluteParentPath)) {
                     res.status(404).json({ error: 'Parent directory not found' });
                     return;
                 }
@@ -368,21 +368,21 @@ class DocMod {
                         const absoluteTargetPath = path.join(absoluteParentPath, fileName);
 
                         // Check if the target exists
-                        if (!await vfs2.exists(absoluteTargetPath)) {
+                        if (!await vfs.exists(absoluteTargetPath)) {
                             errors.push(`File or folder not found: ${fileName}`);
                             continue;
                         }
 
                         // Get stats to determine if it's a file or directory
-                        const stat = await vfs2.stat(absoluteTargetPath);
+                        const stat = await vfs.stat(absoluteTargetPath);
                     
                         if (stat.is_directory) {
                             // Remove directory recursively
-                            await vfs2.rm(owner_id, absoluteTargetPath, { recursive: true, force: true });
+                            await vfs.rm(owner_id, absoluteTargetPath, { recursive: true, force: true });
                             // console.log(`Folder deleted successfully: ${absoluteTargetPath}`);
                         } else {
                             // Remove file
-                            await vfs2.unlink(owner_id, absoluteTargetPath);
+                            await vfs.unlink(owner_id, absoluteTargetPath);
                             // console.log(`File deleted successfully: ${absoluteTargetPath}`);
                         }
                     
@@ -434,7 +434,7 @@ class DocMod {
      * 5. Performs atomic ordinal swap operation in the database
      * 6. Returns confirmation of the successful position change
      * 
-     * Ordinal Management (VFS2):
+     * Ordinal Management (VFS):
      * - Ordinals are stored as integer values in the PostgreSQL database
      * - Items are sorted by ordinal to establish display order (ascending)
      * - Swapping exchanges ordinal values between two items atomically
@@ -494,13 +494,13 @@ class DocMod {
                 const absoluteParentPath = path.join(root, treeFolder);
 
                 // Verify the parent directory exists
-                if (!await vfs2.exists(absoluteParentPath)) {
+                if (!await vfs.exists(absoluteParentPath)) {
                     res.status(404).json({ error: `Parent directory not found: ${absoluteParentPath}` });
                     return;
                 }
 
                 // Read directory contents with ordinal information
-                const treeNodes = await vfs2.readdirEx(owner_id, absoluteParentPath, false);
+                const treeNodes = await vfs.readdirEx(owner_id, absoluteParentPath, false);
             
                 // Sort by ordinal to establish current ordering
                 treeNodes.sort((a, b) => (a.ordinal || 0) - (b.ordinal || 0));
@@ -536,7 +536,7 @@ class DocMod {
 
                 // Swap ordinal values in the database using atomic swap function
                 if (currentNode.uuid && targetNode.uuid) {
-                    await vfs2.swapOrdinals(currentNode.uuid, targetNode.uuid);
+                    await vfs.swapOrdinals(currentNode.uuid, targetNode.uuid);
                 } else {
                     res.status(500).json({ error: 'Unable to swap ordinals: missing UUID' });
                     return;
@@ -570,10 +570,10 @@ class DocMod {
      * 1. Validates the target file/folder exists and parameters are correct
      * 2. Normalizes the tree folder path for consistent processing
      * 3. Constructs absolute paths and verifies accessibility
-     * 4. Delegates to VFS2 system method for database-level public status management
+     * 4. Delegates to VFS system method for database-level public status management
      * 5. Returns operation result with success/failure status and diagnostic information
      * 
-     * Public Status Management (VFS2):
+     * Public Status Management (VFS):
      * - Public status is stored as boolean field in PostgreSQL database nodes
      * - Public files/folders can be accessed without user authentication
      * - Private files/folders require valid user session for access
@@ -599,7 +599,7 @@ class DocMod {
      * - Path normalization ensures consistent database operations
      * - Comprehensive error handling with detailed diagnostic messages
      * - Atomic database operations maintain data consistency
-     * - Integration with VFS2 security and access control systems
+     * - Integration with VFS security and access control systems
      * 
      * Security Considerations:
      * - Validates user ownership before allowing status changes
@@ -650,13 +650,13 @@ class DocMod {
                 const absoluteFilePath = path.join(absoluteParentPath, filename);
 
                 // Check if the specified file/folder exists
-                if (!await vfs2.exists(absoluteFilePath)) {
+                if (!await vfs.exists(absoluteFilePath)) {
                     res.status(404).json({ error: 'File or folder not found' });
                     return;
                 }
 
-                // Use VFS2 method to set public status
-                const result = await vfs2.setPublic(owner_id, treeFolder, filename, is_public, recursive);
+                // Use VFS method to set public status
+                const result = await vfs.setPublic(owner_id, treeFolder, filename, is_public, recursive);
                     
                 if (result.success) {
                     res.json({ 
@@ -689,7 +689,7 @@ class DocMod {
      * - Comprehensive error reporting for failed operations
      * - UUID-based item identification for reliable database operations
      * 
-     * Ordinal Management (VFS2):
+     * Ordinal Management (VFS):
      * - Ordinals are stored as integer values in the database
      * - When inserting at a specific position, existing items' ordinals are shifted
      * - Same-folder operations update ordinals directly (no file moving needed)
@@ -723,7 +723,7 @@ class DocMod {
                 const absoluteTargetPath = path.join(root, targetFolder);
     
                 // Check if the target directory exists
-                if (!await vfs2.exists(absoluteTargetPath)) {
+                if (!await vfs.exists(absoluteTargetPath)) {
                     res.status(404).json({ error: 'Target directory not found' });
                     return;
                 }
@@ -733,7 +733,7 @@ class DocMod {
                 const nodeInfos: { uuid: string; parent_path: string; filename: string; ordinal: number; fullPath: string }[] = [];
                 
                 for (const uuid of pasteItemUuids) {
-                    const compactNode = await vfs2.getCompactNodeById(uuid, "usr");
+                    const compactNode = await vfs.getCompactNodeById(uuid, "usr");
                     
                     if (!compactNode) {
                         console.warn(`Item with UUID ${uuid} not found in database, skipping`);
@@ -800,7 +800,7 @@ class DocMod {
                     console.log('Items to move:', itemsToMove.map(i => `${i.name}(ord=${i.currentOrdinal})`).join(', '));
                     
                     // Get all nodes in the directory to identify stationary items
-                    const treeNodes = await vfs2.readdirEx(owner_id, absoluteTargetPath, false);
+                    const treeNodes = await vfs.readdirEx(owner_id, absoluteTargetPath, false);
                     
                     // Get items that are NOT being moved
                     const movingUuids = new Set(itemsToMove.map(item => item.uuid));
@@ -852,7 +852,7 @@ class DocMod {
                     for (const [uuid] of newOrdinals.entries()) {
                         const nodeName = treeNodes.find(n => n.uuid === uuid)?.name;
                         console.log(`  ${nodeName}(${uuid}): -> temp ordinal ${tempOrdinal}`);
-                        await vfs2.setOrdinal(uuid, tempOrdinal);
+                        await vfs.setOrdinal(uuid, tempOrdinal);
                         tempOrdinalMap.set(uuid, tempOrdinal);
                         tempOrdinal++; // Each item gets a unique temporary ordinal
                     }
@@ -861,14 +861,14 @@ class DocMod {
                     for (const [uuid, newOrdinal] of newOrdinals.entries()) {
                         const nodeName = treeNodes.find(n => n.uuid === uuid)?.name;
                         console.log(`  ${nodeName}(${uuid}): -> ${newOrdinal}`);
-                        await vfs2.setOrdinal(uuid, newOrdinal);
+                        await vfs.setOrdinal(uuid, newOrdinal);
                     }
                     
                     pastedCount += itemsToMove.length;
                 } else {
                     // For cross-folder operations: move files and assign new ordinals
                     // Shift existing items' ordinals down to make room
-                    await vfs2.shiftOrdinalsDown(owner_id, absoluteTargetPath, insertOrdinal, pasteItems.length);
+                    await vfs.shiftOrdinalsDown(owner_id, absoluteTargetPath, insertOrdinal, pasteItems.length);
                     
                     // Move each file/folder and assign ordinals
                     for (let i = 0; i < pasteItems.length; i++) {
@@ -878,7 +878,7 @@ class DocMod {
                             const sourceFilePath = path.join(root, itemFullPath);
                         
                             // Check if source file exists
-                            if (!await vfs2.exists(sourceFilePath)) {
+                            if (!await vfs.exists(sourceFilePath)) {
                                 errors.push(`Source file not found: ${itemFullPath}`);
                                 continue;
                             }
@@ -886,21 +886,21 @@ class DocMod {
                             const targetFilePath = path.join(absoluteTargetPath, itemName);
 
                             // Safety check: ensure target doesn't already exist to prevent overwriting
-                            if (await vfs2.exists(targetFilePath)) {
+                            if (await vfs.exists(targetFilePath)) {
                                 errors.push(`Target file already exists: ${itemName}`);
                                 continue;
                             }
 
                             // Move the file/folder
-                            await vfs2.rename(owner_id, sourceFilePath, targetFilePath);
+                            await vfs.rename(owner_id, sourceFilePath, targetFilePath);
                             
                             // Get the UUID of the moved item and set its ordinal
-                            const treeNodes = await vfs2.readdirEx(owner_id, absoluteTargetPath, false);
+                            const treeNodes = await vfs.readdirEx(owner_id, absoluteTargetPath, false);
                             const movedNode = treeNodes.find(n => n.name === itemName);
                             
                             if (movedNode && movedNode.uuid) {
                                 const newOrdinal = insertOrdinal + i;
-                                await vfs2.setOrdinal(movedNode.uuid, newOrdinal);
+                                await vfs.setOrdinal(movedNode.uuid, newOrdinal);
                             }
                             
                             pastedCount++;
@@ -995,7 +995,7 @@ class DocMod {
                         
                     // Verify file exists and get node information including ordinal
                     const info: any = {};
-                    if (!await vfs2.exists(absoluteFilePath, info)) {
+                    if (!await vfs.exists(absoluteFilePath, info)) {
                         res.status(404).json({ error: `File not found: ${filename}` });
                         return;
                     }
@@ -1012,7 +1012,7 @@ class DocMod {
                     // Read file content with error handling for unreadable files
                     let content = '';
                     try {
-                        content = await vfs2.readFile(owner_id, absoluteFilePath, 'utf8') as string;
+                        content = await vfs.readFile(owner_id, absoluteFilePath, 'utf8') as string;
                     } catch (error) {
                         console.warn(`Could not read file ${filename} as text:`, error);
                         // Continue with empty content rather than failing the entire operation
@@ -1034,7 +1034,7 @@ class DocMod {
                 const firstFilePath = path.join(absoluteFolderPath, firstFile.filename);
                     
                 // Write the joined content with security validation
-                await vfs2.writeFile(owner_id, firstFilePath, joinedContent, 'utf8');
+                await vfs.writeFile(owner_id, firstFilePath, joinedContent, 'utf8');
                 console.log(`Joined content saved to: ${firstFile.filename}`);
         
                 // Clean up by deleting all files except the first one
@@ -1045,7 +1045,7 @@ class DocMod {
                         
                     try {
                     // Validate access and delete the file
-                        await vfs2.unlink(owner_id, deleteFilePath);
+                        await vfs.unlink(owner_id, deleteFilePath);
                         deletedFiles.push(fileToDelete.filename);
                         console.log(`Deleted file: ${fileToDelete.filename}`);
                     } catch (error) {
@@ -1092,7 +1092,7 @@ class DocMod {
      * - Maintains proper security access controls
      * - Atomic operation - either fully succeeds or fails cleanly
      * 
-     * Ordinal Preservation (VFS2):
+     * Ordinal Preservation (VFS):
      * - The new folder inherits the ordinal value from the original file
      * - Ordinals are stored as integers in the database, not in filenames
      * - This maintains the exact position in the sorted document tree
@@ -1144,14 +1144,14 @@ class DocMod {
                 const absoluteFilePath = path.join(absoluteFolderPath, filename);
 
                 // Verify the parent directory exists and is accessible
-                if (!await vfs2.exists(absoluteFolderPath)) {
+                if (!await vfs.exists(absoluteFolderPath)) {
                     res.status(404).json({ error: 'Parent directory not found' });
                     return;
                 }
 
                 // Verify the target file exists and get its info (including ordinal)
                 const fileInfo: any = {};
-                if (!await vfs2.exists(absoluteFilePath, fileInfo)) {
+                if (!await vfs.exists(absoluteFilePath, fileInfo)) {
                     res.status(404).json({ error: 'File not found' });
                     return;
                 }
@@ -1171,19 +1171,19 @@ class DocMod {
                 const absoluteNewFolderPath = path.join(absoluteFolderPath, folderName);
 
                 // Prevent naming conflicts with existing folders
-                if (await vfs2.exists(absoluteNewFolderPath)) {
+                if (await vfs.exists(absoluteNewFolderPath)) {
                     res.status(409).json({ error: 'A folder with this name already exists' });
                     return;
                 }
 
                 // Perform the conversion: delete original file and create folder
                 // Step 1: Remove the original file with security validation
-                await vfs2.unlink(owner_id, absoluteFilePath);
+                await vfs.unlink(owner_id, absoluteFilePath);
                 console.log(`File deleted: ${absoluteFilePath}`);
 
                 // Step 2: Create the new folder structure with the preserved ordinal
                 // Use mkdirEx to specify the ordinal value
-                await vfs2.mkdirEx(owner_id, absoluteNewFolderPath, { recursive: true }, fileStat.is_public, preservedOrdinal);
+                await vfs.mkdirEx(owner_id, absoluteNewFolderPath, { recursive: true }, fileStat.is_public, preservedOrdinal);
                 console.log(`Folder created: ${absoluteNewFolderPath} with ordinal: ${preservedOrdinal}`);
 
                 // Step 3: Optionally preserve content in a new file inside the folder
@@ -1194,7 +1194,7 @@ class DocMod {
                 
                     // Write the preserved content with security validation and ordinal=1
                     // Use writeFileEx to specify the ordinal value
-                    await vfs2.writeFileEx(owner_id, newFilePath, remainingContent, 'utf8', fileStat.is_public, 1);
+                    await vfs.writeFileEx(owner_id, newFilePath, remainingContent, 'utf8', fileStat.is_public, 1);
                     console.log(`New file created with remaining content: ${newFilePath}`);
                 }
 
@@ -1268,8 +1268,8 @@ class DocMod {
 
             console.log(`VFS search query: "${query}" with mode: "${searchMode}" in folder: "${treeFolder}"`);
             
-            // Call the VFS2 search method (returns already-transformed results)
-            const results = await vfs2.search(user_id, query!, treeFolder, "usr", searchMode!, searchOrder!);
+            // Call the VFS search method (returns already-transformed results)
+            const results = await vfs.search(user_id, query!, treeFolder, "usr", searchMode!, searchOrder!);
             
             // Send successful response in the same format as searchTextFiles
             res.json({ 

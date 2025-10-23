@@ -6,8 +6,8 @@ import { docUtil } from "./DocUtil.js";
 import { runTrans } from "../../../server/db/Transactional.js";
 import pgdb from "../../../server/db/PGDB.js";
 import { fixName, getFilenameExtension, isImageExt } from '../../../common/CommonUtils.js';
-import vfs2 from "./VFS2/VFS2.js";
-import { normalizePath, pathJoin } from "./VFS2/vfs-utils.js";
+import vfs from "./VFS/VFS.js";
+import { normalizePath, pathJoin } from "./VFS/vfs-utils.js";
 
 /**
  * Service class for handling document management operations in the docs plugin.
@@ -76,7 +76,7 @@ class DocService {
      * @param res - Express response object for JSON tree data
      * @returns Promise<void> - Sends TreeRender_Response as JSON or error response
      */
-    treeRender = async (req: Request<{ 0: string }, any, any, { pullup?: string }>, res: Response): Promise<void> => {
+    treeRender = async (req: Request<{ 0: string }, any, any, { pullup?: string }>, res: Response): Promise<void> => { 
         let user_id = (req as any).userProfile ? (req as AuthenticatedRequest).userProfile?.id : 0; 
         if (!user_id) {
             user_id = ANON_USER_ID;
@@ -114,7 +114,7 @@ class DocService {
 
             const info: any = {};
             // Verify the target directory exists
-            if (!await vfs2.exists(absolutePath, info)) {
+            if (!await vfs.exists(absolutePath, info)) {
                 console.warn(`Directory does not exist: ${absolutePath}`);
                 res.status(404).json({ error: `Directory not found: ${absolutePath}` });
                 return;
@@ -185,7 +185,7 @@ class DocService {
      */
     getTreeNodes = async (owner_id: number, absolutePath: string, pullup: boolean, root: string): Promise<TreeNode[]> => { 
         // Read the directory contents
-        let fileNodes = await vfs2.readdirEx(owner_id, absolutePath, true);
+        let fileNodes = await vfs.readdirEx(owner_id, absolutePath, true);
 
         // This filters out hidden files and system files
         fileNodes = fileNodes.filter(file => !file.name.startsWith('.'));
@@ -209,7 +209,7 @@ class DocService {
                 }
                 
                 // Check if folder has any children in the filesystem
-                file.fsChildren = await vfs2.childrenExist(owner_id, filePath);
+                file.fsChildren = await vfs.childrenExist(owner_id, filePath);
             } 
             // FILE
             else {
@@ -286,7 +286,7 @@ class DocService {
 
                 // Verify parent directory exists and is accessible
                 const info: any = {};
-                if (!await vfs2.exists(absoluteParentPath, info)) {
+                if (!await vfs.exists(absoluteParentPath, info)) {
                     res.status(404).json({ error: `Parent directory not found [${absoluteParentPath}]` });
                     return;
                 }
@@ -295,12 +295,12 @@ class DocService {
                 let insertOrdinal = 0; // Default: insert at top (ordinal 0)
                 if (insertAfterNode && insertAfterNode.trim() !== '') {
                 
-                    // For VFS2: insertAfterNode is just the filename, we need to get its ordinal from the database
+                    // For VFS: insertAfterNode is just the filename, we need to get its ordinal from the database
                     // For legacy VFS: insertAfterNode has ordinal prefix, extract it
-                    // VFS2: Get ordinal from database
+                    // VFS: Get ordinal from database
                     const afterNodePath = pathJoin(absoluteParentPath, insertAfterNode);
                     const afterNodeInfo: any = {};
-                    if (await vfs2.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
+                    if (await vfs.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
                         insertOrdinal = afterNodeInfo.node.ordinal + 1;
                     } 
                 } else {
@@ -321,13 +321,13 @@ class DocService {
                 let newFilePath: string;
                 let fileNameToReturn: string;
                 
-                // VFS2: No ordinal prefix in filename, ordinal is stored in database
+                // VFS: No ordinal prefix in filename, ordinal is stored in database
                 newFilePath = pathJoin(absoluteParentPath, finalFileName);
                 fileNameToReturn = finalFileName;
             
                 // Safety check: prevent overwriting existing files
                 // If file already exists, try different random suffixes until we find a unique name
-                let existsCheck = await vfs2.exists(newFilePath);
+                let existsCheck = await vfs.exists(newFilePath);
                 while (existsCheck) {
                     const randomSuffix = Math.floor(Math.random() * 100000);
                     const baseFileName = finalFileName.includes('.') 
@@ -339,13 +339,13 @@ class DocService {
                     
                     const uniqueFileName = `${baseFileName}_${randomSuffix}${extension}`;
                                         
-                    // VFS2: No ordinal prefix in filename
+                    // VFS: No ordinal prefix in filename
                     newFilePath = pathJoin(absoluteParentPath, uniqueFileName);
                     fileNameToReturn = uniqueFileName;
-                    existsCheck = await vfs2.exists(newFilePath);
+                    existsCheck = await vfs.exists(newFilePath);
                 }
                 
-                await vfs2.writeFileEx(owner_id, newFilePath, '', 'utf8', info.node.is_public, insertOrdinal);                
+                await vfs.writeFileEx(owner_id, newFilePath, '', 'utf8', info.node.is_public, insertOrdinal);                
                 //console.log(`File created successfully: ${newFilePath}`);
             
                 // Send success response with the created filename
@@ -416,7 +416,7 @@ class DocService {
 
                 // Verify parent directory exists and is accessible
                 const parentInfo: any = {};
-                if (!await vfs2.exists(absoluteParentPath, parentInfo)) {
+                if (!await vfs.exists(absoluteParentPath, parentInfo)) {
                     res.status(404).json({ error: 'Parent directory not found' });
                     return;
                 }
@@ -427,10 +427,10 @@ class DocService {
                 if (insertAfterNode && insertAfterNode.trim() !== '') {
                     console.log(`Create folder "${folderName}" below node: ${insertAfterNode}`);
                 
-                    // VFS2: Get ordinal from database
+                    // VFS: Get ordinal from database
                     const afterNodePath = pathJoin(absoluteParentPath, insertAfterNode);
                     const afterNodeInfo: any = {};
-                    if (await vfs2.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
+                    if (await vfs.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
                         insertOrdinal = afterNodeInfo.node.ordinal + 1;
                     }
                    
@@ -442,14 +442,14 @@ class DocService {
                 // This ensures proper ordinal sequence is maintained
                 await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root);
                  
-                // VFS2: No ordinal prefix in folder name, ordinal is stored in database
+                // VFS: No ordinal prefix in folder name, ordinal is stored in database
                 const newFolderPath = pathJoin(absoluteParentPath, folderName);
                 const folderNameToReturn = folderName;
                
 
                 // Create the directory (recursive option ensures parent directories exist, and we inherit `is_public` from parent.
-                // VFS2: Pass ordinal as parameter to mkdirEx
-                await vfs2.mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public, insertOrdinal);
+                // VFS: Pass ordinal as parameter to mkdirEx
+                await vfs.mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public, insertOrdinal);
                 console.log(`Folder created successfully: ${newFolderPath}`);
             
                 // Send success response with the created folder name

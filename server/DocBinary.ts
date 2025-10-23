@@ -5,8 +5,8 @@ import { docUtil } from "./DocUtil.js";
 import { runTrans } from '../../../server/db/Transactional.js';
 import { fixName, getImageContentType, isImageExt } from '../../../common/CommonUtils.js';
 import { ANON_USER_ID } from '../../../common/types/CommonTypes.js';
-import vfs2 from './VFS2/VFS2.js';
-import { pathJoin } from './VFS2/vfs-utils.js';
+import vfs from './VFS/VFS.js';
+import { pathJoin } from './VFS/vfs-utils.js';
 
 /**
  * DocBinary class handles binary file operations for the docs plugin
@@ -69,14 +69,14 @@ class DocBinary {
 
             // Perform security check to ensure file is within allowed directory
             // and verify file exists
-            if (!await vfs2.exists(absoluteImagePath)) {
+            if (!await vfs.exists(absoluteImagePath)) {
                 console.error(`Image file not found at absolute path: ${absoluteImagePath}`);
                 res.status(404).json({ error: 'Image file not found' });
                 return;
             }
 
             // Verify the path points to a file, not a directory
-            const stat = await vfs2.stat(absoluteImagePath);
+            const stat = await vfs.stat(absoluteImagePath);
             if (stat.is_directory) {
                 res.status(400).json({ error: 'Path is not a file' });
                 return;
@@ -96,7 +96,7 @@ class DocBinary {
             res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
             
             // Read the image file and send it as the response
-            const imageBuffer = await vfs2.readFile(owner_id, absoluteImagePath);
+            const imageBuffer = await vfs.readFile(owner_id, absoluteImagePath);
             res.send(imageBuffer);
             
         } catch (error) {
@@ -176,7 +176,7 @@ class DocBinary {
                 const absoluteFolderPath = path.join(root, treeFolder);
             
                 const parentInfo: any = {};
-                if (!await vfs2.exists(absoluteFolderPath, parentInfo)) {
+                if (!await vfs.exists(absoluteFolderPath, parentInfo)) {
                     return { error: 'Parent directory not found', status: 404 };
                 }
     
@@ -198,20 +198,20 @@ class DocBinary {
                     file.name = fixName(file.name); // Ensure valid file name
                     const ordinal = insertOrdinal + i;
                     
-                    // File names no longer have ordinal prefixes in VFS2
+                    // File names no longer have ordinal prefixes in VFS
                     const finalFileName = file.name;
                     const finalFilePath = path.join(absoluteFolderPath, finalFileName);
     
                     try {    
                         // Prevent overwriting existing files
                         const info: any = {};
-                        const exists = await vfs2.exists(finalFilePath, info);
+                        const exists = await vfs.exists(finalFilePath, info);
                         if (exists) {
                             console.error(`Target file already exists, skipping upload: ${finalFilePath}`);
                             continue;
                         }
                         // Write the file data to disk with ordinal stored in database
-                        await vfs2.writeFileEx(owner_id, finalFilePath, file.data, 'utf8', parentInfo.node.is_public, ordinal);
+                        await vfs.writeFileEx(owner_id, finalFilePath, file.data, 'utf8', parentInfo.node.is_public, ordinal);
                         savedCount++;
                         console.log(`Uploaded file saved: ${finalFilePath} with ordinal ${ordinal}`);
                     } 
@@ -264,7 +264,7 @@ class DocBinary {
      * - files: One or more file uploads
      * 
      * Ordinal management:
-     * In VFS2, ordinals are stored as integer values in the database rather than as filename prefixes.
+     * In VFS, ordinals are stored as integer values in the database rather than as filename prefixes.
      * Files are saved with their natural names, and the ordinal column in the database maintains
      * the ordering within the document tree structure.
      * 

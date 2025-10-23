@@ -1,4 +1,4 @@
-import vfs2 from './VFS2/VFS2.js';
+import vfs from './VFS/VFS.js';
 
 /**
  * Utility class for document management operations including file/folder ordering,
@@ -15,7 +15,7 @@ import vfs2 from './VFS2/VFS2.js';
  */
 class DocUtil {
     getPathByUUID = async (uuid: string): Promise<string | null> => {       
-        const result = await vfs2.getItemByID(uuid);
+        const result = await vfs.getItemByID(uuid);
         if (result.node) {
             // console.log(`Found VFS item by UUID: ${uuid} -> docPath: ${result.docPath}`);
             return result.docPath;
@@ -30,11 +30,11 @@ class DocUtil {
      * Shifts ordinals down for all files/folders at or below a given ordinal position
      * 
      * This method creates space for new files to be inserted at specific positions by
-     * incrementing the ordinal values. For VFS2, this is done efficiently in the database
+     * incrementing the ordinal values. For VFS, this is done efficiently in the database
      * by updating the ordinal column directly. For legacy VFS, it renames files with
      * ordinal prefixes.
      * 
-     * Process for VFS2:
+     * Process for VFS:
      * 1. Uses database function to increment ordinal values directly
      * 2. Returns mapping (filenames don't change, only ordinals)
      * 
@@ -55,12 +55,12 @@ class DocUtil {
     shiftOrdinalsDown = async (owner_id: number, slotsToAdd: number, absoluteParentPath: string, insertOrdinal: number, root: string): Promise<Map<string, string>> => {
         // console.log(`Shifting ordinals down by ${slotsToAdd} slots at ${absoluteParentPath} for insert ordinal ${insertOrdinal}`);
         
-        console.log(`Using VFS2 database-based ordinal shifting for ${slotsToAdd} slots at ${absoluteParentPath}`);
+        console.log(`Using VFS database-based ordinal shifting for ${slotsToAdd} slots at ${absoluteParentPath}`);
             
-        // VFS2's shiftOrdinalsDown already normalizes the path, so we can pass it directly
+        // VFS's shiftOrdinalsDown already normalizes the path, so we can pass it directly
         // It expects the full path (which will be normalized to remove leading slashes)
-        // Note: root parameter kept for API compatibility but not used in VFS2 implementation
-        return await vfs2.shiftOrdinalsDown(owner_id, absoluteParentPath, insertOrdinal, slotsToAdd);
+        // Note: root parameter kept for API compatibility but not used in VFS implementation
+        return await vfs.shiftOrdinalsDown(owner_id, absoluteParentPath, insertOrdinal, slotsToAdd);
     } 
     
     /**

@@ -22,7 +22,7 @@ The server-side implementation of Quanta is in `/plugins/docs/server` and and th
 
 # Security and Authorization
 
-Rather than password security, the entire Quanta Platform and all plugins use exclusively a cryptographic key pair that's automatically created by the browser. In this way all requests sent to the server are cryptographically signed for authenticity. The server has a `user_info` table which knows the public key for each user and so this is how we check signatures on the server side to authenticate requests. In the VFS table [vfs_nodes](/plugins/docs/server/VFS2/SQL/schema.sql) which holds the entire file system we simply have a foreign `owner_id` key which points to the `user_info` table ID. This is how we enable each file/folder in the file system to be owned by a specific user. 
+Rather than password security, the entire Quanta Platform and all plugins use exclusively a cryptographic key pair that's automatically created by the browser. In this way all requests sent to the server are cryptographically signed for authenticity. The server has a `user_info` table which knows the public key for each user and so this is how we check signatures on the server side to authenticate requests. In the VFS table [vfs_nodes](/plugins/docs/server/VFS/SQL/schema.sql) which holds the entire file system we simply have a foreign `owner_id` key which points to the `user_info` table ID. This is how we enable each file/folder in the file system to be owned by a specific user. 
 
 # File Sharing
 

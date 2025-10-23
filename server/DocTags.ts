@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest, handleError, svrUtil } from "../../../server/ServerUtil.js";
-import vfs2 from "./VFS2/VFS2.js";
-import { pathJoin } from './VFS2/vfs-utils.js';
+import vfs from "./VFS/VFS.js";
+import { pathJoin } from './VFS/vfs-utils.js';
 
 class DocTags {
     /**
@@ -23,7 +23,7 @@ class DocTags {
             try {
                 // Try to read .TAGS.md from the root directory
                 const tagsFilePath = pathJoin("/", '.TAGS.md');
-                const fileContent = await vfs2.readFile(owner_id, tagsFilePath, 'utf8') as string;
+                const fileContent = await vfs.readFile(owner_id, tagsFilePath, 'utf8') as string;
                 console.log('Read .TAGS.md file content:', fileContent); // Debug logging
                     
                 // Parse tags with categories
@@ -80,7 +80,7 @@ class DocTags {
             let existingContent = '';
                 
             try {
-                existingContent = await vfs2.readFile(owner_id, tagsFilePath, 'utf8') as string;
+                existingContent = await vfs.readFile(owner_id, tagsFilePath, 'utf8') as string;
                 const existingTags = this.extractHashtagsFromText(existingContent);
                     
                 existingTags.forEach(tag => {
@@ -117,7 +117,7 @@ class DocTags {
                 updatedContent += newTagsArray.join(' ') + '\n';
                     
                 try {
-                    await vfs2.writeFile(owner_id, tagsFilePath, updatedContent, 'utf8');
+                    await vfs.writeFile(owner_id, tagsFilePath, updatedContent, 'utf8');
                     console.log(`Updated .TAGS.md with ${newTagsArray.length} new tags under "Discovered Tags" section`);
                 } catch (error) {
                     console.error('Failed to write updated .TAGS.md:', error);
@@ -168,7 +168,7 @@ class DocTags {
         newTags: Map<string, boolean>
     ): Promise<void> {
         try {
-            const items = await vfs2.readdirEx(owner_id, currentPath, true);
+            const items = await vfs.readdirEx(owner_id, currentPath, true);
                 
             for (const item of items) {
                 // Skip hidden files and system files
@@ -184,7 +184,7 @@ class DocTags {
                 } else if (item.name.toLowerCase().endsWith('.md') || item.name.toLowerCase().endsWith('.txt')) {
                     // Process markdown and text files
                     try {
-                        const fileContent = await vfs2.readFile(owner_id, itemPath, 'utf8') as string;
+                        const fileContent = await vfs.readFile(owner_id, itemPath, 'utf8') as string;
                         const fileTags = this.extractHashtagsFromText(fileContent);
                             
                         // Add any new tags to the newTags map
@@ -299,7 +299,6 @@ class DocTags {
      * @param text - The text content to search for hashtags
      * @returns Array of unique hashtags sorted alphabetically
      */
-    // todo-0: put all tags related methods from this file into a file named DocTags.ts
     private extractHashtagsFromText(text: string): string[] {
         // Regex to match hashtags: # preceded by start of string, newline, or whitespace
         // followed by word characters, underscores, hyphens, and forward slashes
