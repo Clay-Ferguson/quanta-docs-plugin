@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import path from 'path';
-import { AuthenticatedRequest, svrUtil } from "../../../server/ServerUtil.js";
+import { svrUtil } from "../../../server/ServerUtil.js";
+import { AuthenticatedRequest } from "../../../server/HttpTypes.js";
 import { docUtil } from "./DocUtil.js";
 import { runTrans } from '../../../server/db/Transactional.js';
 import { fixName } from '../../../common/CommonUtils.js';

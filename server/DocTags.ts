@@ -1,5 +1,6 @@
 import { Response } from 'express';
-import { AuthenticatedRequest, svrUtil } from "../../../server/ServerUtil.js";
+import { svrUtil } from "../../../server/ServerUtil.js";
+import { AuthenticatedRequest } from "../../../server/HttpTypes.js";
 import vfs from "./VFS/VFS.js";
 import { pathJoin } from './VFS/vfs-utils.js';
 

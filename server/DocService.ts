@@ -1,7 +1,8 @@
 import { ANON_USER_ID, TreeNode } from "../../../common/types/CommonTypes.js";
 import { Request, Response } from 'express';
 import {  TreeRender_Response } from "../../../common/types/EndpointTypes.js";
-import { AuthenticatedRequest, svrUtil, throwError } from "../../../server/ServerUtil.js";
+import { svrUtil, throwError } from "../../../server/ServerUtil.js";
+import { AuthenticatedRequest } from "../../../server/HttpTypes.js";
 import { docUtil } from "./DocUtil.js";
 import { runTrans } from "../../../server/db/Transactional.js";
 import pgdb from "../../../server/db/PGDB.js";
