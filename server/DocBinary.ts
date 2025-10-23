@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import path from 'path';
-import { handleError, svrUtil } from "../../../server/ServerUtil.js";
+import { svrUtil } from "../../../server/ServerUtil.js";
 import { docUtil } from "./DocUtil.js";
 import { runTrans } from '../../../server/db/Transactional.js';
 import { fixName, getImageContentType, isImageExt } from '../../../common/CommonUtils.js';
@@ -48,61 +48,56 @@ class DocBinary {
         }
 
         // console.log(`>>>>>>> Serve Doc Image Request: [${req.path}] to userId ${owner_id}`);
-        try {
-            // Extract the relative image path from the request URL
-            const rawImagePath = req.path.replace(`/api/docs/images`, '');
-            // console.log("Raw Image Path:", rawImagePath);
-            const imagePath = decodeURIComponent(rawImagePath);
-            // console.log("Decoded Image Path:", imagePath);
+        
+        // Extract the relative image path from the request URL
+        const rawImagePath = req.path.replace(`/api/docs/images`, '');
+        // console.log("Raw Image Path:", rawImagePath);
+        const imagePath = decodeURIComponent(rawImagePath);
+        // console.log("Decoded Image Path:", imagePath);
                         
-            // Resolve the document root path using the provided key
-            const root = "/";
+        // Resolve the document root path using the provided key
+        const root = "/";
 
-            // Validate that an image path was provided
-            if (!imagePath) {
-                res.status(400).json({ error: 'Image path parameter is required' });
-                return;
-            }
-
-            // Construct the absolute path to the image file
-            const absoluteImagePath = pathJoin(root, imagePath);
-
-            // Perform security check to ensure file is within allowed directory
-            // and verify file exists
-            if (!await vfs.exists(absoluteImagePath)) {
-                console.error(`Image file not found at absolute path: ${absoluteImagePath}`);
-                res.status(404).json({ error: 'Image file not found' });
-                return;
-            }
-
-            // Verify the path points to a file, not a directory
-            const stat = await vfs.stat(absoluteImagePath);
-            if (stat.is_directory) {
-                res.status(400).json({ error: 'Path is not a file' });
-                return;
-            }
-
-            // Validate file extension against supported image formats
-            const ext = path.extname(absoluteImagePath).toLowerCase();
-            if (!isImageExt(ext)) {
-                res.status(400).json({ error: 'File is not a supported image format' });
-                return;
-            }
-
-            // Determine the appropriate MIME type based on file extension
-            const contentType = getImageContentType(ext);
-            // Set HTTP headers for optimal image delivery
-            res.setHeader('Content-Type', contentType);
-            res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
-            
-            // Read the image file and send it as the response
-            const imageBuffer = await vfs.readFile(owner_id, absoluteImagePath);
-            res.send(imageBuffer);
-            
-        } catch (error) {
-            // Handle any errors that occur during image serving
-            handleError(error, res, 'Failed to serve image');
+        // Validate that an image path was provided
+        if (!imagePath) {
+            res.status(400).json({ error: 'Image path parameter is required' });
+            return;
         }
+
+        // Construct the absolute path to the image file
+        const absoluteImagePath = pathJoin(root, imagePath);
+
+        // Perform security check to ensure file is within allowed directory
+        // and verify file exists
+        if (!await vfs.exists(absoluteImagePath)) {
+            console.error(`Image file not found at absolute path: ${absoluteImagePath}`);
+            res.status(404).json({ error: 'Image file not found' });
+            return;
+        }
+
+        // Verify the path points to a file, not a directory
+        const stat = await vfs.stat(absoluteImagePath);
+        if (stat.is_directory) {
+            res.status(400).json({ error: 'Path is not a file' });
+            return;
+        }
+
+        // Validate file extension against supported image formats
+        const ext = path.extname(absoluteImagePath).toLowerCase();
+        if (!isImageExt(ext)) {
+            res.status(400).json({ error: 'File is not a supported image format' });
+            return;
+        }
+
+        // Determine the appropriate MIME type based on file extension
+        const contentType = getImageContentType(ext);
+        // Set HTTP headers for optimal image delivery
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+            
+        // Read the image file and send it as the response
+        const imageBuffer = await vfs.readFile(owner_id, absoluteImagePath);
+        res.send(imageBuffer);
     }
 
     onUploadEnd = async (owner_id: number, chunks: any, boundary: any, res: Response): Promise<void> => {
@@ -280,33 +275,27 @@ class DocBinary {
             return;
         }
 
-        try {
-            // Validate that the request contains multipart form data
-            const contentType = req.headers['content-type'];
-            if (!contentType || !contentType.includes('multipart/form-data')) {
-                res.status(400).json({ error: 'Content-Type must be multipart/form-data' });
-                return;
-            }
-    
-            // Extract the boundary string used to separate multipart sections
-            const boundary = contentType.split('boundary=')[1];
-            if (!boundary) {
-                res.status(400).json({ error: 'No boundary found in multipart data' });
-                return;
-            }            
-            // Collect raw request body data as it streams in
-            const chunks: Buffer[] = [];
-            req.on('data', (chunk: Buffer) => {
-                chunks.push(chunk);
-            });
-            
-            // Process the complete request body when all data has been received
-            req.on('end', async () => await this.onUploadEnd(owner_id, chunks, boundary, res));
-    
-        } catch (error) {
-            // Handle any top-level errors in the upload process
-            handleError(error, res, 'Failed to upload files');
+        // Validate that the request contains multipart form data
+        const contentType = req.headers['content-type'];
+        if (!contentType || !contentType.includes('multipart/form-data')) {
+            res.status(400).json({ error: 'Content-Type must be multipart/form-data' });
+            return;
         }
+    
+        // Extract the boundary string used to separate multipart sections
+        const boundary = contentType.split('boundary=')[1];
+        if (!boundary) {
+            res.status(400).json({ error: 'No boundary found in multipart data' });
+            return;
+        }            
+        // Collect raw request body data as it streams in
+        const chunks: Buffer[] = [];
+        req.on('data', (chunk: Buffer) => {
+            chunks.push(chunk);
+        });
+            
+        // Process the complete request body when all data has been received
+        req.on('end', async () => await this.onUploadEnd(owner_id, chunks, boundary, res));
     }
     
     /**

@@ -1,7 +1,7 @@
 import { ANON_USER_ID, TreeNode } from "../../../common/types/CommonTypes.js";
 import { Request, Response } from 'express';
 import {  TreeRender_Response } from "../../../common/types/EndpointTypes.js";
-import { AuthenticatedRequest, handleError, svrUtil, throwError } from "../../../server/ServerUtil.js";
+import { AuthenticatedRequest, svrUtil, throwError } from "../../../server/ServerUtil.js";
 import { docUtil } from "./DocUtil.js";
 import { runTrans } from "../../../server/db/Transactional.js";
 import pgdb from "../../../server/db/PGDB.js";
@@ -76,80 +76,76 @@ class DocService {
      * @param res - Express response object for JSON tree data
      * @returns Promise<void> - Sends TreeRender_Response as JSON or error response
      */
-    treeRender = async (req: Request<{ 0: string }, any, any, { pullup?: string }>, res: Response): Promise<void> => { 
+     
+    treeRender = async (req: Request<{ 0: string }, any, any, { pullup?: string }>, res: Response): Promise<void> => {  
         let user_id = (req as any).userProfile ? (req as AuthenticatedRequest).userProfile?.id : 0; 
         if (!user_id) {
             user_id = ANON_USER_ID;
-        }                   
-       
-        try {
-            // Extract the folder path from the wildcard part of the URL
-            const rawTreeFolder = req.params[0] || "/";
-            let treeFolder = decodeURIComponent(rawTreeFolder);
-            
-            // Extract the pullup parameter from query string
-            const pullup = req.query.pullup as string; 
+        }
 
-            treeFolder = normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
-            // console.log(`Normalized treeFolder: [${treeFolder}]`);
+        // Extract the folder path from the wildcard part of the URL
+        const rawTreeFolder = req.params[0] || "/";
+        let treeFolder = decodeURIComponent(rawTreeFolder);
+        
+        // Extract the pullup parameter from query string
+        const pullup = req.query.pullup as string; 
 
-            if (process.env.POSTGRES_HOST) {
-                if (treeFolder.trim()=== '' || treeFolder === '/') {
-                    if (user_id!=pgdb.adminProfile!.id) {
-                        // If treeFolder is empty or root, we return the admin profile's root node
-                        // This is a security measure to prevent unauthorized access to the admin's root
-                        throwError(`Unauthorized access attempt by user ${user_id} to root node.`);
-                    }
+        treeFolder = normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
+        // console.log(`Normalized treeFolder: [${treeFolder}]`);
+
+        if (process.env.POSTGRES_HOST) {
+            if (treeFolder.trim()=== '' || treeFolder === '/') {
+                if (user_id!=pgdb.adminProfile!.id) {
+                    // If treeFolder is empty or root, we return the admin profile's root node
+                    // This is a security measure to prevent unauthorized access to the admin's root
+                    throwError(`Unauthorized access attempt by user ${user_id} to root node.`);
                 }
             }
-            
-            // Resolve the document root path from the provided key
-            const root = "/";
-
-            // const slashFreeTreeFolder = treeFolder.replace(/^\//, ''); // Remove leading slashes
-            // Use regex to check if treeFolder starts with pattern "NNNN_" where 4 is a numeric digit
-        
-            // Construct the absolute path to the target directory
-            const absolutePath = pathJoin(root, treeFolder);
-
-            const info: any = {};
-            // Verify the target directory exists
-            if (!await vfs.exists(absolutePath, info)) {
-                console.warn(`Directory does not exist: ${absolutePath}`);
-                res.status(404).json({ error: `Directory not found: ${absolutePath}` });
-                return;
-            }
-
-            // NOTE: Checks for root node will end up here with 'info.node' being empty object
-            if (!info.node) {
-                // If info.node is not available, we can assume it's a root node with no owner_id
-                throw new Error(`Failed to create TreeNode ${absolutePath}`);
-            }
-
-            // Verify the target is actually a directory (not a file)
-            if (!info.node.is_directory) {
-                console.warn(`Path is not a directory: ${absolutePath}`);
-                res.status(400).json({ error: 'Path is not a directory' });
-                return;
-            }
-
-            // Generate the tree structure
-            const treeNodes: TreeNode[] = await this.getTreeNodes(user_id, absolutePath, pullup==="true", root);
-            // Send the tree data as JSON response
-            const response: TreeRender_Response = { 
-                user_id: user_id == ANON_USER_ID ? null : user_id,
-                rootNode: info.node,
-                treeNodes,
-                treeFolder
-            };
-            res.json(response);
-
-            // JSON pretty print the response
-            // console.log(`Tree response for [${absolutePath}]\n`, JSON.stringify(response, null, 2));
-        } catch (error) {
-            // Handle any errors that occurred during tree rendering
-            handleError(error, res, 'Failed to render tree');
         }
+        
+        // Resolve the document root path from the provided key
+        const root = "/";
+
+        // const slashFreeTreeFolder = treeFolder.replace(/^\//, ''); // Remove leading slashes
+        // Use regex to check if treeFolder starts with pattern "NNNN_" where 4 is a numeric digit
+    
+        // Construct the absolute path to the target directory
+        const absolutePath = pathJoin(root, treeFolder);
+
+        const info: any = {};
+        // Verify the target directory exists
+        if (!await vfs.exists(absolutePath, info)) {
+            console.warn(`Directory does not exist: ${absolutePath}`);
+            res.status(404).json({ error: `Directory not found: ${absolutePath}` });
+            return;
+        }
+
+        // NOTE: Checks for root node will end up here with 'info.node' being empty object
+        if (!info.node) {
+            // If info.node is not available, we can assume it's a root node with no owner_id
+            throw new Error(`Failed to create TreeNode ${absolutePath}`);
+        }
+
+        // Verify the target is actually a directory (not a file)
+        if (!info.node.is_directory) {
+            console.warn(`Path is not a directory: ${absolutePath}`);
+            res.status(400).json({ error: 'Path is not a directory' });
+            return;
+        }
+
+        // Generate the tree structure
+        const treeNodes: TreeNode[] = await this.getTreeNodes(user_id, absolutePath, pullup==="true", root);
+        // Send the tree data as JSON response
+        const response: TreeRender_Response = { 
+            user_id: user_id == ANON_USER_ID ? null : user_id,
+            rootNode: info.node,
+            treeNodes,
+            treeFolder
+        };
+        res.json(response);
+
+        // JSON pretty print the response
+        // console.log(`Tree response for [${absolutePath}]\n`, JSON.stringify(response, null, 2));
     }
  
     /**
@@ -264,100 +260,95 @@ class DocService {
         }
         await runTrans(async () => {
             // console.log(`Create File Request: ${JSON.stringify(req.body, null, 2)}`);
-            try {
-                // Extract parameters from request body
-                const { insertAfterNode } = req.body;
-                let {treeFolder} = req.body;
-                let {fileName} = req.body;
-                fileName = fixName(fileName); // Ensure valid file name
-                treeFolder = normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
             
-                // Resolve and validate document root
-                const root = "/";
-
-                // Validate required parameters
-                if (!fileName) {
-                    res.status(400).json({ error: 'File name and treeFolder are required' });
-                    return;
-                }
-
-                // Construct absolute path to parent directory
-                const absoluteParentPath = pathJoin(root, treeFolder);
-
-                // Verify parent directory exists and is accessible
-                const info: any = {};
-                if (!await vfs.exists(absoluteParentPath, info)) {
-                    res.status(404).json({ error: `Parent directory not found [${absoluteParentPath}]` });
-                    return;
-                }
-
-                // Calculate insertion ordinal based on insertAfterNode
-                let insertOrdinal = 0; // Default: insert at top (ordinal 0)
-                if (insertAfterNode && insertAfterNode.trim() !== '') {
-                
-                    // For VFS: insertAfterNode is just the filename, we need to get its ordinal from the database
-                    // For legacy VFS: insertAfterNode has ordinal prefix, extract it
-                    // VFS: Get ordinal from database
-                    const afterNodePath = pathJoin(absoluteParentPath, insertAfterNode);
-                    const afterNodeInfo: any = {};
-                    if (await vfs.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
-                        insertOrdinal = afterNodeInfo.node.ordinal + 1;
-                    } 
-                } else {
-                    console.log(`[CREATE_FILE] Creating new top file "${fileName}"`);
-                }
-                
-                // Shift existing files/folders down to make room for the new file
-                // This ensures proper ordinal sequence is maintained
-                await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root);
-                            
-                // Auto-add .md extension if no extension is provided
-                let finalFileName = fileName;
-                if (!getFilenameExtension(fileName)) {
-                    finalFileName = `${fileName}.md`;
-                }
-
-                // Determine the file system type to handle filename creation differently
-                let newFilePath: string;
-                let fileNameToReturn: string;
-                
-                // VFS: No ordinal prefix in filename, ordinal is stored in database
-                newFilePath = pathJoin(absoluteParentPath, finalFileName);
-                fileNameToReturn = finalFileName;
+            // Extract parameters from request body
+            const { insertAfterNode } = req.body;
+            let {treeFolder} = req.body;
+            let {fileName} = req.body;
+            fileName = fixName(fileName); // Ensure valid file name
+            treeFolder = normalizePath(treeFolder); // Normalize the path to ensure consistent formatting
             
-                // Safety check: prevent overwriting existing files
-                // If file already exists, try different random suffixes until we find a unique name
-                let existsCheck = await vfs.exists(newFilePath);
-                while (existsCheck) {
-                    const randomSuffix = Math.floor(Math.random() * 100000);
-                    const baseFileName = finalFileName.includes('.') 
-                        ? finalFileName.substring(0, finalFileName.lastIndexOf('.'))
-                        : finalFileName;
-                    const extension = finalFileName.includes('.') 
-                        ? finalFileName.substring(finalFileName.lastIndexOf('.'))
-                        : '';
-                    
-                    const uniqueFileName = `${baseFileName}_${randomSuffix}${extension}`;
-                                        
-                    // VFS: No ordinal prefix in filename
-                    newFilePath = pathJoin(absoluteParentPath, uniqueFileName);
-                    fileNameToReturn = uniqueFileName;
-                    existsCheck = await vfs.exists(newFilePath);
-                }
-                
-                await vfs.writeFileEx(owner_id, newFilePath, '', 'utf8', info.node.is_public, insertOrdinal);                
-                //console.log(`File created successfully: ${newFilePath}`);
-            
-                // Send success response with the created filename
-                res.json({ 
-                    message: 'File created successfully',
-                    fileName: fileNameToReturn 
-                });
-            } catch (error) {
-                // Handle any errors during file creation
-                handleError(error, res, 'Failed to create file');
-                throw error;
+            // Resolve and validate document root
+            const root = "/";
+
+            // Validate required parameters
+            if (!fileName) {
+                res.status(400).json({ error: 'File name and treeFolder are required' });
+                return;
             }
+
+            // Construct absolute path to parent directory
+            const absoluteParentPath = pathJoin(root, treeFolder);
+
+            // Verify parent directory exists and is accessible
+            const info: any = {};
+            if (!await vfs.exists(absoluteParentPath, info)) {
+                res.status(404).json({ error: `Parent directory not found [${absoluteParentPath}]` });
+                return;
+            }
+
+            // Calculate insertion ordinal based on insertAfterNode
+            let insertOrdinal = 0; // Default: insert at top (ordinal 0)
+            if (insertAfterNode && insertAfterNode.trim() !== '') {
+                
+                // For VFS: insertAfterNode is just the filename, we need to get its ordinal from the database
+                // For legacy VFS: insertAfterNode has ordinal prefix, extract it
+                // VFS: Get ordinal from database
+                const afterNodePath = pathJoin(absoluteParentPath, insertAfterNode);
+                const afterNodeInfo: any = {};
+                if (await vfs.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
+                    insertOrdinal = afterNodeInfo.node.ordinal + 1;
+                } 
+            } else {
+                console.log(`[CREATE_FILE] Creating new top file "${fileName}"`);
+            }
+                
+            // Shift existing files/folders down to make room for the new file
+            // This ensures proper ordinal sequence is maintained
+            await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root);
+                            
+            // Auto-add .md extension if no extension is provided
+            let finalFileName = fileName;
+            if (!getFilenameExtension(fileName)) {
+                finalFileName = `${fileName}.md`;
+            }
+
+            // Determine the file system type to handle filename creation differently
+            let newFilePath: string;
+            let fileNameToReturn: string;
+                
+            // VFS: No ordinal prefix in filename, ordinal is stored in database
+            newFilePath = pathJoin(absoluteParentPath, finalFileName);
+            fileNameToReturn = finalFileName;
+            
+            // Safety check: prevent overwriting existing files
+            // If file already exists, try different random suffixes until we find a unique name
+            let existsCheck = await vfs.exists(newFilePath);
+            while (existsCheck) {
+                const randomSuffix = Math.floor(Math.random() * 100000);
+                const baseFileName = finalFileName.includes('.') 
+                    ? finalFileName.substring(0, finalFileName.lastIndexOf('.'))
+                    : finalFileName;
+                const extension = finalFileName.includes('.') 
+                    ? finalFileName.substring(finalFileName.lastIndexOf('.'))
+                    : '';
+                    
+                const uniqueFileName = `${baseFileName}_${randomSuffix}${extension}`;
+                                        
+                // VFS: No ordinal prefix in filename
+                newFilePath = pathJoin(absoluteParentPath, uniqueFileName);
+                fileNameToReturn = uniqueFileName;
+                existsCheck = await vfs.exists(newFilePath);
+            }
+                
+            await vfs.writeFileEx(owner_id, newFilePath, '', 'utf8', info.node.is_public, insertOrdinal);                
+            //console.log(`File created successfully: ${newFilePath}`);
+            
+            // Send success response with the created filename
+            res.json({ 
+                message: 'File created successfully',
+                fileName: fileNameToReturn 
+            });
         });
     }
 
@@ -396,72 +387,67 @@ class DocService {
 
         await runTrans(async () => {
             console.log("Create Folder Request");
-            try {
-                // Extract parameters from request body
-                const { treeFolder, insertAfterNode } = req.body;
-                let {folderName} = req.body;
-                folderName = fixName(folderName); // Ensure valid folder name
             
-                // Resolve and validate document root
-                const root = "/";
+            // Extract parameters from request body
+            const { treeFolder, insertAfterNode } = req.body;
+            let {folderName} = req.body;
+            folderName = fixName(folderName); // Ensure valid folder name
+            
+            // Resolve and validate document root
+            const root = "/";
 
-                // Validate required parameters
-                if (!folderName || !treeFolder) {
-                    res.status(400).json({ error: 'Folder name and treeFolder are required' });
-                    return;
-                }
+            // Validate required parameters
+            if (!folderName || !treeFolder) {
+                res.status(400).json({ error: 'Folder name and treeFolder are required' });
+                return;
+            }
 
-                // Construct absolute path to parent directory
-                const absoluteParentPath = pathJoin(root, treeFolder);
+            // Construct absolute path to parent directory
+            const absoluteParentPath = pathJoin(root, treeFolder);
 
-                // Verify parent directory exists and is accessible
-                const parentInfo: any = {};
-                if (!await vfs.exists(absoluteParentPath, parentInfo)) {
-                    res.status(404).json({ error: 'Parent directory not found' });
-                    return;
-                }
+            // Verify parent directory exists and is accessible
+            const parentInfo: any = {};
+            if (!await vfs.exists(absoluteParentPath, parentInfo)) {
+                res.status(404).json({ error: 'Parent directory not found' });
+                return;
+            }
 
-                // Calculate insertion ordinal based on insertAfterNode
-                let insertOrdinal = 0; // Default: insert at top (ordinal 0)
+            // Calculate insertion ordinal based on insertAfterNode
+            let insertOrdinal = 0; // Default: insert at top (ordinal 0)
 
-                if (insertAfterNode && insertAfterNode.trim() !== '') {
-                    console.log(`Create folder "${folderName}" below node: ${insertAfterNode}`);
+            if (insertAfterNode && insertAfterNode.trim() !== '') {
+                console.log(`Create folder "${folderName}" below node: ${insertAfterNode}`);
                 
-                    // VFS: Get ordinal from database
-                    const afterNodePath = pathJoin(absoluteParentPath, insertAfterNode);
-                    const afterNodeInfo: any = {};
-                    if (await vfs.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
-                        insertOrdinal = afterNodeInfo.node.ordinal + 1;
-                    }
-                   
-                } else {
-                    console.log(`Create new top folder "${folderName}"`);
+                // VFS: Get ordinal from database
+                const afterNodePath = pathJoin(absoluteParentPath, insertAfterNode);
+                const afterNodeInfo: any = {};
+                if (await vfs.exists(afterNodePath, afterNodeInfo) && afterNodeInfo.node) {
+                    insertOrdinal = afterNodeInfo.node.ordinal + 1;
                 }
+                   
+            } else {
+                console.log(`Create new top folder "${folderName}"`);
+            }
 
-                // Shift existing files/folders down to make room for the new folder
-                // This ensures proper ordinal sequence is maintained
-                await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root);
+            // Shift existing files/folders down to make room for the new folder
+            // This ensures proper ordinal sequence is maintained
+            await docUtil.shiftOrdinalsDown(owner_id, 1, absoluteParentPath, insertOrdinal, root);
                  
-                // VFS: No ordinal prefix in folder name, ordinal is stored in database
-                const newFolderPath = pathJoin(absoluteParentPath, folderName);
-                const folderNameToReturn = folderName;
+            // VFS: No ordinal prefix in folder name, ordinal is stored in database
+            const newFolderPath = pathJoin(absoluteParentPath, folderName);
+            const folderNameToReturn = folderName;
                
 
-                // Create the directory (recursive option ensures parent directories exist, and we inherit `is_public` from parent.
-                // VFS: Pass ordinal as parameter to mkdirEx
-                await vfs.mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public, insertOrdinal);
-                console.log(`Folder created successfully: ${newFolderPath}`);
+            // Create the directory (recursive option ensures parent directories exist, and we inherit `is_public` from parent.
+            // VFS: Pass ordinal as parameter to mkdirEx
+            await vfs.mkdirEx(owner_id, newFolderPath, { recursive: true }, parentInfo.node.is_public, insertOrdinal);
+            console.log(`Folder created successfully: ${newFolderPath}`);
             
-                // Send success response with the created folder name
-                res.json({ 
-                    message: 'Folder created successfully',
-                    folderName: folderNameToReturn 
-                });
-            } catch (error) {
-            // Handle any errors during folder creation
-                handleError(error, res, 'Failed to create folder');
-                throw error;
-            }
+            // Send success response with the created folder name
+            res.json({ 
+                message: 'Folder created successfully',
+                folderName: folderNameToReturn 
+            });
         });
     }
 }

@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { AuthenticatedRequest, handleError, svrUtil } from "../../../server/ServerUtil.js";
+import { AuthenticatedRequest, svrUtil } from "../../../server/ServerUtil.js";
 import vfs from "./VFS/VFS.js";
 import { pathJoin } from './VFS/vfs-utils.js';
 
@@ -14,46 +14,41 @@ class DocTags {
      * @param res - Express response to send the extracted tags
      */
     extractTags = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-        try {
-            const owner_id = svrUtil.getOwnerId(req, res);
-            if (owner_id == null) {
-                return;
-            }
+        const owner_id = svrUtil.getOwnerId(req, res);
+        if (owner_id == null) {
+            return;
+        }
     
-            try {
-                // Try to read .TAGS.md from the root directory
-                const tagsFilePath = pathJoin("/", '.TAGS.md');
-                const fileContent = await vfs.readFile(owner_id, tagsFilePath, 'utf8') as string;
-                console.log('Read .TAGS.md file content:', fileContent); // Debug logging
+        try {
+            // Try to read .TAGS.md from the root directory
+            const tagsFilePath = pathJoin("/", '.TAGS.md');
+            const fileContent = await vfs.readFile(owner_id, tagsFilePath, 'utf8') as string;
+            console.log('Read .TAGS.md file content:', fileContent); // Debug logging
                     
-                // Parse tags with categories
-                const categories = this.parseTagsWithCategories(fileContent);
+            // Parse tags with categories
+            const categories = this.parseTagsWithCategories(fileContent);
                     
-                // Extract flat list of tags for backward compatibility
-                const allTags: string[] = [];
-                categories.forEach(category => {
-                    allTags.push(...category.tags);
-                });
-                const uniqueTags = [...new Set(allTags)].sort();
+            // Extract flat list of tags for backward compatibility
+            const allTags: string[] = [];
+            categories.forEach(category => {
+                allTags.push(...category.tags);
+            });
+            const uniqueTags = [...new Set(allTags)].sort();
                     
-                res.json({
-                    success: true,
-                    tags: uniqueTags, // Backward compatibility
-                    categories: categories // New categorized format
-                });
+            res.json({
+                success: true,
+                tags: uniqueTags, // Backward compatibility
+                categories: categories // New categorized format
+            });
                     
-            } catch {
-                // If .TAGS.md doesn't exist or can't be read, return empty arrays
-                console.log('.TAGS.md not found or not readable, returning empty tags list');
-                res.json({
-                    success: true,
-                    tags: [],
-                    categories: []
-                });
-            }
-                
-        } catch (error) {
-            handleError(error, res, 'Failed to extract tags');
+        } catch {
+            // If .TAGS.md doesn't exist or can't be read, return empty arrays
+            console.log('.TAGS.md not found or not readable, returning empty tags list');
+            res.json({
+                success: true,
+                tags: [],
+                categories: []
+            });
         }
     }
     
@@ -68,86 +63,82 @@ class DocTags {
      * @param res - Express response with scan results
      */
     scanAndUpdateTags = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+
+        const owner_id = svrUtil.getOwnerId(req, res);
+        if (owner_id == null) {
+            return;
+        }
+    
+        // Phase 1: Load existing tags from .TAGS.md
+        const tagsFilePath = pathJoin("/", '.TAGS.md');
+        const existingTagsMap = new Map<string, boolean>();
+        let existingContent = '';
+                
         try {
-            const owner_id = svrUtil.getOwnerId(req, res);
-            if (owner_id == null) {
+            existingContent = await vfs.readFile(owner_id, tagsFilePath, 'utf8') as string;
+            const existingTags = this.extractHashtagsFromText(existingContent);
+                    
+            existingTags.forEach(tag => {
+                existingTagsMap.set(tag, true);
+            });
+                    
+            console.log(`Found ${existingTags.length} existing tags in .TAGS.md`);
+        } catch {
+            console.log('.TAGS.md not found, starting with empty tag set');
+        }
+    
+        // Phase 2: Scan all markdown files for hashtags
+        const newTagsMap = new Map<string, boolean>();
+        await this.scanDirectoryForTags(owner_id, "/", "/", existingTagsMap, newTagsMap);
+    
+        const newTagsArray = Array.from(newTagsMap.keys()).sort();
+        console.log(`Found ${newTagsArray.length} new tags during scan`);
+    
+        // Phase 3: Update .TAGS.md if new tags were found
+        if (newTagsArray.length > 0) {
+            let updatedContent = existingContent;
+                    
+            // If there's existing content, add a newline before the new section
+            if (existingContent && !existingContent.endsWith('\n')) {
+                updatedContent += '\n';
+            }
+                    
+            // Add new tags under a "Discovered Tags" heading
+            if (existingContent) {
+                updatedContent += '\n## Discovered Tags\n';
+            } else {
+                updatedContent = '## Discovered Tags\n';
+            }
+            updatedContent += newTagsArray.join(' ') + '\n';
+                    
+            try {
+                await vfs.writeFile(owner_id, tagsFilePath, updatedContent, 'utf8');
+                console.log(`Updated .TAGS.md with ${newTagsArray.length} new tags under "Discovered Tags" section`);
+            } catch (error) {
+                console.error('Failed to write updated .TAGS.md:', error);
+                res.json({
+                    success: false,
+                    message: 'Failed to update .TAGS.md file',
+                    existingTags: existingTagsMap.size,
+                    newTags: newTagsArray.length,
+                    totalTags: existingTagsMap.size + newTagsArray.length
+                });
                 return;
             }
-    
-            // Phase 1: Load existing tags from .TAGS.md
-            const tagsFilePath = pathJoin("/", '.TAGS.md');
-            const existingTagsMap = new Map<string, boolean>();
-            let existingContent = '';
-                
-            try {
-                existingContent = await vfs.readFile(owner_id, tagsFilePath, 'utf8') as string;
-                const existingTags = this.extractHashtagsFromText(existingContent);
-                    
-                existingTags.forEach(tag => {
-                    existingTagsMap.set(tag, true);
-                });
-                    
-                console.log(`Found ${existingTags.length} existing tags in .TAGS.md`);
-            } catch {
-                console.log('.TAGS.md not found, starting with empty tag set');
-            }
-    
-            // Phase 2: Scan all markdown files for hashtags
-            const newTagsMap = new Map<string, boolean>();
-            await this.scanDirectoryForTags(owner_id, "/", "/", existingTagsMap, newTagsMap);
-    
-            const newTagsArray = Array.from(newTagsMap.keys()).sort();
-            console.log(`Found ${newTagsArray.length} new tags during scan`);
-    
-            // Phase 3: Update .TAGS.md if new tags were found
-            if (newTagsArray.length > 0) {
-                let updatedContent = existingContent;
-                    
-                // If there's existing content, add a newline before the new section
-                if (existingContent && !existingContent.endsWith('\n')) {
-                    updatedContent += '\n';
-                }
-                    
-                // Add new tags under a "Discovered Tags" heading
-                if (existingContent) {
-                    updatedContent += '\n## Discovered Tags\n';
-                } else {
-                    updatedContent = '## Discovered Tags\n';
-                }
-                updatedContent += newTagsArray.join(' ') + '\n';
-                    
-                try {
-                    await vfs.writeFile(owner_id, tagsFilePath, updatedContent, 'utf8');
-                    console.log(`Updated .TAGS.md with ${newTagsArray.length} new tags under "Discovered Tags" section`);
-                } catch (error) {
-                    console.error('Failed to write updated .TAGS.md:', error);
-                    res.json({
-                        success: false,
-                        message: 'Failed to update .TAGS.md file',
-                        existingTags: existingTagsMap.size,
-                        newTags: newTagsArray.length,
-                        totalTags: existingTagsMap.size + newTagsArray.length
-                    });
-                    return;
-                }
-            }
-    
-            // Clear the module-level cache so the TagSelector will reload
-            // Note: This is handled on the client side by invalidating the cache
-    
-            res.json({
-                success: true,
-                message: newTagsArray.length > 0 ? 
-                    `Scan completed. Added ${newTagsArray.length} new tags.` : 
-                    'Scan completed. No new tags found.',
-                existingTags: existingTagsMap.size,
-                newTags: newTagsArray.length,
-                totalTags: existingTagsMap.size + newTagsArray.length
-            });
-                
-        } catch (error) {
-            handleError(error, res, 'Failed to scan and update tags');
         }
+    
+        // Clear the module-level cache so the TagSelector will reload
+        // Note: This is handled on the client side by invalidating the cache
+    
+        res.json({
+            success: true,
+            message: newTagsArray.length > 0 ? 
+                `Scan completed. Added ${newTagsArray.length} new tags.` : 
+                'Scan completed. No new tags found.',
+            existingTags: existingTagsMap.size,
+            newTags: newTagsArray.length,
+            totalTags: existingTagsMap.size + newTagsArray.length
+        });
     }
     
     /**
