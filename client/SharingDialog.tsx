@@ -2,6 +2,7 @@ import { alertModal } from '@client/components/AlertModalComp';
 import { httpClientUtil } from '@client/HttpClientUtil';
 import { useGlobalState, gd } from './DocsTypes';
 import { useState } from 'react';
+import { SetPublic_ReqInfo, SetPublic_ResInfo } from '@common/types/EndpointTypes';
 
 interface SharingDialogProps {
     title?: string;
@@ -19,10 +20,10 @@ export default function SharingDialog({
     const [recursive, setRecursive] = useState(true);
     
     const onShare = async (is_public: boolean) => { 
-        const requestBody = {
+        const req: SetPublic_ReqInfo = {
             is_public,
             treeFolder: gs.docsFolder || '/',
-            filename: gs.docsEditNode?.name,
+            filename: gs.docsEditNode?.name || '',
             recursive
         }; 
 
@@ -35,7 +36,7 @@ export default function SharingDialog({
             }
         });
 
-        const response = await httpClientUtil.secureHttpPost('/api/docs/set-public/', requestBody);
+        const response = await httpClientUtil.secureHttpPost<SetPublic_ReqInfo, SetPublic_ResInfo>('/api/docs/set-public/', req);
         if (!response) {
             await alertModal("Unable to share to public. Please try again later.");
         }

@@ -1,5 +1,5 @@
 import { TreeNode } from "@common/types/CommonTypes";
-import { Delete_ReqInfo, Delete_ResInfo, MoveUpDown_ReqInfo, MoveUpDown_ResInfo } from "@common/types/EndpointTypes";
+import { Delete_ReqInfo, Delete_ResInfo, MoveUpDown_ReqInfo, MoveUpDown_ResInfo, SaveFile_ReqInfo, SaveFile_ResInfo, CreateFile_ReqInfo, CreateFile_ResInfo, CreateFolder_ReqInfo, CreateFolder_ResInfo } from "@common/types/EndpointTypes";
 import { alertModal } from "@client/components/AlertModalComp";
 import { confirmModal } from "@client/components/ConfirmModalComp";
 import { promptModal } from "@client/components/PromptModalComp";
@@ -315,7 +315,7 @@ export const insertFile = async (gs: DocsGlobalState, reRenderTree: any, node: T
             treeFolder: gs.docsFolder || '/',
             insertAfterNode: node ? node.name : '',
         };
-        const response = await httpClientUtil.secureHttpPost('/api/docs/file/create', requestBody);
+        const response = await httpClientUtil.secureHttpPost<CreateFile_ReqInfo, CreateFile_ResInfo>('/api/docs/file/create', requestBody);
         // log a prett print JSON of the response
         console.log('File creation response:', JSON.stringify(response, null, 2));
             
@@ -360,7 +360,7 @@ export const insertFileWithSpeech = async (gs: DocsGlobalState, reRenderTree: an
             treeFolder: gs.docsFolder || '/',
             insertAfterNode: node ? node.name : '',
         };
-        const response = await httpClientUtil.secureHttpPost('/api/docs/file/create', requestBody);
+        const response = await httpClientUtil.secureHttpPost<CreateFile_ReqInfo, CreateFile_ResInfo>('/api/docs/file/create', requestBody);
         console.log('File creation response (with speech):', JSON.stringify(response, null, 2));
             
         // Refresh the tree view to show the new file
@@ -417,7 +417,7 @@ export const insertFolder = async (gs: DocsGlobalState, reRenderTree: any, node:
             insertAfterNode: node ? node.name : '',
         };
             
-        const response = await httpClientUtil.secureHttpPost('/api/docs/folder/create', requestBody);
+        const response = await httpClientUtil.secureHttpPost<CreateFolder_ReqInfo, CreateFolder_ResInfo>('/api/docs/folder/create', requestBody);
 
         // Refresh the tree view to show the new folder
         if (response) {
@@ -486,14 +486,14 @@ export const handleSaveClick = (gs: DocsGlobalState, treeNodes: TreeNode[], setT
 
 const saveToServer = async (gs: DocsGlobalState, filename: string, reRenderTree: () => void, content: string, newFileName?: string) => {
     try {
-        const requestBody = {
+        const req: SaveFile_ReqInfo = {
             filename,
             content,
             treeFolder: gs.docsFolder || '/',
             newFileName: newFileName || filename,
         };
-        console.log('Saving file to server with request body:', requestBody);
-        const response = await httpClientUtil.secureHttpPost('/api/docs/file/save', requestBody);
+        console.log('Saving file to server with request body:', req);
+        const response = await httpClientUtil.secureHttpPost<SaveFile_ReqInfo, SaveFile_ResInfo>('/api/docs/file/save', req);
         if (!response) {
             reRenderTree();
             alertModal("Error saving file to server. Please try again later.");
@@ -726,14 +726,14 @@ export const handleSplitInline = (gs: DocsGlobalState, treeNodes: TreeNode[], se
 
 const serverSplitFile = async (gs: DocsGlobalState, filename: string, content: string, newFileName: string, reRenderTree: any) => {
     try {
-        const requestBody = {
+        const req: SaveFile_ReqInfo = {
             filename,
             content,
             treeFolder: gs.docsFolder || '/',
             newFileName: newFileName || filename,
             split: true
         };
-        const response = await httpClientUtil.secureHttpPost('/api/docs/file/save', requestBody);
+        const response = await httpClientUtil.secureHttpPost<SaveFile_ReqInfo, SaveFile_ResInfo>('/api/docs/file/save', req);
         if (response) {
             await reRenderTree();
             await alertModal(response.message || 'File split successfully');

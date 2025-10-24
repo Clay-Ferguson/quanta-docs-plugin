@@ -2,7 +2,7 @@ import { ANON_USER_ID, TreeNode } from "../../../common/types/CommonTypes.js";
 import { Request, Response } from 'express';
 import {  TreeRender_Response } from "../../../common/types/EndpointTypes.js";
 import { svrUtil, throwError } from "../../../server/ServerUtil.js";
-import { AuthenticatedRequest } from "../../../server/HttpTypes.js";
+import { AuthenticatedRequest, CreateFileRequest, CreateFileResponse, CreateFolderRequest, CreateFolderResponse } from "../../../server/HttpTypes.js";
 import { docUtil } from "./DocUtil.js";
 import { runTrans } from "../../../server/db/Transactional.js";
 import pgdb from "../../../server/db/PGDB.js";
@@ -254,7 +254,7 @@ class DocService {
      * @param res - Express response object
      * @returns Promise<void> - Sends success response with created filename or error
      */
-    createFile = async (req: Request<any, any, { fileName: string; treeFolder: string; insertAfterNode: string }>, res: Response): Promise<void> => {
+    createFile = async (req: CreateFileRequest, res: CreateFileResponse): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -380,7 +380,7 @@ class DocService {
      * @param res - Express response object
      * @returns Promise<void> - Sends success response with created folder name or error
      */
-    createFolder = async (req: Request<any, any, { folderName: string; treeFolder: string; insertAfterNode: string }>, res: Response): Promise<void> => {
+    createFolder = async (req: CreateFolderRequest, res: CreateFolderResponse): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (!owner_id) {
             throw new Error('Invalid owner_id: ' + owner_id);

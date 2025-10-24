@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import path from 'path';
 import { svrUtil } from "../../../server/ServerUtil.js";
-import { AuthenticatedRequest, DeleteRequest, DeleteResponse, MoveUpDownRequest, MoveUpDownResponse } from "../../../server/HttpTypes.js";
+import { AuthenticatedRequest, DeleteRequest, DeleteResponse, MoveUpDownRequest, MoveUpDownResponse, SetPublicRequest, SetPublicResponse, SaveFileRequest, SaveFileResponse } from "../../../server/HttpTypes.js";
 import { docUtil } from "./DocUtil.js";
 import { runTrans } from '../../../server/db/Transactional.js';
 import { fixName } from '../../../common/CommonUtils.js';
@@ -55,8 +55,7 @@ class DocMod {
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */
-    saveFile = async (req: Request<any, any, { filename: string; content: string; treeFolder: string; newFileName?: string, split?: boolean }>, 
-        res: Response): Promise<void> => {
+    saveFile = async (req: SaveFileRequest, res: SaveFileResponse): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -600,7 +599,7 @@ class DocMod {
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */
-    setPublic = async (req: Request<any, any, { is_public: boolean; filename: string; treeFolder: string; recursive?: boolean }>, res: Response): Promise<void> => {
+    setPublic = async (req: SetPublicRequest, res: SetPublicResponse): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
