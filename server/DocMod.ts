@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import path from 'path';
 import { svrUtil } from "../../../server/ServerUtil.js";
-import { AuthenticatedRequest, DeleteRequest, DeleteResponse } from "../../../server/HttpTypes.js";
+import { AuthenticatedRequest, DeleteRequest, DeleteResponse, MoveUpDownRequest, MoveUpDownResponse } from "../../../server/HttpTypes.js";
 import { docUtil } from "./DocUtil.js";
 import { runTrans } from '../../../server/db/Transactional.js';
 import { fixName } from '../../../common/CommonUtils.js';
@@ -451,8 +451,8 @@ class DocMod {
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */
-    moveUpOrDown = async (req: Request<any, any, { direction: string; filename: string; treeFolder: string }>, res: Response): Promise<void> => {
-        const owner_id = svrUtil.getOwnerId(req, res);
+    moveUpOrDown = async (req: MoveUpDownRequest, res: MoveUpDownResponse): Promise<void> => {
+        const owner_id = svrUtil.getOwnerId(req, res); 
         if (owner_id==null) {
             return;
         }

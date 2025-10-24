@@ -1,5 +1,5 @@
 import { TreeNode } from "@common/types/CommonTypes";
-import { Delete_ReqInfo, Delete_ResInfo } from "@common/types/EndpointTypes";
+import { Delete_ReqInfo, Delete_ResInfo, MoveUpDown_ReqInfo, MoveUpDown_ResInfo } from "@common/types/EndpointTypes";
 import { alertModal } from "@client/components/AlertModalComp";
 import { confirmModal } from "@client/components/ConfirmModalComp";
 import { promptModal } from "@client/components/PromptModalComp";
@@ -257,14 +257,14 @@ export const handleMoveDownClick = (gs: DocsGlobalState, treeNodes: TreeNode[], 
 };
 
 const moveFileOrFolder = async (gs: DocsGlobalState, treeNodes: TreeNode[], setTreeNodes: any, node: TreeNode, direction: 'up' | 'down') => {
-    try {
-        const requestBody = {
+    try { 
+        const req: MoveUpDown_ReqInfo = {
             direction,
             filename: node.name,
             treeFolder: gs.docsFolder || '/',
         };
             
-        const response = await httpClientUtil.secureHttpPost('/api/docs/move-up-down', requestBody);
+        const response = await httpClientUtil.secureHttpPost<MoveUpDown_ReqInfo, MoveUpDown_ResInfo>('/api/docs/move-up-down', req);
             
         // Update the local tree nodes by swapping ordinals
         // The server returns file1 and file2 (the two files that had their ordinals swapped)
