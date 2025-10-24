@@ -1,6 +1,5 @@
-import { Response } from 'express';
 import { svrUtil } from "../../../server/ServerUtil.js";
-import { AuthenticatedRequest } from "../../../server/HttpTypes.js";
+import { ExtractTagsRequest, ExtractTagsResponse, ScanTagsRequest, ScanTagsResponse } from "../../../server/HttpTypes.js";
 import vfs from "./VFS/VFS.js";
 import { pathJoin } from './VFS/vfs-utils.js';
 
@@ -14,7 +13,7 @@ class DocTags {
      * 
      * @param res - Express response to send the extracted tags
      */
-    extractTags = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    extractTags = async (req: ExtractTagsRequest, res: ExtractTagsResponse): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id == null) {
             return;
@@ -63,7 +62,7 @@ class DocTags {
      * 
      * @param res - Express response with scan results
      */
-    scanAndUpdateTags = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    scanAndUpdateTags = async (req: ScanTagsRequest, res: ScanTagsResponse): Promise<void> => {
 
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id == null) {

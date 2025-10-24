@@ -80,7 +80,7 @@ class DocsServerPlugin implements IServerPlugin {
 
         context.app.post('/api/docs/paste', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.pasteItems)); 
         context.app.post('/api/docs/join', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.joinFiles)); 
-        context.app.post('/api/docs/search-vfs', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.searchVFSFiles)); 
+        context.app.post('/api/docs/search', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docMod.search)); 
         context.app.post('/api/docs/tags', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docTags.extractTags));
         context.app.post('/api/docs/tags/scan', httpServerUtil.verifyReqHTTPSignature, asyncHandler(docTags.scanAndUpdateTags));
         

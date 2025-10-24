@@ -9,6 +9,7 @@ import { app } from '@client/AppService';
 import { idb } from '@client/IndexedDB';
 import { DBKeys } from '@client/AppServiceTypes';
 import TagSelector from './comps/TagSelector';
+import { Search_ReqInfo, Search_ResInfo } from '@common/types/EndpointTypes';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTags } from '@fortawesome/free-solid-svg-icons';
 
@@ -97,12 +98,12 @@ export default function SearchViewPage() {
         const search = gs.docsSearch?.trim();
         try {
             const searchFolder = gs.docsFolder || '/';
-            const response = await httpClientUtil.secureHttpPost('/api/docs/search-vfs', {
+            const response = await httpClientUtil.secureHttpPost<Search_ReqInfo, Search_ResInfo>('/api/docs/search', {
                 query: search,
                 treeFolder: searchFolder,
                 searchMode: gs.docsSearchMode || 'MATCH_ANY',
                 searchOrder: gs.docsOrderByModTime ? 'MOD_TIME' : 'DATE'
-            }) as any;
+            });
             
             if (response) {
                 // pretty print the search results using formatted JSON

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { httpClientUtil } from '@client/HttpClientUtil';
-import { ExtractTags_Response, ScanTags_Response, TagCategory } from '@common/types/EndpointTypes';
+import { ExtractTags_ReqInfo, ExtractTags_ResInfo, ScanTags_ReqInfo, ScanTags_ResInfo, TagCategory } from '@common/types/EndpointTypes';
 import { alertModal } from '@client/components/AlertModalComp';
 
 // Module-level cache for categories to persist across component instances
@@ -35,7 +35,7 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
             setIsLoading(true);
             try {
                 const url = `/api/docs/tags`;
-                const response: ExtractTags_Response | null = await httpClientUtil.secureHttpPost(url, {});
+                const response = await httpClientUtil.secureHttpPost<ExtractTags_ReqInfo, ExtractTags_ResInfo>(url, {});
                 
                 console.log('Tags API Response:', response); // Debug logging
                 
@@ -110,7 +110,7 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
         setIsScanning(true);
         try {
             const url = `/api/docs/tags/scan`;
-            const response: ScanTags_Response | null = await httpClientUtil.secureHttpPost(url, {});
+            const response = await httpClientUtil.secureHttpPost<ScanTags_ReqInfo, ScanTags_ResInfo>(url, {});
             
             if (response && response.success) {
                 // Clear the cache so categories will be reloaded
@@ -118,7 +118,7 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
                 
                 // Reload categories to get the updated list
                 const tagsUrl = `/api/docs/tags`;
-                const tagsResponse: ExtractTags_Response | null = await httpClientUtil.secureHttpPost(tagsUrl, {});
+                const tagsResponse = await httpClientUtil.secureHttpPost<ExtractTags_ReqInfo, ExtractTags_ResInfo>(tagsUrl, {});
                 
                 if (tagsResponse && tagsResponse.success) {
                     if (tagsResponse.categories && tagsResponse.categories.length > 0) {
@@ -135,7 +135,7 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
                     }
                 }
                 
-                await alertModal(response.message);
+                await alertModal(response?.message || 'Scan completed successfully');
             } else {
                 await alertModal(response?.message || 'Scan failed');
             }

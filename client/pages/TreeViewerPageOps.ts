@@ -1,5 +1,5 @@
 import { TreeNode } from "@common/types/CommonTypes";
-import { Delete_ReqInfo, Delete_ResInfo, MoveUpDown_ReqInfo, MoveUpDown_ResInfo, SaveFile_ReqInfo, SaveFile_ResInfo, CreateFile_ReqInfo, CreateFile_ResInfo, CreateFolder_ReqInfo, CreateFolder_ResInfo } from "@common/types/EndpointTypes";
+import { Delete_ReqInfo, Delete_ResInfo, MoveUpDown_ReqInfo, MoveUpDown_ResInfo, SaveFile_ReqInfo, SaveFile_ResInfo, CreateFile_ReqInfo, CreateFile_ResInfo, CreateFolder_ReqInfo, CreateFolder_ResInfo, BuildFolder_ReqInfo, BuildFolder_ResInfo, RenameFolder_ReqInfo, RenameFolder_ResInfo, PasteItems_ReqInfo, PasteItems_ResInfo, JoinFiles_ReqInfo, JoinFiles_ResInfo } from "@common/types/EndpointTypes";
 import { alertModal } from "@client/components/AlertModalComp";
 import { confirmModal } from "@client/components/ConfirmModalComp";
 import { promptModal } from "@client/components/PromptModalComp";
@@ -510,7 +510,7 @@ const renameFolderOnServer = async (gs: DocsGlobalState, oldFolderName: string, 
             newFolderName,
             treeFolder: gs.docsFolder || '/',
         };
-        await httpClientUtil.secureHttpPost('/api/docs/folder/rename', requestBody);
+        await httpClientUtil.secureHttpPost<RenameFolder_ReqInfo, RenameFolder_ResInfo>('/api/docs/folder/rename', requestBody);
     } catch (error) {
         console.error('Error renaming folder on server:', error);
     }
@@ -580,7 +580,7 @@ export const onPaste = async (gs: DocsGlobalState, reRenderTree: any, targetNode
         await alertModal("No items to paste.");
         return;
     }
-    const cutItemsArray = Array.from(gs.docsCutItems);
+    const cutItemsArray: string[] = Array.from(gs.docsCutItems).filter((item): item is string => item !== undefined);
     const targetFolder = gs.docsFolder || '/';
 
     console.log('onPaste called with targetNode:', targetNode);
@@ -591,13 +591,13 @@ export const onPaste = async (gs: DocsGlobalState, reRenderTree: any, targetNode
         // When targetNode exists, use its ordinal to insert after it
         const targetOrdinal = targetNode?.ordinal ?? -1;
         
-        const requestBody = {
+        const requestBody: PasteItems_ReqInfo = {
             targetFolder: targetFolder,
             pasteItems: cutItemsArray,
             targetOrdinal: targetOrdinal // Include targetOrdinal for positional pasting (ordinal value, not filename)
         };
         // console.log('Paste request body:', requestBody);
-        await httpClientUtil.secureHttpPost('/api/docs/paste', requestBody);
+        await httpClientUtil.secureHttpPost<PasteItems_ReqInfo, PasteItems_ResInfo>('/api/docs/paste', requestBody);
             
         // Clear cutItems from global state
         gd({ type: 'clearCutItems', payload: { docsCutItems: new Set<string>() } });
@@ -613,7 +613,7 @@ export const onPasteIntoFolder = async (gs: DocsGlobalState, reRenderTree: any, 
         await alertModal("No items to paste.");
         return;
     }
-    const cutItemsArray = Array.from(gs.docsCutItems);
+    const cutItemsArray: string[] = Array.from(gs.docsCutItems).filter((item): item is string => item !== undefined);
     
     // Construct the target folder path by combining current path with folder name
     let currentFolder = gs.docsFolder || '';
@@ -623,11 +623,11 @@ export const onPasteIntoFolder = async (gs: DocsGlobalState, reRenderTree: any, 
     const targetFolder = `${currentFolder}/${folderNode.name}`;
 
     try {
-        const requestBody = {
+        const requestBody: PasteItems_ReqInfo = {
             targetFolder: targetFolder,
             pasteItems: cutItemsArray,
         };
-        await httpClientUtil.secureHttpPost('/api/docs/paste', requestBody);
+        await httpClientUtil.secureHttpPost<PasteItems_ReqInfo, PasteItems_ResInfo>('/api/docs/paste', requestBody);
             
         // Clear cutItems from global state
         gd({ type: 'clearCutItems', payload: { docsCutItems: new Set<string>() } });
@@ -777,7 +777,7 @@ export const onJoin = async (gs: DocsGlobalState, reRenderTree: any) => {
         const fileNames = selectedFiles.map(item => item.name);
             
         // Call server endpoint to join the files
-        const response = await httpClientUtil.secureHttpPost('/api/docs/join', {
+        const response = await httpClientUtil.secureHttpPost<JoinFiles_ReqInfo, JoinFiles_ResInfo>('/api/docs/join', {
             filenames: fileNames,
             treeFolder: gs.docsFolder || '/',
         });
@@ -794,7 +794,7 @@ export const onJoin = async (gs: DocsGlobalState, reRenderTree: any) => {
             // Show success message
             await alertModal(response.message || `Successfully joined ${fileCount} files into ${response.joinedFile || 'the first file'}.`);
         } else {
-            await alertModal("Error joining files: " + (response?.error || 'Unknown error'));
+            await alertModal("Error joining files: Unknown error");
         }
     } catch (error) {
         console.error('Error joining files:', error);
@@ -931,7 +931,7 @@ export const handleMakeFolder = async (gs: DocsGlobalState, _treeNodes: TreeNode
                 treeFolder: gs.docsFolder || '/',
             };
             
-            const response = await httpClientUtil.secureHttpPost('/api/docs/folder/build', requestBody);
+            const response = await httpClientUtil.secureHttpPost<BuildFolder_ReqInfo, BuildFolder_ResInfo>('/api/docs/folder/build', requestBody);
             
             if (response) {
                 // Clear editing state (like cancel)
@@ -946,7 +946,7 @@ export const handleMakeFolder = async (gs: DocsGlobalState, _treeNodes: TreeNode
                 
                 // await alertModal(response.message || 'File converted to folder successfully');
             } else {
-                await alertModal('Error converting file to folder: ' + (response?.error || 'Unknown error'));
+                await alertModal('Error converting file to folder: Unknown error');
             }
         } catch (error) {
             console.error('Error converting file to folder:', error);

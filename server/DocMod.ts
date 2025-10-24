@@ -1,7 +1,7 @@
-import { Request, Response } from 'express';
+// Express types now imported via HttpTypes.js
 import path from 'path';
 import { svrUtil } from "../../../server/ServerUtil.js";
-import { AuthenticatedRequest, DeleteRequest, DeleteResponse, MoveUpDownRequest, MoveUpDownResponse, SetPublicRequest, SetPublicResponse, SaveFileRequest, SaveFileResponse } from "../../../server/HttpTypes.js";
+import { AuthenticatedRequest, DeleteRequest, DeleteResponse, MoveUpDownRequest, MoveUpDownResponse, SetPublicRequest, SetPublicResponse, SaveFileRequest, SaveFileResponse, BuildFolderRequest, BuildFolderResponse, RenameFolderRequest, RenameFolderResponse, PasteItemsRequest, PasteItemsResponse, JoinFilesRequest, JoinFilesResponse, SearchRequest, SearchResponse } from "../../../server/HttpTypes.js";
 import { docUtil } from "./DocUtil.js";
 import { runTrans } from '../../../server/db/Transactional.js';
 import { fixName } from '../../../common/CommonUtils.js';
@@ -218,7 +218,7 @@ class DocMod {
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */
-    renameFolder = async (req: Request<any, any, { oldFolderName: string; newFolderName: string; treeFolder: string }>, res: Response): Promise<void> => {
+    renameFolder = async (req: RenameFolderRequest, res: RenameFolderResponse): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -674,7 +674,7 @@ class DocMod {
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */ 
-    pasteItems = async (req: Request<any, any, { targetFolder: string; pasteItems: string[], targetOrdinal?: number }>, res: Response): Promise<void> => {    
+    pasteItems = async (req: PasteItemsRequest, res: PasteItemsResponse): Promise<void> => {    
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -924,7 +924,7 @@ class DocMod {
      * @param res - Express response object for sending results
      * @returns void - Asynchronous operation
      */
-    joinFiles = async (req: Request<any, any, { filenames: string[]; treeFolder: string }>, res: Response): Promise<void> => {
+    joinFiles = async (req: JoinFilesRequest, res: JoinFilesResponse): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -1071,7 +1071,7 @@ class DocMod {
      * @param res - Express response object for sending results
      * @returns Promise<void> - Resolves when operation completes
      */
-    buildFolder = async (req: Request<any, any, { filename: string; folderName: string; remainingContent: string; treeFolder: string }>, res: Response): Promise<void> => {
+    buildFolder = async (req: BuildFolderRequest, res: BuildFolderResponse): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
@@ -1192,11 +1192,7 @@ class DocMod {
      * - Consistent API with existing search endpoints
      */
     // todo-1: Most of the advanced search options are not yet enabled here yet, and need to be written as VFS versions of else removed.
-    searchVFSFiles = async (req: Request<any, any, {  
-        query?: string; 
-        treeFolder: string; 
-        searchMode?: string,
-        searchOrder?: string }>, res: Response): Promise<void> => {
+    search = async (req: SearchRequest, res: SearchResponse): Promise<void> => {
         console.log("VFS Document Search Request");
         
         let user_id = (req as any).userProfile ? (req as AuthenticatedRequest).userProfile?.id : 0; 
