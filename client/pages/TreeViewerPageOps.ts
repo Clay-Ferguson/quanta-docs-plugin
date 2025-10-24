@@ -1,4 +1,5 @@
 import { TreeNode } from "@common/types/CommonTypes";
+import { Delete_ReqInfo, Delete_ResInfo } from "@common/types/EndpointTypes";
 import { alertModal } from "@client/components/AlertModalComp";
 import { confirmModal } from "@client/components/ConfirmModalComp";
 import { promptModal } from "@client/components/PromptModalComp";
@@ -212,11 +213,11 @@ export const handleEditClick = (node: TreeNode) => {
 
 const deleteFileOrFolderOnServer = async (gs: DocsGlobalState, fileOrFolderName: string) => {
     try {
-        const requestBody = {
+        const req: Delete_ReqInfo = {
             fileOrFolderName,
             treeFolder: gs.docsFolder || '/',
         };
-        await httpClientUtil.secureHttpPost('/api/docs/delete', requestBody);
+        await httpClientUtil.secureHttpPost<Delete_ReqInfo, Delete_ResInfo>('/api/docs/delete', req);
     } catch (error) {
         console.error('Error deleting file or folder on server:', error);
         throw error; // Re-throw to be handled by the caller
@@ -658,10 +659,11 @@ export const onDelete = async (gs: DocsGlobalState, treeNodes: TreeNode[], setTr
         const fileNames = selItems.map(item => item.name);
             
         // Call server endpoint to delete the items
-        const response = await httpClientUtil.secureHttpPost('/api/docs/delete', {
+        const req: Delete_ReqInfo = {
             fileNames: fileNames,
             treeFolder: gs.docsFolder || '/',
-        });
+        };
+        const response = await httpClientUtil.secureHttpPost<Delete_ReqInfo, Delete_ResInfo>('/api/docs/delete', req);
             
         if (response) {
             // Remove the deleted nodes from the UI
