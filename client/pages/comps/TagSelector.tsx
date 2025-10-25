@@ -109,16 +109,14 @@ export default function TagSelector({ onCancel, handleLiveTagAdd, showAddButton 
     const handleScanClick = async () => { 
         setIsScanning(true);
         try {
-            const url = `/api/docs/tags/scan`;
-            const response = await httpClientUtil.secureHttpPost<ScanTags_ReqInfo, ScanTags_ResInfo>(url, {});
+            const response = await httpClientUtil.secureHttpPost<ScanTags_ReqInfo, ScanTags_ResInfo>(`/api/docs/tags/scan`, {});
             
             if (response && response.success) {
                 // Clear the cache so categories will be reloaded
                 cachedCategories = null;
                 
                 // Reload categories to get the updated list
-                const tagsUrl = `/api/docs/tags`;
-                const tagsResponse = await httpClientUtil.secureHttpPost<ExtractTags_ReqInfo, ExtractTags_ResInfo>(tagsUrl, {});
+                const tagsResponse = await httpClientUtil.secureHttpPost<ExtractTags_ReqInfo, ExtractTags_ResInfo>(`/api/docs/tags`, {});
                 
                 if (tagsResponse && tagsResponse.success) {
                     if (tagsResponse.categories && tagsResponse.categories.length > 0) {

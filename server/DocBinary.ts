@@ -7,6 +7,7 @@ import { fixName, getImageContentType, isImageExt } from '../../../common/Common
 import { ANON_USER_ID } from '../../../common/types/CommonTypes.js';
 import vfs from './VFS/VFS.js';
 import { pathJoin } from './VFS/vfs-utils.js';
+import { UploadFilesRequest, UploadFilesResponse } from '../../../server/HttpTypes.js';
 
 /**
  * DocBinary class handles binary file operations for the docs plugin
@@ -269,7 +270,7 @@ class DocBinary {
      * @param res - Express response object for sending upload results
      * @returns Promise<void> - Resolves when upload processing is complete
      */
-    uploadFiles = async (req: Request, res: Response): Promise<void> => {
+    uploadFiles = async (req: UploadFilesRequest, res: UploadFilesResponse): Promise<void> => {
         const owner_id = svrUtil.getOwnerId(req, res);
         if (owner_id==null) {
             return;
